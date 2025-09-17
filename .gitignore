@@ -1,0 +1,29 @@
+# Build outputs
+/artifacts/
+/src/**/bin/
+/src/**/obj/
+/demos/**/bin/
+/demos/**/obj/
+
+# VS/IDE
+.vs/
+.vscode/
+.idea/
+
+# User-specific
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# NuGet packages (built locally)
+/*.nupkg
+/*.snupkg
+
+# Logs
+*.log
+
+# Browser extension outputs
+/browser-extension/**/node_modules/
+/browser-extension/**/dist/
+/browser-extension/**/.cache/

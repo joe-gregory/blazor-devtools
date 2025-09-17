@@ -1,0 +1,82 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<!--
+    Build-only NuGet package "BlazorDeveloperTools".
+    Ships:
+      • build/BlazorDeveloperTools.targets  (auto-imported by NuGet)
+      • tools/BlazorDeveloperTools.Tasks.dll (MSBuild task assembly)
+    Intentionally ships NO runtime lib/ binaries; placeholders silence analyzers.
+  -->
+	<PropertyGroup>
+		<!-- Build settings -->
+		<TargetFramework>net8.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+
+		<!-- NuGet packing -->
+		<IsPackable>true</IsPackable>
+		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+		<PackageOutputPath>$(SolutionDir)artifacts/packages</PackageOutputPath>
+
+		<!-- Public package identity -->
+		<PackageId>BlazorDeveloperTools</PackageId>
+		<Version>0.2.11</Version>
+		<Authors>Joseph E. Gregory</Authors>
+		<Description>Automatic debug markers for Blazor components via MSBuild post-processing of Razor-generated files. Used by the Blazor Developer Tools browser extension.</Description>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<RepositoryUrl>https://github.com/yourname/blazor-developer-tools</RepositoryUrl>
+		<PackageTags>blazor;devtools;msbuild;razor;debug</PackageTags>
+
+		<!-- Build-only package controls -->
+		<IncludeBuildOutput>false</IncludeBuildOutput>
+		<!-- don't auto-pack lib/ -->
+		<IncludeProjectReferences>false</IncludeProjectReferences>
+		<!-- don't emit deps -->
+		<DevelopmentDependency>true</DevelopmentDependency>
+		<!-- don't flow transitively -->
+	</PropertyGroup>
+
+	<!-- Build the tasks project first; we only need its DLL to copy into /tools -->
+	<ItemGroup>
+		<ProjectReference Include="..\BlazorDeveloperTools.Tasks\BlazorDeveloperTools.Tasks.csproj"
+						  ReferenceOutputAssembly="false" />
+	</ItemGroup>
+
+	<!-- Copy task DLL/PDB produced by the Tasks project into this project's /tools -->
+	<Target Name="CopyTasksToPack" AfterTargets="Build">
+		<RemoveDir Directories="$(MSBuildProjectDirectory)\tools" />
+		<!-- ensures no stale DLL -->
+		<MakeDir   Directories="$(MSBuildProjectDirectory)\tools" />
+		<ItemGroup>
+			<_TasksToPack Include="$(MSBuildProjectDirectory)\..\BlazorDeveloperTools.Tasks\bin\$(Configuration)\netstandard2.0\BlazorDeveloperTools.Tasks.dll" />
+			<_TasksToPack Include="$(MSBuildProjectDirectory)\..\BlazorDeveloperTools.Tasks\bin\$(Configuration)\netstandard2.0\BlazorDeveloperTools.Tasks.pdb"
+						  Condition="Exists('..\BlazorDeveloperTools.Tasks\bin\$(Configuration)\netstandard2.0\BlazorDeveloperTools.Tasks.pdb')" />
+		</ItemGroup>
+		<Copy SourceFiles="@(_TasksToPack)"
+			  DestinationFolder="$(MSBuildProjectDirectory)\tools"
+			  SkipUnchangedFiles="false" />
+	</Target>
+
+
+	<!-- Include MSBuild artifacts in the nupkg -->
+	<ItemGroup>
+		<None Include="build\BlazorDeveloperTools.targets" Pack="true" PackagePath="build/BlazorDeveloperTools.targets" />
+		<None Include="tools\BlazorDeveloperTools.Tasks.dll" Pack="true" PackagePath="tools/BlazorDeveloperTools.Tasks.dll" />
+		<None Include="tools\BlazorDeveloperTools.Tasks.pdb" Pack="true" PackagePath="tools/BlazorDeveloperTools.Tasks.pdb"
+			  Condition="Exists('tools\BlazorDeveloperTools.Tasks.pdb')" />
+		<Folder Include="build\" />
+	</ItemGroup>
+
+	<!-- Generate placeholder _._ right before Pack and include it in lib/ref to silence analyzers -->
+	<Target Name="CreatePlaceholders" BeforeTargets="Pack">
+		<WriteLinesToFile File="$(IntermediateOutputPath)\_._" Lines="" Overwrite="true" />
+		<ItemGroup>
+			<_Placeholder Include="$(IntermediateOutputPath)\_._" />
+			<None Include="@(_Placeholder)" Pack="true" PackagePath="lib/net8.0/_._" />
+			<None Include="@(_Placeholder)" Pack="true" PackagePath="ref/net8.0/_._" />
+		</ItemGroup>
+	</Target>
+	<ItemGroup>
+		<None Include="buildTransitive\BlazorDeveloperTools.props" Pack="true" PackagePath="buildTransitive/BlazorDeveloperTools.props" />
+	</ItemGroup>
+</Project>
