@@ -1,76 +1,92 @@
 <Project>
 
+	<!-- Load our MSBuild task -->
 	<UsingTask TaskName="BlazorDeveloperTools.Tasks.TransformRazorTask"
 			   AssemblyFile="$(MSBuildThisFileDirectory)..\tools\BlazorDeveloperTools.Tasks.dll" />
 
 	<PropertyGroup>
+		<!-- Default ON in Debug -->
 		<EnableAutomaticMarkers Condition="'$(EnableAutomaticMarkers)' == ''">true</EnableAutomaticMarkers>
 	</PropertyGroup>
 
-	<!-- Run before Razor compiles; also hook CoreCompile as a safety net -->
+	<!-- Run BEFORE Razor consumes items; include CoreCompile as a safety net -->
 	<Target Name="BlazorDeveloperTools_PreTransformRazor"
-			BeforeTargets="RazorComponentGenerate;RazorCoreGenerate;RazorGenerate;CoreCompile"
+			BeforeTargets="ComputeRazorComponentItems;RazorComponentGenerate;RazorCoreGenerate;RazorGenerate;CoreCompile"
 			Condition="'$(Configuration)' == 'Debug' and '$(EnableAutomaticMarkers)' == 'true'">
 
 		<PropertyGroup>
-			<!-- Shadow root under obj -->
 			<_BdtRoot>$(IntermediateOutputPath)blazordevtools\</_BdtRoot>
 		</PropertyGroup>
 
-
-		<!-- 0) Always start fresh to prevent stale injected content -->
+		<!-- Always start fresh -->
 		<RemoveDir Directories="$(_BdtRoot)" />
 
-		<!-- 1) Gather Razor inputs from well-known item lists -->
+		<!-- Gather what the SDK currently has -->
 		<ItemGroup>
-			<_BdtInputs Include="@(RazorComponent)" />
-			<_BdtInputs Include="@(RazorGenerate)" />
+			<_SeenRazorComponent Include="@(RazorComponent)" />
+			<_SeenRazorGenerate Include="@(RazorGenerate)" />
+			<!-- Some SDKs populate only one of these. -->
 		</ItemGroup>
 
-		<!-- 2) If none found, fallback to globbing the project (exclude bin/obj) -->
-		<ItemGroup Condition="'@(_BdtInputs)' == ''">
-			<_BdtInputs Include="$(MSBuildProjectDirectory)\**\*.razor"
-						Exclude="$(MSBuildProjectDirectory)\**\bin\**;$(MSBuildProjectDirectory)\**\obj\**" />
+		<!-- Pre-swap diagnostics -->
+		<Message Importance="High" Text="BlazorDevTools: PRE-SWAP RazorComponent count = @(_SeenRazorComponent->Count())" />
+		<Message Importance="High" Text="BlazorDevTools: PRE-SWAP RazorGenerate  count = @(_SeenRazorGenerate->Count())" />
+		<Message Importance="Low"  Text="BlazorDevTools: RazorComponent = @(_SeenRazorComponent, ', ')" Condition="'@(_SeenRazorComponent)' != ''" />
+		<Message Importance="Low"  Text="BlazorDevTools: RazorGenerate  = @(_SeenRazorGenerate,  ', ')" Condition="'@(_SeenRazorGenerate)'  != ''" />
+
+		<!-- If neither list is populated (rare), glob .razor files as a fallback -->
+		<ItemGroup Condition="'@(_SeenRazorComponent)' == '' and '@(_SeenRazorGenerate)' == ''">
+			<_FallbackInputs Include="$(MSBuildProjectDirectory)\**\*.razor"
+							 Exclude="$(MSBuildProjectDirectory)\**\bin\**;$(MSBuildProjectDirectory)\**\obj\**" />
 		</ItemGroup>
 
-		<!-- Diagnostics -->
-		<Message Importance="High" Text="BlazorDevTools: found @(_BdtInputs->Count()) Razor inputs. Root=$(_BdtRoot)" />
-		<Message Importance="Low"  Text="BlazorDevTools: inputs: @(_BdtInputs)" Condition="'@(_BdtInputs)' != ''" />
-
-		<!-- 3) Transform (and pass-through underscore files) into obj/.../blazordevtools/... -->
+		<!-- Transform originals (whichever set we have) into the shadow root -->
 		<BlazorDeveloperTools.Tasks.TransformRazorTask
-			Sources="@(_BdtInputs)"
+			Sources="@(RazorComponent);@(RazorGenerate);@(_FallbackInputs)"
 			IntermediateRoot="$(_BdtRoot)"
 			ProjectDirectory="$(MSBuildProjectDirectory)"
 			SkipUnderscoreFiles="false"
 			OnlyRazorFiles="true" />
 
-		<!-- 4) Swap Razor to compile our shadow copies, PRESERVING METADATA -->
-		<!-- Capture originals to read their metadata -->
-		<ItemGroup>
+		<!-- ===== SWAP: RazorComponent → shadow ===== -->
+		<ItemGroup Condition="'@(_SeenRazorComponent)' != ''">
 			<_BdtOrigRazorComponent Include="@(RazorComponent)" />
-			<_BdtOrigRazorGenerate Include="@(RazorGenerate)" />
-		</ItemGroup>
-
-		<!-- Replace RazorComponent -->
-		<ItemGroup>
 			<RazorComponent Remove="@(_BdtOrigRazorComponent)" />
 			<RazorComponent Include="@(_BdtOrigRazorComponent->'$(_BdtRoot)%(RecursiveDir)%(Filename)%(Extension)')">
+				<!-- preserve important metadata -->
 				<RelativePath>%(_BdtOrigRazorComponent.RelativePath)</RelativePath>
 				<TargetPath>%(_BdtOrigRazorComponent.TargetPath)</TargetPath>
 				<Link>%(_BdtOrigRazorComponent.Link)</Link>
+				<OriginalItemSpec>$(_BdtRoot)%(_BdtOrigRazorComponent.RecursiveDir)%(_BdtOrigRazorComponent.Filename)%(_BdtOrigRazorComponent.Extension)</OriginalItemSpec>
+				<RazorRootNamespace>%(_BdtOrigRazorComponent.RazorRootNamespace)</RazorRootNamespace>
+				<RazorSourceGenerator>%(_BdtOrigRazorComponent.RazorSourceGenerator)</RazorSourceGenerator>
+				<CopyToOutputDirectory>%(_BdtOrigRazorComponent.CopyToOutputDirectory)</CopyToOutputDirectory>
+				<DependentUpon>%(_BdtOrigRazorComponent.DependentUpon)</DependentUpon>
+				<LastGenOutput>%(_BdtOrigRazorComponent.LastGenOutput)</LastGenOutput>
 			</RazorComponent>
 		</ItemGroup>
 
-		<!-- Replace RazorGenerate -->
-		<ItemGroup>
+		<!-- ===== SWAP: RazorGenerate → shadow ===== -->
+		<ItemGroup Condition="'@(_SeenRazorGenerate)' != ''">
+			<_BdtOrigRazorGenerate Include="@(RazorGenerate)" />
 			<RazorGenerate Remove="@(_BdtOrigRazorGenerate)" />
 			<RazorGenerate Include="@(_BdtOrigRazorGenerate->'$(_BdtRoot)%(RecursiveDir)%(Filename)%(Extension)')">
+				<!-- preserve important metadata -->
 				<RelativePath>%(_BdtOrigRazorGenerate.RelativePath)</RelativePath>
 				<TargetPath>%(_BdtOrigRazorGenerate.TargetPath)</TargetPath>
 				<Link>%(_BdtOrigRazorGenerate.Link)</Link>
+				<RazorRootNamespace>%(_BdtOrigRazorGenerate.RazorRootNamespace)</RazorRootNamespace>
+				<RazorSourceGenerator>%(_BdtOrigRazorGenerate.RazorSourceGenerator)</RazorSourceGenerator>
+				<CopyToOutputDirectory>%(_BdtOrigRazorGenerate.CopyToOutputDirectory)</CopyToOutputDirectory>
+				<DependentUpon>%(_BdtOrigRazorGenerate.DependentUpon)</DependentUpon>
+				<LastGenOutput>%(_BdtOrigRazorGenerate.LastGenOutput)</LastGenOutput>
 			</RazorGenerate>
 		</ItemGroup>
+
+		<!-- Post-swap diagnostics -->
+		<Message Importance="High" Text="BlazorDevTools: POST-SWAP RazorComponent → @(RazorComponent, ', ')" Condition="'@(_SeenRazorComponent)' != ''" />
+		<Message Importance="High" Text="BlazorDevTools: POST-SWAP RazorGenerate  → @(RazorGenerate,  ', ')" Condition="'@(_SeenRazorGenerate)'  != ''" />
+		<Message Importance="High" Text="BlazorDevTools: FINAL RazorComponent FullPaths = @(RazorComponent->'%(FullPath)')" />
 
 		<Message Importance="High" Text="BlazorDevTools: shadow copies active from $(_BdtRoot)." />
 	</Target>
