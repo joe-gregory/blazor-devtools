@@ -7,7 +7,10 @@
   </PropertyGroup>
 	
 	<ItemGroup>
-		<PackageReference Include="BlazorDeveloperTools" Version="0.3.2" PrivateAssets="all" />
+		<PackageReference Include="BlazorDeveloperTools" Version="0.4.4" PrivateAssets="all" />
 	</ItemGroup>
+	<PropertyGroup>
+		<EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+	</PropertyGroup>
 
 </Project>

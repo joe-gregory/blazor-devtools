@@ -14,7 +14,7 @@ namespace BlazorDeveloperTools.Tasks
     /// Why: .NET 8/9 use a Razor Source Generator (in-memory). Editing *.razor.g.cs on disk
     /// is too late. Shadow-copying happens *before* Razor runs, so it works on .NET 6–9.
     /// </summary>
-    public sealed class TransformRazorTask : Microsoft.Build.Utilities.Task
+    public sealed class TransformRazorTask : Task
     {
         /// <summary>
         /// The Razor input items. Typically @(RazorComponent).
