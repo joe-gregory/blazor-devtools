@@ -1,0 +1,10 @@
+<Project>
+	<PropertyGroup>
+		<CustomAfterRazorSdkTargets Condition="'$(CustomAfterRazorSdkTargets)'!=''">
+			$(CustomAfterRazorSdkTargets);$(MSBuildThisFileDirectory)BlazorDeveloperTools.razor.targets
+		</CustomAfterRazorSdkTargets>
+		<CustomAfterRazorSdkTargets Condition="'$(CustomAfterRazorSdkTargets)'==''">
+			$(MSBuildThisFileDirectory)BlazorDeveloperTools.razor.targets
+		</CustomAfterRazorSdkTargets>
+	</PropertyGroup>
+</Project>

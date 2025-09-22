@@ -1,5 +1,0 @@
-<Project>
-  <PropertyGroup>
-    <EnableAutomaticMarkers Condition="'$(EnableAutomaticMarkers)'==''">true</EnableAutomaticMarkers>
-  </PropertyGroup>
-</Project>
