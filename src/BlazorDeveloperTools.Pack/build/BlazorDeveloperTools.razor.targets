@@ -1,5 +1,5 @@
 <Project>
-	<!-- Load the task from the package -->
+	<!-- Load our task -->
 	<UsingTask TaskName="BlazorDeveloperTools.Tasks.TransformRazorTask"
 			   AssemblyFile="$(MSBuildThisFileDirectory)..\tools\BlazorDeveloperTools.Tasks.dll" />
 
@@ -8,13 +8,13 @@
 		<BdtVerbose Condition="'$(BdtVerbose)'==''">false</BdtVerbose>
 	</PropertyGroup>
 
-	<!-- Run AFTER Razor normalizes items, BEFORE it freezes compile inputs -->
+	<!-- Run AFTER Razor normalizes items, BEFORE compile inputs are frozen -->
 	<Target Name="BlazorDeveloperTools_ComponentSwap"
-			AfterTargets="AssignRazorComponentTargetPaths"
-			BeforeTargets="ResolveRazorCompileInputs"
+			AfterTargets="AssignRazorComponentTargetPaths;PrepareForRazorCompile"
+			BeforeTargets="ResolveRazorCompileInputs;CoreCompile"
 			Condition="'$(Configuration)'=='Debug' and '$(EnableAutomaticMarkers)'=='true'">
 
-		<!-- 1) Build shadows from the normalized component list -->
+		<!-- 0) Start clean + capture normalized components -->
 		<RemoveDir Directories="$(_BdtRoot)" />
 		<ItemGroup>
 			<_OrigComp Include="@(RazorComponentWithTargetPath)" />
@@ -24,6 +24,7 @@
 		<Message Importance="Low" Condition="'$(BdtVerbose)'=='true'"
 				 Text="BDT: Inputs = @(_OrigComp, ' | ')" />
 
+		<!-- 1) Build our shadow copies -->
 		<BlazorDeveloperTools.Tasks.TransformRazorTask
 			Sources="@(_OrigComp)"
 			IntermediateRoot="$(_BdtRoot)"
@@ -31,43 +32,50 @@
 			SkipUnderscoreFiles="false"
 			OnlyRazorFiles="true" />
 
-		<!-- 2) DO NOT change RazorComponentWithTargetPath. Only replace the SG's AdditionalFiles -->
+		<!-- 2) Build the list of SHADOW files we want Roslyn SG to read -->
 		<ItemGroup>
-			<!-- optional: build the list, de-dup it -->
-			<_BdtAF Include="@(RazorComponentWithTargetPath->'$(_BdtRoot)%(RelativePath)')" />
-			<!-- Remove only the RazorComponent AdditionalFiles that the SDK created -->
+			<!-- For each RazorComponentWithTargetPath item, create a corresponding shadow path under $(_BdtRoot)%(TargetPath).
+           We only set TargetPath metadata (the only required bit for the SG). -->
+			<_BdtAF Include="@(RazorComponentWithTargetPath->'$(_BdtRoot)%(TargetPath)')"
+					Condition="'%(RazorComponentWithTargetPath.TargetPath)'!='' and Exists('$(_BdtRoot)%(TargetPath)')">
+				<!-- IMPORTANT: outside a transform, reference metadata QUALIFIED by the source list name -->
+				<TargetPath>%(RazorComponentWithTargetPath.TargetPath)</TargetPath>
+			</_BdtAF>
+		</ItemGroup>
+
+		<!-- 3) Clear SDK-provided Razor AdditionalFiles (if any) and add ours -->
+		<ItemGroup>
 			<AdditionalFiles Remove="@(AdditionalFiles)" Condition="'%(AdditionalFiles.Kind)'=='RazorComponent'" />
+		</ItemGroup>
 
-			<!-- Re-add them, pointing to our shadow paths, while PRESERVING the important metadata -->
-			<AdditionalFiles Include="@(_BdtAF->Distinct())" Condition="Exists('%(Identity)')">
+		<ItemGroup>
+			<!-- Feed the SG our shadow files. Only set Kind + TargetPath. No RelativePath, no checksums. -->
+			<AdditionalFiles Include="@(_BdtAF)"
+							 Condition="Exists('%(Identity)')">
 				<Kind>RazorComponent</Kind>
-
-				<!-- preserve key metadata so the SG can map correctly -->
-				<TargetPath>%(_OrigComp.TargetPath)</TargetPath>
-				<RelativePath>%(_OrigComp.RelativePath)</RelativePath>
-				<RazorRootNamespace>%(_OrigComp.RazorRootNamespace)</RazorRootNamespace>
-				<CopyToOutputDirectory>%(_OrigComp.CopyToOutputDirectory)</CopyToOutputDirectory>
-				<DependentUpon>%(_OrigComp.DependentUpon)</DependentUpon>
-				<LastGenOutput>%(_OrigComp.LastGenOutput)</LastGenOutput>
-				<GeneratedOutput>%(_OrigComp.GeneratedOutput)</GeneratedOutput>
-				<GeneratedDeclaration>%(_OrigComp.GeneratedDeclaration)</GeneratedDeclaration>
-				<DocumentKind>%(_OrigComp.DocumentKind)</DocumentKind>
-
-				<!-- diagnostics only -->
-				<OriginalItemSpec>$(_BdtRoot)%(_OrigComp.RelativePath)</OriginalItemSpec>
+				<TargetPath>%(_BdtAF.TargetPath)</TargetPath>
 			</AdditionalFiles>
 		</ItemGroup>
 
-		<!-- diagnostics -->
+		<!-- 4) Diagnostics -->
 		<ItemGroup>
+			<_ShadowFiles Include="$(_BdtRoot)**\*.razor" />
 			<_BdtRazorAF Include="@(AdditionalFiles)" Condition="'%(AdditionalFiles.Kind)'=='RazorComponent'"/>
 		</ItemGroup>
-		<Message Importance="High" Text="BDT: FINAL RazorComponent AdditionalFiles = @(_BdtRazorAF, ' | ')" />
-		<Message Importance="High" Text="BDT: FINAL RazorComponentWithTargetPath = @(RazorComponentWithTargetPath, ' | ')" />
+
+		<Message Importance="High"
+				 Text="BDT: shadows found=@(_ShadowFiles->Count())  fed_to_SG=@(_BdtRazorAF->Count())" />
+		<Message Importance="Low" Condition="'$(BdtVerbose)'=='true'"
+				 Text="BDT: SHADOWS = @(_ShadowFiles, ' | ')" />
+		<Message Importance="Low" Condition="'$(BdtVerbose)'=='true'"
+				 Text="BDT: FINAL AdditionalFiles = @(_BdtRazorAF->'%(Identity) [TP=%(TargetPath)]', ' | ')" />
+		<Message Importance="Low" Condition="'$(BdtVerbose)'=='true'"
+				 Text="BDT: RazorComponentWithTargetPath = @(RazorComponentWithTargetPath, ' | ')" />
 	</Target>
+
+	<!-- Optional ping -->
 	<Target Name="BDT_Ping" BeforeTargets="CoreCompile" Condition="'$(BdtVerbose)'=='true'">
 		<Message Importance="High"
 				 Text="BDT after-hook imported. UseRazorSourceGenerator=$(UseRazorSourceGenerator) Config=$(Configuration)" />
 	</Target>
-
 </Project>

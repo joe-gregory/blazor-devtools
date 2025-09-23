@@ -20,7 +20,7 @@
 
 		<!-- Public package identity -->
 		<PackageId>BlazorDeveloperTools</PackageId>
-		<Version>0.4.33</Version>
+		<Version>0.4.49</Version>
 		<Authors>Joseph E. Gregory</Authors>
 		<Description>Automatic debug markers for Blazor components via MSBuild post-processing of Razor-generated files. Used by the Blazor Developer Tools browser extension.</Description>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
@@ -78,7 +78,7 @@
 		<None Include="build\BlazorDeveloperTools.props"
 			  Pack="true"
 			  PackagePath="build/BlazorDeveloperTools.props" />
-		<!-- pack TARGETS into build/ (you already had this) -->
+		<!-- pack TARGETS into build/ -->
 		<None Include="build\BlazorDeveloperTools.razor.targets"
 			  Pack="true"
 			  PackagePath="build/BlazorDeveloperTools.razor.targets" />

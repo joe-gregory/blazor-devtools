@@ -1,4 +1,5 @@
 <Project>
+	<!-- Import our after-targets file after the Razor SDK -->
 	<PropertyGroup>
 		<CustomAfterRazorSdkTargets Condition="'$(CustomAfterRazorSdkTargets)'!=''">
 			$(CustomAfterRazorSdkTargets);$(MSBuildThisFileDirectory)BlazorDeveloperTools.razor.targets
