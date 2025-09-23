@@ -6,76 +6,90 @@
 	<PropertyGroup>
 		<!-- Shadow directory where transformed files are placed -->
 		<_BdtRoot>$(IntermediateOutputPath)blazordevtools\</_BdtRoot>
-		<!-- Enable verbose logging for debugging (set to true for diagnostics) -->
+		<!-- Enable verbose logging for debugging -->
 		<BdtVerbose Condition="'$(BdtVerbose)'==''">false</BdtVerbose>
 	</PropertyGroup>
 
-	<!-- Main transformation target - runs early in the build process -->
-	<Target Name="BlazorDeveloperTools_TransformFiles"
+	<!-- Hook into the build to transform files -->
+	<!-- Try multiple hook points to ensure we catch the RazorComponent items -->
+	<Target Name="BlazorDeveloperTools_Transform"
 			BeforeTargets="AssignRazorComponentTargetPaths"
+			DependsOnTargets="ResolveReferences"
 			Condition="'$(Configuration)'=='Debug' and '$(EnableAutomaticMarkers)'!='false'">
 
-		<!-- Clean the shadow directory to ensure fresh copies -->
+		<!-- Clean shadow directory -->
 		<RemoveDir Directories="$(_BdtRoot)" />
 		<MakeDir Directories="$(_BdtRoot)" />
 
-		<!-- Save original RazorComponent items -->
-		<ItemGroup>
-			<_BdtOriginalRazor Include="@(RazorComponent)" />
+		<!-- Check what we have -->
+		<Message Importance="High" Text="BlazorDeveloperTools: Initial RazorComponent count = @(RazorComponent->Count())" />
+
+		<!-- If RazorComponent is empty, manually populate it -->
+		<ItemGroup Condition="@(RazorComponent->Count()) == 0">
+			<RazorComponent Include="Components\**\*.razor" />
+			<RazorComponent Include="**\*.razor" Exclude="bin\**;obj\**;Components\**\*.razor" />
 		</ItemGroup>
 
-		<Message Importance="High" Text="BlazorDeveloperTools: Processing @(_BdtOriginalRazor->Count()) Razor files" />
+		<Message Importance="High" Text="BlazorDeveloperTools: After discovery = @(RazorComponent->Count()) items" />
+		<Message Importance="High" Condition="'$(BdtVerbose)'=='true'"
+				 Text="Found: %(RazorComponent.Identity)" />
 
-		<!-- Run our transformation task to create shadow copies with injected markers -->
+		<!-- Save originals -->
+		<ItemGroup>
+			<_BdtOriginal Include="@(RazorComponent)" />
+		</ItemGroup>
+
+		<!-- Create shadow copies -->
 		<BlazorDeveloperTools.Tasks.TransformRazorTask
-			Sources="@(_BdtOriginalRazor)"
+			Sources="@(_BdtOriginal)"
 			IntermediateRoot="$(_BdtRoot)"
 			ProjectDirectory="$(MSBuildProjectDirectory)"
 			SkipUnderscoreFiles="true"
 			OnlyRazorFiles="true" />
 
-		<!-- Clear original RazorComponent items -->
+		<!-- Replace RazorComponent items -->
 		<ItemGroup>
 			<RazorComponent Remove="@(RazorComponent)" />
-		</ItemGroup>
-
-		<!-- Re-discover the shadow files with proper metadata -->
-		<ItemGroup>
 			<RazorComponent Include="$(_BdtRoot)**\*.razor" />
 		</ItemGroup>
 
-		<Message Importance="High" Text="BlazorDeveloperTools: Transformation complete" />
-
-		<!-- Verbose diagnostics if enabled -->
-		<Message Importance="High" Condition="'$(BdtVerbose)'=='true'"
-				 Text="Shadow file: %(RazorComponent.Identity)" />
+		<Message Importance="High" Text="BlazorDeveloperTools: Transformed @(RazorComponent->Count()) files" />
 	</Target>
 
-	<!-- Optional: Diagnostic output to verify the process -->
+	<!-- Ensure paths are correct -->
+	<Target Name="BlazorDeveloperTools_FixPaths"
+			AfterTargets="AssignRazorComponentTargetPaths"
+			BeforeTargets="PrepareForRazorCompile"
+			Condition="'$(Configuration)'=='Debug' and '$(EnableAutomaticMarkers)'!='false'">
+
+		<!-- Fix TargetPath to be relative -->
+		<ItemGroup>
+			<RazorComponentWithTargetPath>
+				<TargetPath>$([System.String]::Copy('%(RazorComponentWithTargetPath.TargetPath)').Replace('obj\Debug\net8.0\blazordevtools\', '').Replace('obj/Debug/net8.0/blazordevtools/', ''))</TargetPath>
+			</RazorComponentWithTargetPath>
+		</ItemGroup>
+
+		<Message Importance="High" Condition="'$(BdtVerbose)'=='true'"
+				 Text="Fixed: %(RazorComponentWithTargetPath.Identity) -> %(RazorComponentWithTargetPath.TargetPath)" />
+	</Target>
+
+	<!-- Diagnostics -->
 	<Target Name="BlazorDeveloperTools_Diagnostics"
-			AfterTargets="ResolveRazorCompileInputs"
 			BeforeTargets="CoreCompile"
 			Condition="'$(Configuration)'=='Debug' and '$(EnableAutomaticMarkers)'!='false' and '$(BdtVerbose)'=='true'">
 
 		<Message Importance="High" Text="===== BlazorDeveloperTools Diagnostics =====" />
 
-		<!-- Check how many AdditionalFiles were created for Razor -->
 		<ItemGroup>
-			<_BdtRazorAF Include="@(AdditionalFiles)" Condition="'%(AdditionalFiles.Kind)'=='RazorComponent'" />
+			<_DiagAF Include="@(AdditionalFiles)" Condition="'%(AdditionalFiles.Kind)'=='RazorComponent'" />
 		</ItemGroup>
 
-		<Message Importance="High" Text="Razor AdditionalFiles count: @(_BdtRazorAF->Count())" />
-		<Message Importance="High" Text="UseRazorSourceGenerator: $(UseRazorSourceGenerator)" />
+		<Message Importance="High" Text="AdditionalFiles for Razor: @(_DiagAF->Count())" />
 
-		<!-- List shadow files that were created -->
+		<!-- Check if files actually exist -->
 		<ItemGroup>
-			<_BdtShadowFiles Include="$(_BdtRoot)**\*.razor" />
+			<_ShadowCheck Include="$(_BdtRoot)**\*.razor" />
 		</ItemGroup>
-
-		<Message Importance="High" Text="Shadow files created: @(_BdtShadowFiles->Count())" />
-
-		<!-- Debug: Show what each shadow file's path looks like -->
-		<Message Importance="High" Condition="'$(BdtVerbose)'=='true'"
-				 Text="Shadow exists: %(_BdtShadowFiles.Identity)" />
+		<Message Importance="High" Text="Shadow files on disk: @(_ShadowCheck->Count())" />
 	</Target>
 </Project>
