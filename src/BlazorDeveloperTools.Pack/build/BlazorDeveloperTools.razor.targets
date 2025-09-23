@@ -8,116 +8,171 @@
 		<_BdtRoot>$(IntermediateOutputPath)blazordevtools\</_BdtRoot>
 		<!-- Enable verbose logging for debugging -->
 		<BdtVerbose Condition="'$(BdtVerbose)'==''">false</BdtVerbose>
+		<!-- Track if transform has been done -->
+		<_BdtTransformed>false</_BdtTransformed>
 	</PropertyGroup>
 
-	<!-- Hook into the build to transform files -->
-	<!-- Try multiple hook points to ensure we catch the RazorComponent items -->
+	<!-- Main transformation target that runs VERY EARLY -->
 	<Target Name="BlazorDeveloperTools_Transform"
-			BeforeTargets="AssignRazorComponentTargetPaths"
-			DependsOnTargets="ResolveReferences"
-			Condition="'$(Configuration)'=='Debug' and '$(EnableAutomaticMarkers)'!='false'">
+			BeforeTargets="_CheckForInvalidConfigurationAndPlatform;BeforeBuild;ResolveReferences"
+			Condition="'$(Configuration)'=='Debug' and '$(EnableAutomaticMarkers)'!='false' and '$(_BdtTransformed)'!='true'">
 
-		<!-- Clean shadow directory with error handling -->
+		<PropertyGroup>
+			<_BdtTransformed>true</_BdtTransformed>
+		</PropertyGroup>
+
+		<!-- Clean shadow directory -->
 		<RemoveDir Directories="$(_BdtRoot)" ContinueOnError="true" />
-		<Delete Files="$(_BdtRoot)**\*.*" ContinueOnError="true" />
-		<MakeDir Directories="$(_BdtRoot)" Condition="!Exists('$(_BdtRoot)')" />
+		<MakeDir Directories="$(_BdtRoot)" />
 
-		<!-- Check what we have -->
-		<Message Importance="High" Text="BlazorDeveloperTools: Initial RazorComponent count = @(RazorComponent->Count())" />
-
-		<!-- If RazorComponent is empty, manually populate it -->
-		<ItemGroup Condition="@(RazorComponent->Count()) == 0">
-			<RazorComponent Include="Components\**\*.razor" />
-			<RazorComponent Include="**\*.razor" Exclude="bin\**;obj\**;Components\**\*.razor" />
-		</ItemGroup>
-
-		<Message Importance="High" Text="BlazorDeveloperTools: After discovery = @(RazorComponent->Count()) items" />
-		<Message Importance="High" Condition="'$(BdtVerbose)'=='true'"
-				 Text="Found: %(RazorComponent.Identity)" />
-
-		<!-- Save originals -->
+		<!-- Discover all Razor components -->
 		<ItemGroup>
-			<_BdtOriginal Include="@(RazorComponent)" />
+			<_BdtOriginalRazor Include="**\*.razor" Exclude="bin\**;obj\**;$(_BdtRoot)**\*.razor" />
 		</ItemGroup>
 
-		<!-- Create shadow copies of .razor files with markers -->
+		<Message Importance="High" Text="BlazorDeveloperTools: Found @(_BdtOriginalRazor->Count()) Razor files" />
+
+		<!-- Transform Razor files with markers -->
 		<BlazorDeveloperTools.Tasks.TransformRazorTask
-			Sources="@(_BdtOriginal)"
+			Sources="@(_BdtOriginalRazor)"
 			IntermediateRoot="$(_BdtRoot)"
 			ProjectDirectory="$(MSBuildProjectDirectory)"
 			SkipUnderscoreFiles="true"
 			OnlyRazorFiles="true" />
 
-		<!-- Copy associated files (.razor.css, .razor.cs, .razor.js) maintaining directory structure -->
+		<!-- Copy CSS isolation files -->
 		<ItemGroup>
-			<!-- Discover all associated files - use a simpler approach -->
-			<_BdtAllCssFiles Include="**\*.razor.css" Exclude="bin\**;obj\**" />
-			<_BdtAllCsFiles Include="**\*.razor.cs" Exclude="bin\**;obj\**" />
-			<_BdtAllJsFiles Include="**\*.razor.js" Exclude="bin\**;obj\**" />
+			<_BdtOriginalCss Include="**\*.razor.css" Exclude="bin\**;obj\**;$(_BdtRoot)**\*.razor.css" />
 		</ItemGroup>
 
-		<Message Importance="High" Condition="@(_BdtAllCssFiles->Count()) > 0"
-				 Text="BlazorDeveloperTools: Found @(_BdtAllCssFiles->Count()) CSS files to copy" />
+		<Message Importance="High" Text="BlazorDeveloperTools: Copying @(_BdtOriginalCss->Count()) CSS isolation files" />
 
-		<!-- Copy files preserving full paths -->
-		<Copy SourceFiles="@(_BdtAllCssFiles)"
-			  DestinationFiles="@(_BdtAllCssFiles->'$(_BdtRoot)%(RecursiveDir)%(Filename)%(Extension)')"
+		<Copy SourceFiles="@(_BdtOriginalCss)"
+			  DestinationFiles="@(_BdtOriginalCss->'$(_BdtRoot)%(RecursiveDir)%(Filename)%(Extension)')"
 			  SkipUnchangedFiles="false"
-			  Condition="@(_BdtAllCssFiles->Count()) > 0" />
+			  Condition="@(_BdtOriginalCss->Count()) > 0" />
 
-		<Copy SourceFiles="@(_BdtAllCsFiles)"
-			  DestinationFiles="@(_BdtAllCsFiles->'$(_BdtRoot)%(RecursiveDir)%(Filename)%(Extension)')"
-			  SkipUnchangedFiles="false"
-			  Condition="@(_BdtAllCsFiles->Count()) > 0" />
-
-		<Copy SourceFiles="@(_BdtAllJsFiles)"
-			  DestinationFiles="@(_BdtAllJsFiles->'$(_BdtRoot)%(RecursiveDir)%(Filename)%(Extension)')"
-			  SkipUnchangedFiles="false"
-			  Condition="@(_BdtAllJsFiles->Count()) > 0" />
-
-		<!-- Replace RazorComponent items -->
+		<!-- Copy other associated files -->
 		<ItemGroup>
+			<_BdtOtherFiles Include="**\*.razor.cs;**\*.razor.js" Exclude="bin\**;obj\**;$(_BdtRoot)**\*" />
+		</ItemGroup>
+
+		<Copy SourceFiles="@(_BdtOtherFiles)"
+			  DestinationFiles="@(_BdtOtherFiles->'$(_BdtRoot)%(RecursiveDir)%(Filename)%(Extension)')"
+			  SkipUnchangedFiles="false"
+			  Condition="@(_BdtOtherFiles->Count()) > 0" />
+
+		<Message Importance="High" Text="BlazorDeveloperTools: Transformation complete" />
+
+		<!-- CRITICAL: Clear ALL existing items and repopulate with shadow files -->
+		<ItemGroup>
+			<!-- Remove all original references -->
 			<RazorComponent Remove="@(RazorComponent)" />
+			<None Remove="**\*.razor" />
+			<None Remove="**\*.razor.css" />
+			<Content Remove="**\*.razor" />
+			<Content Remove="**\*.razor.css" />
+
+			<!-- Add shadow Razor files -->
 			<RazorComponent Include="$(_BdtRoot)**\*.razor" />
+
+			<!-- Add shadow CSS files ONLY to None, not Content, and only once -->
+			<None Include="$(_BdtRoot)**\*.razor.css">
+				<Link>%(RecursiveDir)%(Filename)%(Extension)</Link>
+				<DependentUpon>%(Filename)</DependentUpon>
+			</None>
 		</ItemGroup>
 
-		<Message Importance="High" Text="BlazorDeveloperTools: Transformed @(RazorComponent->Count()) files" />
+		<Message Importance="High" Text="BlazorDeveloperTools: Replaced RazorComponent items with @(RazorComponent->Count()) shadow files" />
 	</Target>
 
-	<!-- Ensure paths are correct -->
-	<Target Name="BlazorDeveloperTools_FixPaths"
+	<!-- Remove duplicates before CSS discovery -->
+	<Target Name="BlazorDeveloperTools_DeduplicateCss"
+			BeforeTargets="_DiscoverDefaultScopedCssItems"
+			AfterTargets="BlazorDeveloperTools_Transform"
+			Condition="'$(Configuration)'=='Debug' and '$(EnableAutomaticMarkers)'!='false'">
+
+		<!-- Remove duplicates from None items -->
+		<RemoveDuplicates Inputs="@(None)">
+			<Output TaskParameter="Filtered" ItemName="_FilteredNone"/>
+		</RemoveDuplicates>
+
+		<ItemGroup>
+			<None Remove="@(None)" />
+			<None Include="@(_FilteredNone)" />
+		</ItemGroup>
+
+		<Message Importance="High" Text="BlazorDeveloperTools: Deduplicated to @(None->Count()) None items" />
+	</Target>
+
+	<!-- Hook to fix paths AFTER Razor SDK processes them -->
+	<Target Name="BlazorDeveloperTools_FixComponentPaths"
 			AfterTargets="AssignRazorComponentTargetPaths"
 			BeforeTargets="PrepareForRazorCompile"
 			Condition="'$(Configuration)'=='Debug' and '$(EnableAutomaticMarkers)'!='false'">
 
-		<!-- Fix TargetPath to be relative -->
+		<!-- Fix the TargetPath to remove shadow directory prefix -->
 		<ItemGroup>
 			<RazorComponentWithTargetPath>
-				<TargetPath>$([System.String]::Copy('%(RazorComponentWithTargetPath.TargetPath)').Replace('obj\Debug\net8.0\blazordevtools\', '').Replace('obj/Debug/net8.0/blazordevtools/', ''))</TargetPath>
+				<TargetPath>$([System.String]::Copy('%(RazorComponentWithTargetPath.TargetPath)').Replace('obj\Debug\net8.0\blazordevtools\', '').Replace('obj/Debug/net8.0/blazordevtools/', '').Replace('obj\Debug\net9.0\blazordevtools\', '').Replace('obj/Debug/net9.0/blazordevtools/', ''))</TargetPath>
 			</RazorComponentWithTargetPath>
 		</ItemGroup>
 
+		<Message Importance="High" Text="BlazorDeveloperTools: Fixed @(RazorComponentWithTargetPath->Count()) component paths" />
 		<Message Importance="High" Condition="'$(BdtVerbose)'=='true'"
-				 Text="Fixed: %(RazorComponentWithTargetPath.Identity) -> %(RazorComponentWithTargetPath.TargetPath)" />
+				 Text="  %(RazorComponentWithTargetPath.Identity) -> %(RazorComponentWithTargetPath.TargetPath)" />
 	</Target>
 
-	<!-- Diagnostics -->
+	<!-- Diagnostic output -->
 	<Target Name="BlazorDeveloperTools_Diagnostics"
-			BeforeTargets="CoreCompile"
+			AfterTargets="PrepareForRazorCompile;ComputeCssScope"
 			Condition="'$(Configuration)'=='Debug' and '$(EnableAutomaticMarkers)'!='false' and '$(BdtVerbose)'=='true'">
 
 		<Message Importance="High" Text="===== BlazorDeveloperTools Diagnostics =====" />
 
+		<Message Importance="High" Text="Project: $(RootNamespace) / $(AssemblyName)" />
+
+		<Message Importance="High" Text="RazorComponent items: @(RazorComponent->Count())" />
+		<Message Importance="High" Text="  %(RazorComponent.Identity)" />
+
+		<Message Importance="High" Text="RazorComponentWithTargetPath items: @(RazorComponentWithTargetPath->Count())" />
+		<Message Importance="High" Text="  %(RazorComponentWithTargetPath.Identity) -> %(RazorComponentWithTargetPath.TargetPath)" />
+
+		<Message Importance="High" Text="ScopedCss items: @(ScopedCss->Count())" />
+		<Message Importance="High" Text="  %(ScopedCss.Identity) -> %(ScopedCss.CssScope)" Condition="@(ScopedCss->Count()) > 0" />
+
+		<Message Importance="High" Text="CSS None items with .razor.css:" />
 		<ItemGroup>
-			<_DiagAF Include="@(AdditionalFiles)" Condition="'%(AdditionalFiles.Kind)'=='RazorComponent'" />
+			<_CssNone Include="@(None)" Condition="'%(Extension)'=='.css' and $([System.String]::Copy('%(Filename)').EndsWith('.razor'))" />
+		</ItemGroup>
+		<Message Importance="High" Text="  %(_CssNone.Identity)" />
+
+		<!-- Check for duplicates -->
+		<Message Importance="High" Text="Checking for duplicate CSS in None:" />
+		<ItemGroup>
+			<_AllNoneCss Include="@(None)" Condition="$([System.String]::Copy('%(Identity)').EndsWith('.razor.css'))" />
+		</ItemGroup>
+		<Message Importance="High" Text="  Total .razor.css in None: @(_AllNoneCss->Count())" />
+		<Message Importance="High" Text="  %(_AllNoneCss.Identity)" Condition="@(_AllNoneCss->Count()) &lt; 10" />
+	</Target>
+
+	<!-- Verify output -->
+	<Target Name="BlazorDeveloperTools_VerifyOutput"
+			AfterTargets="_GenerateScopedCssFiles;CoreCompile"
+			Condition="'$(Configuration)'=='Debug' and '$(EnableAutomaticMarkers)'!='false'">
+
+		<ItemGroup>
+			<_GeneratedCss Include="$(IntermediateOutputPath)scopedcss\**\*.css" />
+			<_GeneratedBundleCss Include="$(IntermediateOutputPath)scopedcss\bundle\*.css" />
+			<_OutputStylesCss Include="$(OutputPath)*.styles.css" />
 		</ItemGroup>
 
-		<Message Importance="High" Text="AdditionalFiles for Razor: @(_DiagAF->Count())" />
+		<Message Importance="High" Text="BlazorDeveloperTools: Build complete" />
+		<Message Importance="High" Text="  Generated CSS: @(_GeneratedCss->Count()) files" Condition="@(_GeneratedCss->Count()) > 0" />
+		<Message Importance="High" Text="  CSS Bundle: @(_GeneratedBundleCss->Count()) files" Condition="@(_GeneratedBundleCss->Count()) > 0" />
+		<Message Importance="High" Text="  Output styles.css: @(_OutputStylesCss->Count()) files" Condition="@(_OutputStylesCss->Count()) > 0" />
 
-		<!-- Check if files actually exist -->
-		<ItemGroup>
-			<_ShadowCheck Include="$(_BdtRoot)**\*.razor" />
-		</ItemGroup>
-		<Message Importance="High" Text="Shadow files on disk: @(_ShadowCheck->Count())" />
+		<Warning Text="BlazorDeveloperTools: No scoped CSS was generated. Check that components have CSS scope attributes in HTML."
+				 Condition="@(_GeneratedCss->Count()) == 0 and @(_BdtOriginalCss->Count()) > 0" />
 	</Target>
 </Project>

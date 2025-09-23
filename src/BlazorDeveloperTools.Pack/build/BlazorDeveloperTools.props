@@ -1,11 +1,14 @@
 <Project>
-	<!-- Import our after-targets file after the Razor SDK -->
-	<PropertyGroup>
-		<CustomAfterRazorSdkTargets Condition="'$(CustomAfterRazorSdkTargets)'!=''">
-			$(CustomAfterRazorSdkTargets);$(MSBuildThisFileDirectory)BlazorDeveloperTools.razor.targets
-		</CustomAfterRazorSdkTargets>
-		<CustomAfterRazorSdkTargets Condition="'$(CustomAfterRazorSdkTargets)'==''">
-			$(MSBuildThisFileDirectory)BlazorDeveloperTools.razor.targets
-		</CustomAfterRazorSdkTargets>
+	<!-- Only hook into Razor SDK if not already done -->
+	<PropertyGroup Condition="'$(BlazorDeveloperToolsImported)'!='true'">
+		<!-- Mark that we've imported to prevent duplicates -->
+		<BlazorDeveloperToolsImported>true</BlazorDeveloperToolsImported>
+
+		<!-- Hook into Razor SDK -->
+		<CustomAfterRazorSdkTargets>$(MSBuildThisFileDirectory)BlazorDeveloperTools.razor.targets</CustomAfterRazorSdkTargets>
+
+		<!-- Ensure CSS isolation is enabled -->
+		<ScopedCssEnabled>true</ScopedCssEnabled>
+		<EnableDefaultScopedCssItems>true</EnableDefaultScopedCssItems>
 	</PropertyGroup>
 </Project>

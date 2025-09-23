@@ -84,10 +84,10 @@ namespace BlazorDeveloperTools.Tasks
                     string toWrite;
                     if (isRazor && ShouldInjectMarker(fileName, original))
                     {
-                        // inject our marker AFTER the leading directive block
-                        int insertAt = FindDirectiveBlockEndIndex(original);
+                        // inject our marker at the END of the file instead of after directives
                         string snippet = BuildInjectedSnippet(rel.Replace('\\', '/'));
-                        toWrite = original.Insert(insertAt, snippet);
+                        // Append at the very end of the file
+                        toWrite = original + Environment.NewLine + snippet;
                         injectedCount++;
                     }
                     else
