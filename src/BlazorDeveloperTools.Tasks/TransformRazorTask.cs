@@ -21,29 +21,24 @@ namespace BlazorDeveloperTools.Tasks
         /// </summary>
         [Required]
         public ITaskItem[] Sources { get; set; } = Array.Empty<ITaskItem>();
-
         /// <summary>
         /// The root folder (under obj/...) where shadow copies are written, e.g. "obj/Debug/net8.0/bdt".
         /// </summary>
         [Required]
         public string IntermediateRoot { get; set; } = string.Empty;
-
         /// <summary>
         /// The project directory used to compute relative paths for Sources.
         /// </summary>
         [Required]
         public string ProjectDirectory { get; set; } = string.Empty;
-
         /// <summary>
         /// When true, skip files whose name starts with '_' (e.g., _Imports.razor).
         /// </summary>
         public bool SkipUnderscoreFiles { get; set; } = true;
-
         /// <summary>
         /// Optional: only transform files ending in ".razor" (defensive).
         /// </summary>
         public bool OnlyRazorFiles { get; set; } = true;
-
         public override bool Execute()
         {
             if (Sources == null || Sources.Length == 0)
@@ -86,8 +81,23 @@ namespace BlazorDeveloperTools.Tasks
                     {
                         // inject our marker at the END of the file instead of after directives
                         string snippet = BuildInjectedSnippet(rel.Replace('\\', '/'));
+                        int insertIndex = FindDirectiveBlockEndIndex(original);
+
                         // Append at the very end of the file
-                        toWrite = original + Environment.NewLine + snippet;
+                        //toWrite = original + Environment.NewLine + snippet;
+
+                        // Insert snipper after directives but before content
+                        // Insert the snippet after directives but before content
+                        if (insertIndex >= original.Length)
+                        {
+                            // File is all directives or empty, append at end
+                            toWrite = original + Environment.NewLine + snippet;
+                        }
+                        else
+                        {
+                            // Insert after directives, at the beginning of content
+                            toWrite = original.Substring(0, insertIndex) + snippet + Environment.NewLine + original.Substring(insertIndex);
+                        }
                         injectedCount++;
                     }
                     else
