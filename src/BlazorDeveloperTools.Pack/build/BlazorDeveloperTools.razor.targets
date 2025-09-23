@@ -17,9 +17,10 @@
 			DependsOnTargets="ResolveReferences"
 			Condition="'$(Configuration)'=='Debug' and '$(EnableAutomaticMarkers)'!='false'">
 
-		<!-- Clean shadow directory -->
-		<RemoveDir Directories="$(_BdtRoot)" />
-		<MakeDir Directories="$(_BdtRoot)" />
+		<!-- Clean shadow directory with error handling -->
+		<RemoveDir Directories="$(_BdtRoot)" ContinueOnError="true" />
+		<Delete Files="$(_BdtRoot)**\*.*" ContinueOnError="true" />
+		<MakeDir Directories="$(_BdtRoot)" Condition="!Exists('$(_BdtRoot)')" />
 
 		<!-- Check what we have -->
 		<Message Importance="High" Text="BlazorDeveloperTools: Initial RazorComponent count = @(RazorComponent->Count())" />
@@ -39,13 +40,40 @@
 			<_BdtOriginal Include="@(RazorComponent)" />
 		</ItemGroup>
 
-		<!-- Create shadow copies -->
+		<!-- Create shadow copies of .razor files with markers -->
 		<BlazorDeveloperTools.Tasks.TransformRazorTask
 			Sources="@(_BdtOriginal)"
 			IntermediateRoot="$(_BdtRoot)"
 			ProjectDirectory="$(MSBuildProjectDirectory)"
 			SkipUnderscoreFiles="true"
 			OnlyRazorFiles="true" />
+
+		<!-- Copy associated files (.razor.css, .razor.cs, .razor.js) maintaining directory structure -->
+		<ItemGroup>
+			<!-- Discover all associated files - use a simpler approach -->
+			<_BdtAllCssFiles Include="**\*.razor.css" Exclude="bin\**;obj\**" />
+			<_BdtAllCsFiles Include="**\*.razor.cs" Exclude="bin\**;obj\**" />
+			<_BdtAllJsFiles Include="**\*.razor.js" Exclude="bin\**;obj\**" />
+		</ItemGroup>
+
+		<Message Importance="High" Condition="@(_BdtAllCssFiles->Count()) > 0"
+				 Text="BlazorDeveloperTools: Found @(_BdtAllCssFiles->Count()) CSS files to copy" />
+
+		<!-- Copy files preserving full paths -->
+		<Copy SourceFiles="@(_BdtAllCssFiles)"
+			  DestinationFiles="@(_BdtAllCssFiles->'$(_BdtRoot)%(RecursiveDir)%(Filename)%(Extension)')"
+			  SkipUnchangedFiles="false"
+			  Condition="@(_BdtAllCssFiles->Count()) > 0" />
+
+		<Copy SourceFiles="@(_BdtAllCsFiles)"
+			  DestinationFiles="@(_BdtAllCsFiles->'$(_BdtRoot)%(RecursiveDir)%(Filename)%(Extension)')"
+			  SkipUnchangedFiles="false"
+			  Condition="@(_BdtAllCsFiles->Count()) > 0" />
+
+		<Copy SourceFiles="@(_BdtAllJsFiles)"
+			  DestinationFiles="@(_BdtAllJsFiles->'$(_BdtRoot)%(RecursiveDir)%(Filename)%(Extension)')"
+			  SkipUnchangedFiles="false"
+			  Condition="@(_BdtAllJsFiles->Count()) > 0" />
 
 		<!-- Replace RazorComponent items -->
 		<ItemGroup>

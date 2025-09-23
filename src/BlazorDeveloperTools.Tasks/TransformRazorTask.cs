@@ -188,12 +188,10 @@ namespace BlazorDeveloperTools.Tasks
         {
             string fileAttr = string.IsNullOrEmpty(relPath) ? "" : $@" data-blazordevtools-file=""{relPath.Replace("\\", "/")}""";
 
-            // Simplified version without preprocessor directives
-            // The marker span is hidden but the H1 should be visible for testing
+            // Hidden marker for the browser extension to detect
             return $@"
 @* Injected by BlazorDeveloperTools (Dev-only) *@
 <span data-blazordevtools-marker=""1"" data-blazordevtools-component=""@GetType().Name""{fileAttr} style=""display:none!important""></span>
-<div style=""background:red;color:white;padding:10px;margin:5px 0"">🔧 BlazorDevTools Active - Component: @GetType().Name</div>
 ";
         }
 
