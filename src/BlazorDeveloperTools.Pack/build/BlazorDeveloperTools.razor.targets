@@ -1,21 +1,25 @@
 <Project>
-	<!-- Load our task -->
+	<!-- Load the task from the package -->
 	<UsingTask TaskName="BlazorDeveloperTools.Tasks.TransformRazorTask"
 			   AssemblyFile="$(MSBuildThisFileDirectory)..\tools\BlazorDeveloperTools.Tasks.dll" />
 
 	<PropertyGroup>
 		<_BdtRoot>$(IntermediateOutputPath)blazordevtools\</_BdtRoot>
 		<BdtVerbose Condition="'$(BdtVerbose)'==''">false</BdtVerbose>
+
+		<!-- Options -->
+		<BdtSkipRootComponents Condition="'$(BdtSkipRootComponents)'==''">true</BdtSkipRootComponents>
+		<BdtSkipUnderscoreFiles Condition="'$(BdtSkipUnderscoreFiles)'==''">true</BdtSkipUnderscoreFiles>
+		<BdtPassThroughGlob Condition="'$(BdtPassThroughGlob)'==''"></BdtPassThroughGlob>
 	</PropertyGroup>
 
-	<!-- Run AFTER Razor normalizes items, BEFORE compile inputs are frozen -->
+	<!-- Hook: after Razor normalizes items, before it freezes compile inputs -->
 	<Target Name="BlazorDeveloperTools_ComponentSwap"
-			AfterTargets="AssignRazorComponentTargetPaths;PrepareForRazorCompile"
-			BeforeTargets="ResolveRazorCompileInputs;CoreCompile"
+			AfterTargets="AssignRazorComponentTargetPaths"
+			BeforeTargets="ResolveRazorCompileInputs"
 			Condition="'$(Configuration)'=='Debug' and '$(EnableAutomaticMarkers)'=='true'">
 
-		<!-- 0) Start clean + capture normalized components -->
-		<RemoveDir Directories="$(_BdtRoot)" />
+		<!-- Capture normalized items -->
 		<ItemGroup>
 			<_OrigComp Include="@(RazorComponentWithTargetPath)" />
 		</ItemGroup>
@@ -24,7 +28,52 @@
 		<Message Importance="Low" Condition="'$(BdtVerbose)'=='true'"
 				 Text="BDT: Inputs = @(_OrigComp, ' | ')" />
 
-		<!-- 1) Build our shadow copies -->
+		<!-- Normalize per-item metadata without touching reserved names -->
+		<ItemGroup>
+			<_Norm Include="@(_OrigComp)">
+				<!-- Prefer TargetPath; fall back to Identity -->
+				<BdtRelOrTarget>%(TargetPath)</BdtRelOrTarget>
+				<BdtRelOrTarget Condition="'%(BdtRelOrTarget)'==''">%(Identity)</BdtRelOrTarget>
+
+				<!-- Non-reserved clones for convenience -->
+				<BdtBaseName>%(Filename)</BdtBaseName>
+				<BdtExt>%(Extension)</BdtExt>
+				<BdtFull>%(FullPath)</BdtFull>
+				<BdtTP>%(TargetPath)</BdtTP>
+			</_Norm>
+		</ItemGroup>
+
+		<!-- Build pass-through set -->
+		<ItemGroup Condition="'$(BdtSkipRootComponents)'=='true'">
+			<!-- Skip the two root components by comparing against BdtRelOrTarget -->
+			<_PassThrough Include="@(_Norm)"
+						  Condition="$([System.String]::Copy('%(BdtRelOrTarget)').Equals('Components\App.razor', System.StringComparison.OrdinalIgnoreCase)) OR
+                               $([System.String]::Copy('%(BdtRelOrTarget)').Equals('Components\Routes.razor', System.StringComparison.OrdinalIgnoreCase))" />
+		</ItemGroup>
+
+		<ItemGroup Condition="'$(BdtSkipUnderscoreFiles)'=='true'">
+			<_PassThrough Include="@(_Norm)"
+						  Condition="$([System.String]::Copy('%(BdtBaseName)').StartsWith('_'))" />
+		</ItemGroup>
+
+		<!-- Optional user skip globs, relative to project dir -->
+		<ItemGroup Condition="'$(BdtPassThroughGlob)'!=''">
+			<_UserSkip Include="$(MSBuildProjectDirectory)\$(BdtPassThroughGlob)" />
+			<_PassThrough Include="@(_Norm)"
+						  Condition="'@(_UserSkip->'%(FullPath)')' != '' AND
+                               $([System.String]::Copy('%(BdtFull)').StartsWith('@(_UserSkip->'%(FullPath)')'))" />
+		</ItemGroup>
+
+		<!-- To-inject = all minus pass-through -->
+		<ItemGroup>
+			<_ToInject Include="@(_Norm)" Exclude="@(_PassThrough)" />
+		</ItemGroup>
+
+		<Message Importance="High"
+				 Text="BDT: split inject=@(_ToInject->Count()) passthrough=@(_PassThrough->Count())" />
+
+		<!-- Build shadows for all inputs (inject + pass-through) -->
+		<RemoveDir Directories="$(_BdtRoot)" />
 		<BlazorDeveloperTools.Tasks.TransformRazorTask
 			Sources="@(_OrigComp)"
 			IntermediateRoot="$(_BdtRoot)"
@@ -32,45 +81,43 @@
 			SkipUnderscoreFiles="false"
 			OnlyRazorFiles="true" />
 
-		<!-- 2) Build the list of SHADOW files we want Roslyn SG to read -->
+		<!-- Map what we’ll feed to the Razor SG -->
 		<ItemGroup>
-			<!-- For each RazorComponentWithTargetPath item, create a corresponding shadow path under $(_BdtRoot)%(TargetPath).
-           We only set TargetPath metadata (the only required bit for the SG). -->
-			<_BdtAF Include="@(RazorComponentWithTargetPath->'$(_BdtRoot)%(TargetPath)')"
-					Condition="'%(RazorComponentWithTargetPath.TargetPath)'!='' and Exists('$(_BdtRoot)%(TargetPath)')">
-				<!-- IMPORTANT: outside a transform, reference metadata QUALIFIED by the source list name -->
-				<TargetPath>%(RazorComponentWithTargetPath.TargetPath)</TargetPath>
-			</_BdtAF>
+			<!-- Injected files -> shadow path -->
+			<_ShadowMap Include="@(_ToInject->'$(_BdtRoot)%(BdtTP)')"
+						Condition="'%(BdtTP)'!='' and Exists('$(_BdtRoot)%(BdtTP)')">
+				<TargetPath>%(BdtTP)</TargetPath>
+			</_ShadowMap>
+
+			<!-- Pass-through files -> original path (no shadow) -->
+			<_ShadowMap Include="@(_PassThrough->'%(BdtFull)')"
+						Condition="'%(BdtTP)'!='' and Exists('%(BdtFull)')">
+				<TargetPath>%(BdtTP)</TargetPath>
+			</_ShadowMap>
 		</ItemGroup>
 
-		<!-- 3) Clear SDK-provided Razor AdditionalFiles (if any) and add ours -->
+		<Message Importance="High" Text="BDT: shadows found=@(_ShadowMap->Count())"/>
+
+		<!-- Replace Razor AdditionalFiles with our map -->
 		<ItemGroup>
 			<AdditionalFiles Remove="@(AdditionalFiles)" Condition="'%(AdditionalFiles.Kind)'=='RazorComponent'" />
 		</ItemGroup>
 
 		<ItemGroup>
-			<!-- Feed the SG our shadow files. Only set Kind + TargetPath. No RelativePath, no checksums. -->
-			<AdditionalFiles Include="@(_BdtAF)"
+			<!-- In a transform, use UNQUALIFIED metadata -->
+			<AdditionalFiles Include="@(_ShadowMap->'%(Identity)')"
 							 Condition="Exists('%(Identity)')">
 				<Kind>RazorComponent</Kind>
-				<TargetPath>%(_BdtAF.TargetPath)</TargetPath>
+				<TargetPath>%(TargetPath)</TargetPath>
 			</AdditionalFiles>
 		</ItemGroup>
 
-		<!-- 4) Diagnostics -->
+		<!-- Diagnostics -->
 		<ItemGroup>
-			<_ShadowFiles Include="$(_BdtRoot)**\*.razor" />
 			<_BdtRazorAF Include="@(AdditionalFiles)" Condition="'%(AdditionalFiles.Kind)'=='RazorComponent'"/>
 		</ItemGroup>
-
 		<Message Importance="High"
-				 Text="BDT: shadows found=@(_ShadowFiles->Count())  fed_to_SG=@(_BdtRazorAF->Count())" />
-		<Message Importance="Low" Condition="'$(BdtVerbose)'=='true'"
-				 Text="BDT: SHADOWS = @(_ShadowFiles, ' | ')" />
-		<Message Importance="Low" Condition="'$(BdtVerbose)'=='true'"
-				 Text="BDT: FINAL AdditionalFiles = @(_BdtRazorAF->'%(Identity) [TP=%(TargetPath)]', ' | ')" />
-		<Message Importance="Low" Condition="'$(BdtVerbose)'=='true'"
-				 Text="BDT: RazorComponentWithTargetPath = @(RazorComponentWithTargetPath, ' | ')" />
+				 Text="BDT: FEED = @(_BdtRazorAF->'%(Identity) [TP=%(TargetPath)]', ' | ')" />
 	</Target>
 
 	<!-- Optional ping -->

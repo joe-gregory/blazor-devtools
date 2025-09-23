@@ -1,5 +1,5 @@
 <Project>
-	<!-- Import our after-targets file after the Razor SDK -->
+	<!-- Ensure our after-targets import runs after Razor SDK -->
 	<PropertyGroup>
 		<CustomAfterRazorSdkTargets Condition="'$(CustomAfterRazorSdkTargets)'!=''">
 			$(CustomAfterRazorSdkTargets);$(MSBuildThisFileDirectory)BlazorDeveloperTools.razor.targets
@@ -7,5 +7,21 @@
 		<CustomAfterRazorSdkTargets Condition="'$(CustomAfterRazorSdkTargets)'==''">
 			$(MSBuildThisFileDirectory)BlazorDeveloperTools.razor.targets
 		</CustomAfterRazorSdkTargets>
+	</PropertyGroup>
+
+	<!-- Package defaults (overridable per-project) -->
+	<PropertyGroup>
+		<!-- Skip App.razor & Routes.razor by default -->
+		<BdtSkipRootComponents Condition="'$(BdtSkipRootComponents)'==''">true</BdtSkipRootComponents>
+
+		<!-- Skip files that start with "_" (e.g., _Imports.razor) -->
+		<BdtSkipUnderscoreFiles Condition="'$(BdtSkipUnderscoreFiles)'==''">true</BdtSkipUnderscoreFiles>
+
+		<!-- Verbose logging off by default -->
+		<BdtVerbose Condition="'$(BdtVerbose)'==''">false</BdtVerbose>
+
+		<!-- Optional: semicolon-separated globs to pass-through (no injection) -->
+		<!-- Example: Components\Layout\**;Components\Pages\Weather.razor -->
+		<BdtPassThroughGlob Condition="'$(BdtPassThroughGlob)'==''"></BdtPassThroughGlob>
 	</PropertyGroup>
 </Project>
