@@ -21,24 +21,29 @@ namespace BlazorDeveloperTools.Tasks
         /// </summary>
         [Required]
         public ITaskItem[] Sources { get; set; } = Array.Empty<ITaskItem>();
+
         /// <summary>
         /// The root folder (under obj/...) where shadow copies are written, e.g. "obj/Debug/net8.0/bdt".
         /// </summary>
         [Required]
         public string IntermediateRoot { get; set; } = string.Empty;
+
         /// <summary>
         /// The project directory used to compute relative paths for Sources.
         /// </summary>
         [Required]
         public string ProjectDirectory { get; set; } = string.Empty;
+
         /// <summary>
         /// When true, skip files whose name starts with '_' (e.g., _Imports.razor).
         /// </summary>
         public bool SkipUnderscoreFiles { get; set; } = true;
+
         /// <summary>
         /// Optional: only transform files ending in ".razor" (defensive).
         /// </summary>
         public bool OnlyRazorFiles { get; set; } = true;
+
         public override bool Execute()
         {
             if (Sources == null || Sources.Length == 0)
@@ -57,7 +62,6 @@ namespace BlazorDeveloperTools.Tasks
                     continue;
 
                 string fileName = System.IO.Path.GetFileName(src);
-                bool isUnderscore = fileName.StartsWith("_", StringComparison.Ordinal);
                 bool isRazor = src.EndsWith(".razor", StringComparison.OrdinalIgnoreCase);
 
                 // shadow path from original relative path
@@ -70,8 +74,15 @@ namespace BlazorDeveloperTools.Tasks
                     Encoding readEncoding;
                     string original = System.IO.File.ReadAllText(src, DetectEncoding(src, out readEncoding));
 
+                    // Check for idempotency
+                    if (IsAlreadyInjected(original))
+                    {
+                        Log.LogMessage(MessageImportance.Low, $"BlazorDevTools: Skipping already-injected file '{src}'");
+                        continue;
+                    }
+
                     string toWrite;
-                    if (isRazor && !isUnderscore)
+                    if (isRazor && ShouldInjectMarker(fileName, original))
                     {
                         // inject our marker AFTER the leading directive block
                         int insertAt = FindDirectiveBlockEndIndex(original);
@@ -81,14 +92,16 @@ namespace BlazorDeveloperTools.Tasks
                     }
                     else
                     {
-                        // pass-through for underscore files and non-razor sources (if any were included)
+                        // pass-through for files we shouldn't modify
                         toWrite = original;
                         copiedCount++;
                     }
 
                     // ensure directory and write (overwrite if exists)
                     string dir = System.IO.Path.GetDirectoryName(dst);
-                    if (!System.IO.Directory.Exists(dir)) System.IO.Directory.CreateDirectory(dir);
+                    if (!System.IO.Directory.Exists(dir))
+                        System.IO.Directory.CreateDirectory(dir);
+
                     System.IO.File.WriteAllText(dst, toWrite, readEncoding ?? new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
                 }
                 catch (System.Exception ex)
@@ -104,6 +117,32 @@ namespace BlazorDeveloperTools.Tasks
 
             return true;
         }
+
+        private static bool ShouldInjectMarker(string fileName, string content)
+        {
+            // Skip files that start with underscore (_Imports.razor, _Layout.razor, etc.)
+            if (fileName.StartsWith("_", StringComparison.Ordinal))
+                return false;
+
+            // Skip App.razor (contains HTML document structure)
+            if (fileName.Equals("App.razor", StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            // Skip Routes.razor (router configuration)  
+            if (fileName.Equals("Routes.razor", StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            // Skip files that contain <!DOCTYPE html> (document root files)
+            if (content.IndexOf("<!DOCTYPE", StringComparison.OrdinalIgnoreCase) >= 0)
+                return false;
+
+            // Skip files that contain <Router> component (router configuration files)
+            if (content.IndexOf("<Router", StringComparison.OrdinalIgnoreCase) >= 0)
+                return false;
+
+            return true;
+        }
+
         private static string GetRelativePath(string root, string fullPath)
         {
             string rootNorm = System.IO.Path.GetFullPath(root).TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar) + System.IO.Path.DirectorySeparatorChar;
@@ -113,6 +152,7 @@ namespace BlazorDeveloperTools.Tasks
             // Fall back to file name if not under project (unlikely)
             return System.IO.Path.GetFileName(fullPath);
         }
+
         private static Encoding DetectEncoding(string path, out Encoding detected)
         {
             byte[] bom = new byte[4];
@@ -130,6 +170,7 @@ namespace BlazorDeveloperTools.Tasks
             detected = new UTF8Encoding(false);
             return detected;
         }
+
         private static bool IsAlreadyInjected(string text)
         {
             // Cheap idempotency check
@@ -137,27 +178,25 @@ namespace BlazorDeveloperTools.Tasks
                 return true;
 
             // Or check for the comment header
-            if (text.StartsWith("@* Injected by BlazorDeveloperTools", System.StringComparison.Ordinal))
+            if (text.Contains("@* Injected by BlazorDeveloperTools"))
                 return true;
 
             return false;
         }
+
         private static string BuildInjectedSnippet(string relPath)
         {
             string fileAttr = string.IsNullOrEmpty(relPath) ? "" : $@" data-blazordevtools-file=""{relPath.Replace("\\", "/")}""";
-            const string header = @"@* Injected by BlazorDeveloperTools (Dev-only) *@";
-            //return
-            //    $@"{header}
-            //    #if DEBUG
-            //    <span data-blazordevtools-marker=""1"" data-blazordevtools-component=""@GetType().Name""{fileAttr} style=""display:none!important""></span>
-            //    #endif
-            //    ";
-            return
-                $@"{header}
-                <span data-blazordevtools-marker=""1"" data-blazordevtools-component=""@GetType().Name""{fileAttr} style=""display:none!important""></span>
-                <h1>I AM ALIVE!!!!</h1>
-                ";
+
+            // Simplified version without preprocessor directives
+            // The marker span is hidden but the H1 should be visible for testing
+            return $@"
+@* Injected by BlazorDeveloperTools (Dev-only) *@
+<span data-blazordevtools-marker=""1"" data-blazordevtools-component=""@GetType().Name""{fileAttr} style=""display:none!important""></span>
+<div style=""background:red;color:white;padding:10px;margin:5px 0"">🔧 BlazorDevTools Active - Component: @GetType().Name</div>
+";
         }
+
         private static int FindDirectiveBlockEndIndex(string text)
         {
             int idx = 0, len = text.Length;
@@ -166,13 +205,30 @@ namespace BlazorDeveloperTools.Tasks
                 int lineStart = idx;
                 int lineEnd = text.IndexOf('\n', idx);
                 if (lineEnd < 0) lineEnd = len;
-                string trimmed = text.Substring(lineStart, lineEnd - lineStart).TrimStart();
 
-                if (trimmed.Length == 0) { idx = (lineEnd < len) ? lineEnd + 1 : len; continue; }
-                if (trimmed.StartsWith("@", StringComparison.Ordinal)) { idx = (lineEnd < len) ? lineEnd + 1 : len; continue; }
+                // Get the line (including newline if present)
+                string line = text.Substring(lineStart, lineEnd - lineStart);
+                string trimmed = line.TrimStart();
 
-                return lineStart; // first non-directive line
+                // Move to next line position
+                idx = (lineEnd < len) ? lineEnd + 1 : len;
+
+                // Skip empty lines
+                if (trimmed.Length == 0)
+                    continue;
+
+                // Skip directive lines (starts with @)
+                if (trimmed.StartsWith("@", StringComparison.Ordinal))
+                    continue;
+
+                // Skip comments
+                if (trimmed.StartsWith("@*", StringComparison.Ordinal))
+                    continue;
+
+                // Found first non-directive line, insert before it
+                return lineStart;
             }
+            // If we got here, file is all directives or empty
             return len;
         }
     }

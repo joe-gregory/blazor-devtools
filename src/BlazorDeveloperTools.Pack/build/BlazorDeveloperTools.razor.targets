@@ -1,81 +1,81 @@
 <Project>
-	<!-- Load our task -->
+	<!-- Load our custom MSBuild task -->
 	<UsingTask TaskName="BlazorDeveloperTools.Tasks.TransformRazorTask"
 			   AssemblyFile="$(MSBuildThisFileDirectory)..\tools\BlazorDeveloperTools.Tasks.dll" />
 
 	<PropertyGroup>
+		<!-- Shadow directory where transformed files are placed -->
 		<_BdtRoot>$(IntermediateOutputPath)blazordevtools\</_BdtRoot>
+		<!-- Enable verbose logging for debugging (set to true for diagnostics) -->
 		<BdtVerbose Condition="'$(BdtVerbose)'==''">false</BdtVerbose>
 	</PropertyGroup>
 
-	<!-- Run AFTER Razor normalizes items, BEFORE compile inputs are frozen -->
-	<Target Name="BlazorDeveloperTools_ComponentSwap"
-			AfterTargets="AssignRazorComponentTargetPaths;PrepareForRazorCompile"
-			BeforeTargets="ResolveRazorCompileInputs;CoreCompile"
-			Condition="'$(Configuration)'=='Debug' and '$(EnableAutomaticMarkers)'=='true'">
+	<!-- Main transformation target - runs early in the build process -->
+	<Target Name="BlazorDeveloperTools_TransformFiles"
+			BeforeTargets="AssignRazorComponentTargetPaths"
+			Condition="'$(Configuration)'=='Debug' and '$(EnableAutomaticMarkers)'!='false'">
 
-		<!-- 0) Start clean + capture normalized components -->
+		<!-- Clean the shadow directory to ensure fresh copies -->
 		<RemoveDir Directories="$(_BdtRoot)" />
+		<MakeDir Directories="$(_BdtRoot)" />
+
+		<!-- Save original RazorComponent items -->
 		<ItemGroup>
-			<_OrigComp Include="@(RazorComponentWithTargetPath)" />
+			<_BdtOriginalRazor Include="@(RazorComponent)" />
 		</ItemGroup>
 
-		<Message Importance="High" Text="BDT: ComponentSwap running - inputs=@(_OrigComp->Count())"/>
-		<Message Importance="Low" Condition="'$(BdtVerbose)'=='true'"
-				 Text="BDT: Inputs = @(_OrigComp, ' | ')" />
+		<Message Importance="High" Text="BlazorDeveloperTools: Processing @(_BdtOriginalRazor->Count()) Razor files" />
 
-		<!-- 1) Build our shadow copies -->
+		<!-- Run our transformation task to create shadow copies with injected markers -->
 		<BlazorDeveloperTools.Tasks.TransformRazorTask
-			Sources="@(_OrigComp)"
+			Sources="@(_BdtOriginalRazor)"
 			IntermediateRoot="$(_BdtRoot)"
 			ProjectDirectory="$(MSBuildProjectDirectory)"
-			SkipUnderscoreFiles="false"
+			SkipUnderscoreFiles="true"
 			OnlyRazorFiles="true" />
 
-		<!-- 2) Build the list of SHADOW files we want Roslyn SG to read -->
+		<!-- Clear original RazorComponent items -->
 		<ItemGroup>
-			<!-- For each RazorComponentWithTargetPath item, create a corresponding shadow path under $(_BdtRoot)%(TargetPath).
-           We only set TargetPath metadata (the only required bit for the SG). -->
-			<_BdtAF Include="@(RazorComponentWithTargetPath->'$(_BdtRoot)%(TargetPath)')"
-					Condition="'%(RazorComponentWithTargetPath.TargetPath)'!='' and Exists('$(_BdtRoot)%(TargetPath)')">
-				<!-- IMPORTANT: outside a transform, reference metadata QUALIFIED by the source list name -->
-				<TargetPath>%(RazorComponentWithTargetPath.TargetPath)</TargetPath>
-			</_BdtAF>
+			<RazorComponent Remove="@(RazorComponent)" />
 		</ItemGroup>
 
-		<!-- 3) Clear SDK-provided Razor AdditionalFiles (if any) and add ours -->
+		<!-- Re-discover the shadow files with proper metadata -->
 		<ItemGroup>
-			<AdditionalFiles Remove="@(AdditionalFiles)" Condition="'%(AdditionalFiles.Kind)'=='RazorComponent'" />
+			<RazorComponent Include="$(_BdtRoot)**\*.razor" />
 		</ItemGroup>
 
-		<ItemGroup>
-			<!-- Feed the SG our shadow files. Only set Kind + TargetPath. No RelativePath, no checksums. -->
-			<AdditionalFiles Include="@(_BdtAF)"
-							 Condition="Exists('%(Identity)')">
-				<Kind>RazorComponent</Kind>
-				<TargetPath>%(_BdtAF.TargetPath)</TargetPath>
-			</AdditionalFiles>
-		</ItemGroup>
+		<Message Importance="High" Text="BlazorDeveloperTools: Transformation complete" />
 
-		<!-- 4) Diagnostics -->
-		<ItemGroup>
-			<_ShadowFiles Include="$(_BdtRoot)**\*.razor" />
-			<_BdtRazorAF Include="@(AdditionalFiles)" Condition="'%(AdditionalFiles.Kind)'=='RazorComponent'"/>
-		</ItemGroup>
-
-		<Message Importance="High"
-				 Text="BDT: shadows found=@(_ShadowFiles->Count())  fed_to_SG=@(_BdtRazorAF->Count())" />
-		<Message Importance="Low" Condition="'$(BdtVerbose)'=='true'"
-				 Text="BDT: SHADOWS = @(_ShadowFiles, ' | ')" />
-		<Message Importance="Low" Condition="'$(BdtVerbose)'=='true'"
-				 Text="BDT: FINAL AdditionalFiles = @(_BdtRazorAF->'%(Identity) [TP=%(TargetPath)]', ' | ')" />
-		<Message Importance="Low" Condition="'$(BdtVerbose)'=='true'"
-				 Text="BDT: RazorComponentWithTargetPath = @(RazorComponentWithTargetPath, ' | ')" />
+		<!-- Verbose diagnostics if enabled -->
+		<Message Importance="High" Condition="'$(BdtVerbose)'=='true'"
+				 Text="Shadow file: %(RazorComponent.Identity)" />
 	</Target>
 
-	<!-- Optional ping -->
-	<Target Name="BDT_Ping" BeforeTargets="CoreCompile" Condition="'$(BdtVerbose)'=='true'">
-		<Message Importance="High"
-				 Text="BDT after-hook imported. UseRazorSourceGenerator=$(UseRazorSourceGenerator) Config=$(Configuration)" />
+	<!-- Optional: Diagnostic output to verify the process -->
+	<Target Name="BlazorDeveloperTools_Diagnostics"
+			AfterTargets="ResolveRazorCompileInputs"
+			BeforeTargets="CoreCompile"
+			Condition="'$(Configuration)'=='Debug' and '$(EnableAutomaticMarkers)'!='false' and '$(BdtVerbose)'=='true'">
+
+		<Message Importance="High" Text="===== BlazorDeveloperTools Diagnostics =====" />
+
+		<!-- Check how many AdditionalFiles were created for Razor -->
+		<ItemGroup>
+			<_BdtRazorAF Include="@(AdditionalFiles)" Condition="'%(AdditionalFiles.Kind)'=='RazorComponent'" />
+		</ItemGroup>
+
+		<Message Importance="High" Text="Razor AdditionalFiles count: @(_BdtRazorAF->Count())" />
+		<Message Importance="High" Text="UseRazorSourceGenerator: $(UseRazorSourceGenerator)" />
+
+		<!-- List shadow files that were created -->
+		<ItemGroup>
+			<_BdtShadowFiles Include="$(_BdtRoot)**\*.razor" />
+		</ItemGroup>
+
+		<Message Importance="High" Text="Shadow files created: @(_BdtShadowFiles->Count())" />
+
+		<!-- Debug: Show what each shadow file's path looks like -->
+		<Message Importance="High" Condition="'$(BdtVerbose)'=='true'"
+				 Text="Shadow exists: %(_BdtShadowFiles.Identity)" />
 	</Target>
 </Project>
