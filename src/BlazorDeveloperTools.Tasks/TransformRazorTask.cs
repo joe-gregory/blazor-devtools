@@ -7,8 +7,9 @@ using System.Text.RegularExpressions;
 namespace BlazorDeveloperTools.Tasks
 {
     /// <summary>
-    /// Creates shadow copies of Razor component files under obj/.../bdt/, prepending
-    /// a tiny dev-only marker snippet at the top, and preserving directory structure.
+    /// Creates shadow copies of Razor component files under obj/.../bdt/, inserting
+    /// dev-only marker snippets at both the beginning and end of the component,
+    /// preserving directory structure.
     /// The build then points Razor to compile these copies instead of the originals.
     /// 
     /// Why: .NET 8/9 use a Razor Source Generator (in-memory). Editing *.razor.g.cs on disk
@@ -59,51 +60,56 @@ namespace BlazorDeveloperTools.Tasks
                 string fileName = System.IO.Path.GetFileName(src);
                 bool isRazor = src.EndsWith(".razor", StringComparison.OrdinalIgnoreCase);
 
-                // shadow path from original relative path
+                // shadow path from originalContentOfFile relative path
                 string rel = GetRelativePath(ProjectDirectory, src);
                 string dst = System.IO.Path.Combine(IntermediateRoot, rel);
 
                 try
                 {
-                    // read original source (never read prior shadow)
+                    // read originalContentOfFile source (never read prior shadow)
                     Encoding readEncoding;
-                    string original = System.IO.File.ReadAllText(src, DetectEncoding(src, out readEncoding));
+                    string originalContentOfFile = System.IO.File.ReadAllText(src, DetectEncoding(src, out readEncoding));
 
                     // Check for idempotency
-                    if (IsAlreadyInjected(original))
+                    if (IsAlreadyInjected(originalContentOfFile))
                     {
                         Log.LogMessage(MessageImportance.Low, $"BlazorDevTools: Skipping already-injected file '{src}'");
                         continue;
                     }
 
                     string toWrite;
-                    if (isRazor && ShouldInjectMarker(fileName, original))
+                    if (isRazor && ShouldInjectMarker(fileName, originalContentOfFile))
                     {
-                        // inject our marker at the END of the file instead of after directives
-                        string snippet = BuildInjectedSnippet(rel.Replace('\\', '/'));
-                        int insertIndex = FindDirectiveBlockEndIndex(original);
+                        // Generate a unique ID for this component to link start and end markers
+                        string componentId = GenerateComponentId(rel);
 
-                        // Append at the very end of the file
-                        //toWrite = original + Environment.NewLine + snippet;
+                        // Build opening and closing markers
+                        string openingSnippet = BuildOpeningMarker(filesRelativePath: rel.Replace('\\', '/'), componentId: componentId);
+                        string closingSnippet = BuildClosingMarker(componentId: componentId);
 
-                        // Insert snipper after directives but before content
-                        // Insert the snippet after directives but before content
-                        if (insertIndex >= original.Length)
+                        // Find where to insert the opening marker (after directives)
+                        int insertIndex = FindDirectiveBlockEndIndex(originalContentOfFile);
+
+                        // Insert opening marker at the beginning and closing marker at the end
+                        if (insertIndex >= originalContentOfFile.Length)
                         {
-                            // File is all directives or empty, append at end
-                            toWrite = original + Environment.NewLine + snippet;
+                            // File is all directives or empty
+                            toWrite = originalContentOfFile + Environment.NewLine + openingSnippet + Environment.NewLine + closingSnippet;
                         }
                         else
                         {
-                            // Insert after directives, at the beginning of content
-                            toWrite = original.Substring(0, insertIndex) + snippet + Environment.NewLine + original.Substring(insertIndex);
+                            // Insert opening after directives, closing at the very end
+                            toWrite = originalContentOfFile.Substring(0, insertIndex)
+                                    + openingSnippet + Environment.NewLine
+                                    + originalContentOfFile.Substring(insertIndex)
+                                    + Environment.NewLine + closingSnippet;
                         }
                         injectedCount++;
                     }
                     else
                     {
                         // pass-through for files we shouldn't modify
-                        toWrite = original;
+                        toWrite = originalContentOfFile;
                         copiedCount++;
                     }
 
@@ -193,16 +199,34 @@ namespace BlazorDeveloperTools.Tasks
 
             return false;
         }
-
-        private static string BuildInjectedSnippet(string relPath)
+        /// <summary>
+        /// Generates a stable, unique ID based on the file path. 
+        /// How does it generate the unique ID? It hashes the file path. 
+        /// How is the ComponentId unique? Because file paths are unique within a project.
+        /// How is the ComponentId stable? Because the hash is based on the file path, which doesn't change unless the file is moved or renamed.
+        /// </summary>
+        /// <param name="relativeFilePath"></param>
+        /// <returns></returns>
+        private static string GenerateComponentId(string relativeFilePath)
         {
-            string fileAttr = string.IsNullOrEmpty(relPath) ? "" : $@" data-blazordevtools-file=""{relPath.Replace("\\", "/")}""";
+            int hash = relativeFilePath.GetHashCode();
+            return $"bdt{Math.Abs(hash):x8}";
+        }
 
-            // Hidden marker for the browser extension to detect
-            return $@"
-@* Injected by BlazorDeveloperTools (Dev-only) *@
-<span data-blazordevtools-marker=""1"" data-blazordevtools-component=""@GetType().Name""{fileAttr} style=""display:none!important""></span>
-";
+        private static string BuildOpeningMarker(string filesRelativePath, string componentId)
+        {
+            string fileAttr = string.IsNullOrEmpty(filesRelativePath) ? "" : $@" data-blazordevtools-file=""{filesRelativePath}""";
+
+            // Opening marker for the browser extension to detect
+            return $@"@* Injected by BlazorDeveloperTools (Dev-only) - Start *@
+                <span data-blazordevtools-marker=""start"" data-blazordevtools-id=""{componentId}"" data-blazordevtools-component=""@GetType().Name""{fileAttr} style=""display:none!important""></span>";
+        }
+
+        private static string BuildClosingMarker(string componentId)
+        {
+            // Closing marker that matches the opening marker's ID
+            return $@"<span data-blazordevtools-marker=""end"" data-blazordevtools-id=""{componentId}"" style=""display:none!important""></span>
+@* Injected by BlazorDeveloperTools (Dev-only) - End *@";
         }
 
         private static int FindDirectiveBlockEndIndex(string text)
@@ -221,7 +245,7 @@ namespace BlazorDeveloperTools.Tasks
                 // Move to next line position
                 idx = (lineEnd < len) ? lineEnd + 1 : len;
 
-                // Skip empty lines
+                // Skip empty lines at the beginning
                 if (trimmed.Length == 0)
                     continue;
 
