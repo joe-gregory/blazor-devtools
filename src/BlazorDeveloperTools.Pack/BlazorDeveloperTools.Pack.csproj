@@ -20,7 +20,7 @@
 
 		<!-- Public package identity -->
 		<PackageId>BlazorDeveloperTools</PackageId>
-		<Version>0.5.39</Version>
+		<Version>0.5.45</Version>
 		<Authors>Joseph E. Gregory</Authors>
 		<Description>Automatic debug markers for Blazor components via MSBuild post-processing of Razor-generated files. Used by the Blazor Developer Tools browser extension.</Description>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>

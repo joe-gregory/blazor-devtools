@@ -8,7 +8,7 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="BlazorDeveloperTools" Version="0.5.39" PrivateAssets="all" />
+		<PackageReference Include="BlazorDeveloperTools" Version="0.5.45" PrivateAssets="all" />
 	</ItemGroup>
 	
 	<PropertyGroup>

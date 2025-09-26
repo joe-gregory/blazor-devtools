@@ -218,15 +218,15 @@ namespace BlazorDeveloperTools.Tasks
             string fileAttr = string.IsNullOrEmpty(filesRelativePath) ? "" : $@" data-blazordevtools-file=""{filesRelativePath}""";
 
             // Opening marker for the browser extension to detect
-            return $@"@* Injected by BlazorDeveloperTools (Dev-only) - Start *@
-                <span data-blazordevtools-marker=""start"" data-blazordevtools-id=""{componentId}"" data-blazordevtools-component=""@GetType().Name""{fileAttr} style=""display:none!important""></span>";
+            return $@"@* Injected by BlazorDeveloperTools (Dev-only) - Open *@
+                <span data-blazordevtools-marker=""open"" data-blazordevtools-id=""{componentId}"" data-blazordevtools-component=""@GetType().Name""{fileAttr} style=""display:none!important""></span>";
         }
 
         private static string BuildClosingMarker(string componentId)
         {
             // Closing marker that matches the opening marker's ID
-            return $@"<span data-blazordevtools-marker=""end"" data-blazordevtools-id=""{componentId}"" style=""display:none!important""></span>
-@* Injected by BlazorDeveloperTools (Dev-only) - End *@";
+            return $@"<span data-blazordevtools-marker=""close"" data-blazordevtools-id=""{componentId}"" style=""display:none!important""></span>
+@* Injected by BlazorDeveloperTools (Dev-only) - Close *@";
         }
 
         private static int FindDirectiveBlockEndIndex(string text)
