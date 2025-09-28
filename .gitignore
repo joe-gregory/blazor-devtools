@@ -23,7 +23,28 @@
 # Logs
 *.log
 
-# Browser extension outputs
-/browser-extension/**/node_modules/
-/browser-extension/**/dist/
-/browser-extension/**/.cache/
+# Node/Extension stuff
+src/browser-extensions/node_modules/
+src/browser-extensions/chromium/dist/
+src/browser-extensions/firefox/dist/
+src/browser-extensions/shared/dist/
+*.vsix
+.vscode/
+
+# Keep TypeScript source files
+!src/browser-extensions/**/*.ts
+!src/browser-extensions/**/*.json
+
+# Browser extension
+src/browser-extensions/node_modules/
+src/browser-extensions/package-lock.json
+src/browser-extensions/chromium/dist/
+src/browser-extensions/firefox/dist/
+src/browser-extensions/.vscode/
+*.map
+
+# Keep source files
+!src/browser-extensions/**/*.ts
+!src/browser-extensions/**/*.html
+!src/browser-extensions/**/*.css
+!src/browser-extensions/**/*.json

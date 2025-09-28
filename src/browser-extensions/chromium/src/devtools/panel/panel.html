@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Blazor DevTools Panel</title>
+  <link rel="stylesheet" href="panel.css">
+</head>
+<body>
+  <div class="panel-container">
+    <div class="tree-panel">
+      <div class="panel-header">
+        <h2>Components</h2>
+        <button id="refresh-btn" title="Refresh component tree">↻</button>
+      </div>
+      <div id="components-tree"></div>
+    </div>
+    <div class="details-panel">
+      <div class="panel-header">
+        <h2>Details</h2>
+      </div>
+      <div id="component-details">
+        <div class="no-selection">Select a component to see details</div>
+      </div>
+    </div>
+  </div>
+  <script src="panel.js"></script>
+</body>
+</html>
