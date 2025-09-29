@@ -13,9 +13,10 @@
 	</PropertyGroup>
 
 	<!-- Main transformation target that runs VERY EARLY -->
+	<!-- Main transformation target that runs VERY EARLY -->
 	<Target Name="BlazorDeveloperTools_Transform"
 			BeforeTargets="_CheckForInvalidConfigurationAndPlatform;BeforeBuild;ResolveReferences"
-			Condition="'$(Configuration)'=='Debug' and '$(EnableAutomaticMarkers)'!='false' and '$(_BdtTransformed)'!='true'">
+			Condition="('$(Configuration)'=='Debug' or '$(EnableBlazorDevToolsInProduction)'=='true') and '$(EnableAutomaticMarkers)'!='false' and '$(_BdtTransformed)'!='true'">
 
 		<PropertyGroup>
 			<_BdtTransformed>true</_BdtTransformed>
@@ -90,7 +91,7 @@
 	<Target Name="BlazorDeveloperTools_DeduplicateCss"
 			BeforeTargets="_DiscoverDefaultScopedCssItems"
 			AfterTargets="BlazorDeveloperTools_Transform"
-			Condition="'$(Configuration)'=='Debug' and '$(EnableAutomaticMarkers)'!='false'">
+		Condition="('$(Configuration)'=='Debug' or '$(EnableBlazorDevToolsInProduction)'=='true') and '$(EnableAutomaticMarkers)'!='false'">
 
 		<!-- Remove duplicates from None items -->
 		<RemoveDuplicates Inputs="@(None)">
@@ -109,7 +110,7 @@
 	<Target Name="BlazorDeveloperTools_FixComponentPaths"
 			AfterTargets="AssignRazorComponentTargetPaths"
 			BeforeTargets="PrepareForRazorCompile"
-			Condition="'$(Configuration)'=='Debug' and '$(EnableAutomaticMarkers)'!='false'">
+		Condition="('$(Configuration)'=='Debug' or '$(EnableBlazorDevToolsInProduction)'=='true') and '$(EnableAutomaticMarkers)'!='false'">
 
 		<!-- Fix the TargetPath to remove shadow directory prefix -->
 		<ItemGroup>
@@ -126,7 +127,7 @@
 	<!-- Diagnostic output -->
 	<Target Name="BlazorDeveloperTools_Diagnostics"
 			AfterTargets="PrepareForRazorCompile;ComputeCssScope"
-			Condition="'$(Configuration)'=='Debug' and '$(EnableAutomaticMarkers)'!='false' and '$(BdtVerbose)'=='true'">
+		Condition="('$(Configuration)'=='Debug' or '$(EnableBlazorDevToolsInProduction)'=='true') and '$(EnableAutomaticMarkers)'!='false' and '$(BdtVerbose)'=='true'">
 
 		<Message Importance="High" Text="===== BlazorDeveloperTools Diagnostics =====" />
 
@@ -159,7 +160,7 @@
 	<!-- Verify output -->
 	<Target Name="BlazorDeveloperTools_VerifyOutput"
 			AfterTargets="_GenerateScopedCssFiles;CoreCompile"
-			Condition="'$(Configuration)'=='Debug' and '$(EnableAutomaticMarkers)'!='false'">
+		Condition="('$(Configuration)'=='Debug' or '$(EnableBlazorDevToolsInProduction)'=='true') and '$(EnableAutomaticMarkers)'!='false'">
 
 		<ItemGroup>
 			<_GeneratedCss Include="$(IntermediateOutputPath)scopedcss\**\*.css" />
