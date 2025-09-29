@@ -20,11 +20,11 @@
 
 		<!-- Public package identity -->
 		<PackageId>BlazorDeveloperTools</PackageId>
-		<Version>0.5.45</Version>
+		<Version>0.9.0</Version>
 		<Authors>Joseph E. Gregory</Authors>
 		<Description>Automatic debug markers for Blazor components via MSBuild post-processing of Razor-generated files. Used by the Blazor Developer Tools browser extension.</Description>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
-		<RepositoryUrl>https://github.com/yourname/blazor-developer-tools</RepositoryUrl>
+		<RepositoryUrl>https://github.com/joe-gregory/blazor-devtools</RepositoryUrl>
 		<PackageTags>blazor;devtools;msbuild;razor;debug</PackageTags>
 
 		<!-- Build-only package controls -->
