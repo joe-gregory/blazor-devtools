@@ -1,7 +1,9 @@
 ﻿# Blazor Developer Tools
 
-Developer tools for debugging Blazor applications, providing component inspection similar to React DevTools.
+Ever wished you could right-click on a Blazor app and see the actual Razor markup instead of just HTML? Or click on any element and instantly know which .razor component it belongs to?
 
+That's exactly what Blazor Developer Tools does. It adds a "Blazor" tab to Chrome/Edge DevTools that shows your component tree - just like React DevTools, but for Blazor.
+![Blazor DevTools in action](docs/images/BlazorDevToolsInAction.png)
 [![NuGet](https://img.shields.io/nuget/v/BlazorDeveloperTools.svg)](https://www.nuget.org/packages/BlazorDeveloperTools/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
@@ -111,9 +113,9 @@ Licensed under the Apache License 2.0. See [LICENSE](LICENSE) for details.
 
 ## Support
 
-- 🐛 [Report issues](#)
+- 🐛 [Report issues](https://github.com/joe-gregory/blazor-devtools/issues)
 - 💬 [Discussions](#)
-- 📧 Contact: [your-email@example.com]
+- 📧 Contact: [blazordevelopertools@gmail.com]
 
 ---
 
