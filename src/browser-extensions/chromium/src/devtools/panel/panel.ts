@@ -109,24 +109,24 @@ class ComponentTreeBuilder {
 }
 
 // Display components in tree format
+// Update the displayComponentTree function
 function displayComponentTree(container: HTMLElement, components: BlazorComponent[], level: number = 0) {
   components.forEach(component => {
+    // Opening tag
     const div = document.createElement('div');
     div.className = 'component-item';
     div.style.paddingLeft = `${level * 20}px`;
     
     const hasChildren = component.children && component.children.length > 0;
     
-    // Create the component display
     const componentHtml = hasChildren 
       ? `<span class="component-tag">&lt;<span class="component-name">${component.name}</span>&gt;</span>`
       : `<span class="component-tag">&lt;<span class="component-name">${component.name}</span> /&gt;</span>`;
     
     div.innerHTML = componentHtml;
-    div.setAttribute('title', component.file); // Show file path on hover
+    div.setAttribute('title', component.file);
     div.setAttribute('data-component-id', component.id);
     
-    // Add click handler for selection
     div.addEventListener('click', (e) => {
       e.stopPropagation();
       selectComponent(component);
@@ -138,11 +138,20 @@ function displayComponentTree(container: HTMLElement, components: BlazorComponen
     if (hasChildren) {
       displayComponentTree(container, component.children, level + 1);
       
-      // Add closing tag
+      // Closing tag - now also clickable
       const closingDiv = document.createElement('div');
-      closingDiv.className = 'component-item';
+      closingDiv.className = 'component-item closing-tag';
       closingDiv.style.paddingLeft = `${level * 20}px`;
       closingDiv.innerHTML = `<span class="component-tag">&lt;/<span class="component-name">${component.name}</span>&gt;</span>`;
+      closingDiv.setAttribute('title', component.file);  // Same tooltip
+      closingDiv.setAttribute('data-component-id', component.id);  // Same ID
+      
+      // Make closing tag clickable too
+      closingDiv.addEventListener('click', (e) => {
+        e.stopPropagation();
+        selectComponent(component);  // Selects the same component
+      });
+      
       container.appendChild(closingDiv);
     }
   });
@@ -306,3 +315,367 @@ document.addEventListener('DOMContentLoaded', () => {
 chrome.devtools.network.onNavigated.addListener(() => {
   loadComponents();
 });
+
+// Add element picker functionality
+let isPickerActive = false;
+
+function enableElementPicker() {
+  // Inject picker script into the page
+  chrome.devtools.inspectedWindow.eval(`
+    (function() {
+      // Remove any existing picker
+      if (window.__blazorDevToolsPicker) {
+        window.__blazorDevToolsPicker.disable();
+      }
+      
+      window.__blazorDevToolsPicker = {
+        overlay: null,
+        
+        handleMouseMove: function(e) {
+          const elem = e.target;
+          
+          // Find which Blazor component this element belongs to
+          let current = elem;
+          let componentId = null;
+          let componentName = null;
+          
+          // Walk up the DOM to find the nearest component marker
+          while (current && current !== document.body) {
+            const prevSibling = current.previousSibling;
+            if (prevSibling && prevSibling.nodeType === 1) {
+              const marker = prevSibling.getAttribute ? prevSibling.getAttribute('data-blazordevtools-marker') : null;
+              if (marker === 'open') {
+                componentId = prevSibling.getAttribute('data-blazordevtools-id');
+                componentName = prevSibling.getAttribute('data-blazordevtools-component');
+                break;
+              }
+            }
+            
+            // Check all previous siblings
+            let sibling = current;
+            while (sibling) {
+              sibling = sibling.previousSibling;
+              if (sibling && sibling.nodeType === 1 && sibling.getAttribute) {
+                const marker = sibling.getAttribute('data-blazordevtools-marker');
+                if (marker === 'open') {
+                  // Check if we're still within this component
+                  const id = sibling.getAttribute('data-blazordevtools-id');
+                  const closeMarker = document.querySelector('[data-blazordevtools-marker="close"][data-blazordevtools-id="' + id + '"]');
+                  if (closeMarker) {
+                    let check = current;
+                    let isWithin = false;
+                    while (check && check !== closeMarker) {
+                      check = check.nextSibling;
+                      if (check === closeMarker) {
+                        isWithin = true;
+                        break;
+                      }
+                    }
+                    if (isWithin || current === sibling.nextSibling) {
+                      componentId = id;
+                      componentName = sibling.getAttribute('data-blazordevtools-component');
+                      break;
+                    }
+                  }
+                }
+              }
+            }
+            
+            if (componentId) break;
+            current = current.parentElement;
+          }
+          
+          // Highlight the element
+          if (this.overlay) {
+            const rect = elem.getBoundingClientRect();
+            this.overlay.style.left = rect.left + 'px';
+            this.overlay.style.top = rect.top + 'px';
+            this.overlay.style.width = rect.width + 'px';
+            this.overlay.style.height = rect.height + 'px';
+            
+            if (componentName) {
+              this.overlay.setAttribute('data-component', componentName);
+            }
+          }
+        },
+        
+        handleClick: function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          
+          // Find component and send to DevTools
+          let current = e.target;
+          let componentId = null;
+          
+          while (current && current !== document.body) {
+            // Same logic as mousemove to find component
+            // ... (simplified for brevity)
+            
+            current = current.parentElement;
+          }
+          
+          if (componentId) {
+            // Send message to DevTools panel
+            console.log('Selected component:', componentId);
+          }
+          
+          this.disable();
+        },
+        
+        enable: function() {
+          // Create overlay
+          this.overlay = document.createElement('div');
+          this.overlay.style.position = 'fixed';
+          this.overlay.style.pointerEvents = 'none';
+          this.overlay.style.zIndex = '999999';
+          this.overlay.style.border = '2px solid #5e2ca5';
+          this.overlay.style.backgroundColor = 'rgba(94, 44, 165, 0.1)';
+          document.body.appendChild(this.overlay);
+          
+          // Add listeners
+          document.addEventListener('mousemove', this.handleMouseMove.bind(this));
+          document.addEventListener('click', this.handleClick.bind(this));
+          
+          // Change cursor
+          document.body.style.cursor = 'crosshair';
+        },
+        
+        disable: function() {
+          if (this.overlay) {
+            this.overlay.remove();
+            this.overlay = null;
+          }
+          document.removeEventListener('mousemove', this.handleMouseMove);
+          document.removeEventListener('click', this.handleClick);
+          document.body.style.cursor = '';
+        }
+      };
+      
+      window.__blazorDevToolsPicker.enable();
+    })()
+  `);
+}
+
+function disableElementPicker() {
+  chrome.devtools.inspectedWindow.eval(`
+    if (window.__blazorDevToolsPicker) {
+      window.__blazorDevToolsPicker.disable();
+      delete window.__blazorDevToolsPicker;
+    }
+  `);
+}
+
+// Add this to panel.ts - complete element picker implementation
+
+function setupElementPicker() {
+  const pickerBtn = document.getElementById('picker-btn');
+  if (pickerBtn) {
+    pickerBtn.addEventListener('click', toggleElementPicker);
+  }
+}
+
+function toggleElementPicker() {
+  const pickerBtn = document.getElementById('picker-btn');
+  const isActive = pickerBtn?.classList.contains('active');
+  
+  if (!isActive) {
+    pickerBtn?.classList.add('active');
+    startElementPicker();
+  } else {
+    pickerBtn?.classList.remove('active');
+    stopElementPicker();
+  }
+}
+
+function startElementPicker() {
+  // Inject the picker script into the inspected page
+  chrome.devtools.inspectedWindow.eval(`
+    (function() {
+      if (window.__blazorPicker) {
+        window.__blazorPicker.stop();
+      }
+      
+      let overlay = document.createElement('div');
+      overlay.id = 'blazor-picker-overlay';
+      overlay.style.cssText = 'position:fixed;pointer-events:none;z-index:999999;border:2px solid #5e2ca5;background:rgba(94,44,165,0.1);transition:all 0.1s;';
+      document.body.appendChild(overlay);
+      
+      let label = document.createElement('div');
+      label.id = 'blazor-picker-label';
+      label.style.cssText = 'position:fixed;pointer-events:none;z-index:999999;background:#5e2ca5;color:white;padding:2px 6px;font-size:11px;border-radius:3px;';
+      document.body.appendChild(label);
+      
+      function findComponentForElement(element) {
+  // Find ALL components that contain this element
+  const components = [];
+  
+  // Get all open markers
+  const openMarkers = document.querySelectorAll('[data-blazordevtools-marker="open"]');
+  
+  openMarkers.forEach(marker => {
+    const componentId = marker.getAttribute('data-blazordevtools-id');
+    const componentName = marker.getAttribute('data-blazordevtools-component');
+    const closeMarker = document.querySelector('[data-blazordevtools-marker="close"][data-blazordevtools-id="' + componentId + '"]');
+    
+    if (closeMarker) {
+      // Check if element is actually between the markers
+      let current = marker.nextSibling;
+      let found = false;
+      
+      while (current && current !== closeMarker) {
+        if (current === element || (current.nodeType === 1 && current.contains && current.contains(element))) {
+          found = true;
+          break;
+        }
+        current = current.nextSibling;
+      }
+      
+      if (found) {
+        // Calculate the depth by counting parent markers
+        let depth = 0;
+        let parent = marker.parentElement;
+        while (parent) {
+          const prevMarkers = parent.querySelectorAll('[data-blazordevtools-marker="open"]');
+          depth += prevMarkers.length;
+          parent = parent.parentElement;
+        }
+        
+        components.push({
+          id: componentId,
+          name: componentName,
+          openMarker: marker,
+          closeMarker: closeMarker,
+          depth: depth
+        });
+      }
+    }
+  });
+  
+  // If no components found, return null
+  if (components.length === 0) return null;
+  
+  // If only one component, return it
+  if (components.length === 1) return components[0];
+  
+  // Return the component with the highest depth (most nested)
+  components.sort((a, b) => b.depth - a.depth);
+  return components[0];
+}
+      
+      function handleMouseMove(e) {
+        const component = findComponentForElement(e.target);
+        if (component) {
+          const rect = e.target.getBoundingClientRect();
+          overlay.style.left = rect.left + 'px';
+          overlay.style.top = rect.top + 'px';
+          overlay.style.width = rect.width + 'px';
+          overlay.style.height = rect.height + 'px';
+          overlay.style.display = 'block';
+          
+          label.textContent = component.name;
+          
+          // Position label near cursor
+          label.style.left = (e.clientX + 10) + 'px';
+          label.style.top = (e.clientY - 30) + 'px';
+          
+          // Keep label within viewport
+          const labelRect = label.getBoundingClientRect();
+          if (labelRect.right > window.innerWidth) {
+            label.style.left = (e.clientX - labelRect.width - 10) + 'px';
+          }
+          if (labelRect.top < 0) {
+            label.style.top = (e.clientY + 10) + 'px';
+          }
+          
+          label.style.display = 'block';
+        } else {
+          overlay.style.display = 'none';
+          label.style.display = 'none';
+        }
+      }
+      
+      function handleClick(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const component = findComponentForElement(e.target);
+        if (component) {
+          // Send the component ID back to the DevTools
+          window.__blazorPickerResult = component.id;
+        }
+        
+        window.__blazorPicker.stop();
+      }
+      
+      window.__blazorPicker = {
+        stop: function() {
+          document.removeEventListener('mousemove', handleMouseMove);
+          document.removeEventListener('click', handleClick, true);
+          document.body.style.cursor = '';
+          overlay.remove();
+          label.remove();
+          delete window.__blazorPicker;
+        }
+      };
+      
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('click', handleClick, true);
+      document.body.style.cursor = 'crosshair';
+    })()
+  `);
+  
+  // Poll for selection
+  const pollInterval = setInterval(() => {
+    chrome.devtools.inspectedWindow.eval(
+      'window.__blazorPickerResult',
+      (result: string) => {
+        if (result) {
+          // Clear the result
+          chrome.devtools.inspectedWindow.eval('delete window.__blazorPickerResult');
+          
+          // Stop the picker
+          stopElementPicker();
+          clearInterval(pollInterval);
+          
+          // Select the component in the tree
+          selectComponentById(result);
+        }
+      }
+    );
+  }, 100);
+  
+  // Stop polling after 30 seconds
+  setTimeout(() => clearInterval(pollInterval), 30000);
+}
+
+function stopElementPicker() {
+  const pickerBtn = document.getElementById('picker-btn');
+  pickerBtn?.classList.remove('active');
+  
+  chrome.devtools.inspectedWindow.eval(`
+    if (window.__blazorPicker) {
+      window.__blazorPicker.stop();
+    }
+  `);
+}
+
+function selectComponentById(componentId: string) {
+  // Find and click the component in the tree
+  const element = document.querySelector(`[data-component-id="${componentId}"]`) as HTMLElement;
+  if (element) {
+    element.click();
+    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+}
+
+// Add this to the DOMContentLoaded event listener
+document.addEventListener('DOMContentLoaded', () => {
+  loadComponents();
+  setupElementPicker();  // Add this line
+  
+  const refreshBtn = document.getElementById('refresh-btn');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', loadComponents);
+  }
+});
+

@@ -64,3 +64,38 @@ button {
 button:hover {
   background: #4a2383;
 }
+
+#refresh-btn {
+  background: transparent;
+  border: 1px solid #3c3c3c;
+  color: #cccccc;
+  padding: 2px 8px;
+  cursor: pointer;
+  border-radius: 3px;
+  font-size: 14px;
+  margin-left: 8px;  /* Add spacing from the title */
+}
+
+.header-buttons {
+  display: flex;
+  gap: 4px;
+}
+
+#picker-btn {
+  background: transparent;
+  border: 1px solid #3c3c3c;
+  color: #cccccc;
+  padding: 2px 8px;
+  cursor: pointer;
+  border-radius: 3px;
+  font-size: 14px;
+}
+
+#picker-btn:hover {
+  background: #3c3c3c;
+}
+
+#picker-btn.active {
+  background: #5e2ca5;
+  border-color: #5e2ca5;
+}
