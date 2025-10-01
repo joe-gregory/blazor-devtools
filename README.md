@@ -1,9 +1,12 @@
-﻿# Blazor Developer Tools
+﻿![](https://i.imgur.com/H4eojC5.png)
+# Blazor Developer Tools
 
 Ever wished you could right-click on a Blazor app and see the actual Razor markup instead of just HTML? Or click on any element and instantly know which .razor component it belongs to?
 
 That's exactly what Blazor Developer Tools does. It adds a "Blazor" tab to Chrome/Edge DevTools that shows your component tree - just like React DevTools, but for Blazor.
-![Blazor DevTools in action](docs/images/BlazorDevToolsInAction.png)
+
+![Blazor DevTools in action](https://i.imgur.com/4bB9GFT.png)
+
 [![NuGet](https://img.shields.io/nuget/v/BlazorDeveloperTools.svg)](https://www.nuget.org/packages/BlazorDeveloperTools/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
@@ -16,6 +19,8 @@ That's exactly what Blazor Developer Tools does. It adds a "Blazor" tab to Chrom
 - ⚡ **Debug & Production Modes** - Works in both Debug builds and (optionally) Release builds
 
 ## Installation
+
+You need to install 2 components: this NuGet package and a chrome/edge extension. 
 
 ### 1. Install the NuGet Package
 
