@@ -68,18 +68,6 @@ To enable component markers in Release/Production builds:
 2. **Runtime detection**: The browser extension detects these markers and builds a component tree
 3. **DevTools integration**: Displays the component hierarchy in a dedicated DevTools panel
 
-## Supported Platforms
-
-- ✅ Blazor Server
-- ✅ Blazor WebAssembly
-- ✅ .NET 6.0+
-- ✅ Chrome/Edge (Chromium-based browsers)
-
-## Known Issues
-
-- Element picker may incorrectly identify parent component for text nodes (fix coming in v1.0)
-- Firefox support coming soon
-
 ## Configuration Options
 
 Control the tool's behavior via MSBuild properties:
@@ -101,20 +89,11 @@ Control the tool's behavior via MSBuild properties:
 
 This project is open source! We welcome contributions.
 
-[GitHub Repository](#) *(coming soon)*
+[GitHub Repository](https://github.com/joe-gregory/blazor-devtools/)
 
 ## License
 
 Licensed under the Apache License 2.0. See [LICENSE](LICENSE) for details.
-
-## Roadmap
-
-- [ ] Firefox extension support
-- [ ] Component props inspection
-- [ ] Component state visualization
-- [ ] Performance profiling
-- [ ] Razor syntax highlighting in DevTools
-- [ ] Component search functionality
 
 ## Support
 
