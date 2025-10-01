@@ -48,3 +48,8 @@ src/browser-extensions/.vscode/
 !src/browser-extensions/**/*.html
 !src/browser-extensions/**/*.css
 !src/browser-extensions/**/*.json
+
+# Browser extension build artifacts
+*.zip
+src/browser-extensions/chromium/dist/
+src/browser-extensions/firefox/dist/
