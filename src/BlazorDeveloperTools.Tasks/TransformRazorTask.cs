@@ -67,8 +67,7 @@ namespace BlazorDeveloperTools.Tasks
                 try
                 {
                     // read originalContentOfFile source (never read prior shadow)
-                    Encoding readEncoding;
-                    string originalContentOfFile = System.IO.File.ReadAllText(src, DetectEncoding(src, out readEncoding));
+                    string originalContentOfFile = System.IO.File.ReadAllText(src, DetectEncoding(src, out Encoding readEncoding));
 
                     // Check for idempotency
                     if (IsAlreadyInjected(originalContentOfFile))
