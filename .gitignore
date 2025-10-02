@@ -53,3 +53,18 @@ src/browser-extensions/.vscode/
 *.zip
 src/browser-extensions/chromium/dist/
 src/browser-extensions/firefox/dist/
+
+# Build artifacts
+src/artifacts/
+artifacts/
+
+# NuGet packages
+*.nupkg
+*.snupkg
+
+# Other common build outputs
+*.dll
+*.exe
+*.pdb
+bin/
+obj/
