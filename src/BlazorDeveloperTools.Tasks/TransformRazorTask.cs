@@ -1,6 +1,7 @@
 ﻿using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
 using System;
+using System.Collections.Generic;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -8,11 +9,14 @@ namespace BlazorDeveloperTools.Tasks
 {
     /// <summary>
     /// Creates shadow copies of Razor component files under obj/.../bdt/, inserting
-    /// dev-only marker snippets at both the beginning and end of the component.
-    /// Properly handles idempotency by checking the shadow copy if it exists.
+    /// dev-only HTML comment markers at both the beginning and end of the component AND
+    /// around component usages within the markup.
+    /// Uses HTML comments throughout since they survive Blazor compilation to the browser.
     /// </summary>
     public sealed class TransformRazorTask : Task
     {
+        private const string VERSION = "0.9.12";
+
         [Required]
         public ITaskItem[] Sources { get; set; } = Array.Empty<ITaskItem>();
 
@@ -26,8 +30,15 @@ namespace BlazorDeveloperTools.Tasks
 
         public bool OnlyRazorFiles { get; set; } = true;
 
+        // Regex to match component tags (starts with uppercase or contains dots)
+        private static readonly Regex ComponentTagRegex = new Regex(
+            @"<(?<closing>/)?(?<name>[A-Z][A-Za-z0-9]*(?:\.[A-Za-z0-9]+)*)\b(?<attributes>[^>]*)(?<selfClosing>/)?>");
+
         public override bool Execute()
         {
+            Log.LogMessage(MessageImportance.High,
+                $"BlazorDevTools Task Version: {VERSION}");
+
             if (Sources == null || Sources.Length == 0)
             {
                 Log.LogMessage(MessageImportance.Low, "BlazorDevTools: TransformRazorTask skipped (no sources).");
@@ -37,6 +48,7 @@ namespace BlazorDeveloperTools.Tasks
             int injectedCount = 0;
             int copiedCount = 0;
             int skippedCount = 0;
+            int componentUsagesMarked = 0;
 
             foreach (ITaskItem item in Sources)
             {
@@ -85,32 +97,35 @@ namespace BlazorDeveloperTools.Tasks
                     string toWrite;
                     if (isRazor && ShouldInjectMarker(fileName, originalContentOfFile))
                     {
-                        // Generate a unique ID for this component
+                        // Generate a unique ID for this component file
                         string componentId = GenerateComponentId(rel);
 
                         // Get component name from file
                         string componentName = System.IO.Path.GetFileNameWithoutExtension(fileName);
 
-                        // Build opening and closing markers
-                        string openingSnippet = BuildOpeningMarker(
+                        // Process component usages within the content FIRST
+                        string processedContent = ProcessComponentUsages(originalContentOfFile, rel, ref componentUsagesMarked);
+
+                        // Build opening and closing markers for the file using HTML comments
+                        string openingSnippet = BuildFileOpeningMarker(
                             componentName: componentName,
                             filesRelativePath: rel.Replace('\\', '/'),
                             componentId: componentId);
-                        string closingSnippet = BuildClosingMarker(componentId: componentId);
+                        string closingSnippet = BuildFileClosingMarker(componentId: componentId);
 
                         // Find where to insert the opening marker (after directives)
-                        int insertIndex = FindDirectiveBlockEndIndex(originalContentOfFile);
+                        int insertIndex = FindDirectiveBlockEndIndex(processedContent);
 
-                        // Insert opening marker at the beginning and closing marker at the end
-                        if (insertIndex >= originalContentOfFile.Length)
+                        // Insert file-level markers
+                        if (insertIndex >= processedContent.Length)
                         {
-                            toWrite = originalContentOfFile + Environment.NewLine + openingSnippet + Environment.NewLine + closingSnippet;
+                            toWrite = processedContent + Environment.NewLine + openingSnippet + Environment.NewLine + closingSnippet;
                         }
                         else
                         {
-                            toWrite = originalContentOfFile.Substring(0, insertIndex)
+                            toWrite = processedContent.Substring(0, insertIndex)
                                     + openingSnippet + Environment.NewLine
-                                    + originalContentOfFile.Substring(insertIndex)
+                                    + processedContent.Substring(insertIndex)
                                     + Environment.NewLine + closingSnippet;
                         }
                         injectedCount++;
@@ -136,9 +151,151 @@ namespace BlazorDeveloperTools.Tasks
 
             Log.LogMessage(
                 MessageImportance.High,
-                $"BlazorDevTools: Transformed {injectedCount} file(s), skipped {skippedCount} already-processed, copied {copiedCount} others.");
+                $"BlazorDevTools: Transformed {injectedCount} file(s), skipped {skippedCount} already-processed, " +
+                $"copied {copiedCount} others. Component usages marked: {componentUsagesMarked}");
 
             return true;
+        }
+
+        /// <summary>
+        /// Processes the content to add HTML comment markers around component usages
+        /// </summary>
+        private string ProcessComponentUsages(string content, string relativeFilePath, ref int usageCount)
+        {
+            var result = new StringBuilder();
+            int lastIndex = 0;
+
+            // Track open components to handle proper nesting
+            var openComponents = new Stack<(string name, string id)>();
+
+            foreach (Match match in ComponentTagRegex.Matches(content))
+            {
+                // Append content before this match
+                result.Append(content.Substring(lastIndex, match.Index - lastIndex));
+
+                string componentName = match.Groups["name"].Value;
+                bool isClosing = match.Groups["closing"].Success;
+                bool isSelfClosing = match.Groups["selfClosing"].Success;
+
+                // Check if this looks like a component (not HTML tag)
+                if (IsComponent(componentName))
+                {
+                    if (isSelfClosing)
+                    {
+                        // Self-closing component
+                        string componentId = $"bdt_usage_{componentName}_{usageCount++:x4}";
+
+                        // HTML comment before
+                        result.Append(BuildComponentUsageMarker(componentName, componentId, "open"));
+                        result.Append(match.Value);
+                        // HTML comment after
+                        result.Append(BuildComponentUsageMarker(componentName, componentId, "close"));
+                    }
+                    else if (!isClosing)
+                    {
+                        // Opening tag
+                        string componentId = $"bdt_usage_{componentName}_{usageCount++:x4}";
+                        openComponents.Push((componentName, componentId));
+
+                        // HTML comment before the opening tag
+                        result.Append(BuildComponentUsageMarker(componentName, componentId, "open"));
+                        result.Append(match.Value);
+                    }
+                    else
+                    {
+                        // Closing tag
+                        result.Append(match.Value);
+
+                        // Try to match with the most recent open component
+                        if (openComponents.Count > 0)
+                        {
+                            var tempStack = new Stack<(string name, string id)>();
+                            bool found = false;
+
+                            while (openComponents.Count > 0)
+                            {
+                                var component = openComponents.Pop();
+                                if (component.name == componentName && !found)
+                                {
+                                    // Found matching component - add closing marker
+                                    result.Append(BuildComponentUsageMarker(component.name, component.id, "close"));
+                                    found = true;
+                                    break;
+                                }
+                                else
+                                {
+                                    // Not matching - save for later
+                                    tempStack.Push(component);
+                                }
+                            }
+
+                            // Restore non-matching components back to the stack
+                            while (tempStack.Count > 0)
+                            {
+                                openComponents.Push(tempStack.Pop());
+                            }
+
+                            if (!found)
+                            {
+                                Log.LogWarning($"BlazorDevTools: Unmatched closing tag for '{componentName}' in file '{relativeFilePath}'");
+                            }
+                        }
+                        else
+                        {
+                            Log.LogWarning($"BlazorDevTools: Unexpected closing tag for '{componentName}' in file '{relativeFilePath}'");
+                        }
+                    }
+                }
+                else
+                {
+                    // Not a component, just append as-is
+                    result.Append(match.Value);
+                }
+
+                lastIndex = match.Index + match.Length;
+            }
+
+            // Append remaining content
+            result.Append(content.Substring(lastIndex));
+
+            // Close any remaining open components (malformed markup)
+            while (openComponents.Count > 0)
+            {
+                var (name, id) = openComponents.Pop();
+                result.Append(BuildComponentUsageMarker(name, id, "close"));
+                Log.LogWarning($"BlazorDevTools: Unclosed component '{name}' in file '{relativeFilePath}'");
+            }
+
+            return result.ToString();
+        }
+
+        /// <summary>
+        /// Determines if a tag name represents a component (not an HTML element)
+        /// </summary>
+        private static bool IsComponent(string tagName)
+        {
+            // Components start with uppercase or contain dots (namespaced)
+            if (string.IsNullOrEmpty(tagName))
+                return false;
+
+            // Check if starts with uppercase
+            if (char.IsUpper(tagName[0]))
+                return true;
+
+            // Check if contains dots (namespaced component)
+            if (tagName.Contains("."))
+                return true;
+
+            return false;
+        }
+
+        /// <summary>
+        /// Builds an HTML comment marker for component usage
+        /// These survive compilation and appear in the browser DOM
+        /// </summary>
+        private static string BuildComponentUsageMarker(string componentName, string componentId, string markerType)
+        {
+            return $"<!--blazor-dev-tools:usage:{markerType}:{componentId}:{componentName}-->";
         }
 
         private static bool ShouldInjectMarker(string fileName, string content)
@@ -193,17 +350,15 @@ namespace BlazorDeveloperTools.Tasks
 
         private static bool IsAlreadyInjected(string text)
         {
-            // Check for any of our markers
+            // Check for our HTML comment markers
+            if (text.Contains("<!--blazor-dev-tools:"))
+                return true;
+
+            // Legacy checks for span-based markers (in case of migration)
             if (text.Contains("data-blazordevtools-marker"))
                 return true;
 
             if (text.Contains("@* Injected by BlazorDeveloperTools"))
-                return true;
-
-            if (text.Contains("data-blazordevtools-usage"))
-                return true;
-
-            if (text.Contains("data-blazordevtools-id"))
                 return true;
 
             return false;
@@ -215,19 +370,15 @@ namespace BlazorDeveloperTools.Tasks
             return $"bdt{Math.Abs(hash):x8}";
         }
 
-        private static string BuildOpeningMarker(string componentName, string filesRelativePath, string componentId)
+        private static string BuildFileOpeningMarker(string componentName, string filesRelativePath, string componentId)
         {
-            string fileAttr = string.IsNullOrEmpty(filesRelativePath) ? "" : $@" data-blazordevtools-file=""{filesRelativePath}""";
-
-            // Using component name directly, not @GetType().Name
-            return $@"@* Injected by BlazorDeveloperTools (Dev-only) - Open *@
-<span data-blazordevtools-marker=""open"" data-blazordevtools-id=""{componentId}"" data-blazordevtools-component=""{componentName}""{fileAttr} style=""display:none!important""></span>";
+            // Using HTML comments for file-level markers too
+            return $@"<!--blazor-dev-tools:file:open:{componentId}:{componentName}:{filesRelativePath}-->";
         }
 
-        private static string BuildClosingMarker(string componentId)
+        private static string BuildFileClosingMarker(string componentId)
         {
-            return $@"<span data-blazordevtools-marker=""close"" data-blazordevtools-id=""{componentId}"" style=""display:none!important""></span>
-@* Injected by BlazorDeveloperTools (Dev-only) - Close *@";
+            return $@"<!--blazor-dev-tools:file:close:{componentId}-->";
         }
 
         private static int FindDirectiveBlockEndIndex(string text)

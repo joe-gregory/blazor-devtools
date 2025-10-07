@@ -1,0 +1,21 @@
+﻿@page "/counter"
+
+<!--blazor-dev-tools:file:open:bdt1b7ae108:Counter:Components/Pages/Counter.razor-->
+<!--blazor-dev-tools:usage:open:bdt_usage_PageTitle_0004:PageTitle--><PageTitle>Counter</PageTitle><!--blazor-dev-tools:usage:close:bdt_usage_PageTitle_0004:PageTitle-->
+
+<h1>Counter</h1>
+
+<p role="status">Current count: @currentCount</p>
+
+<button class="btn btn-primary" @onclick="IncrementCount">Click me</button>
+
+@code {
+    private int currentCount = 0;
+
+    private void IncrementCount()
+    {
+        currentCount++;
+    }
+}
+
+<!--blazor-dev-tools:file:close:bdt1b7ae108-->

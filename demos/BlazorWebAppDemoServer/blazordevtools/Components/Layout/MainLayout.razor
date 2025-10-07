@@ -1,0 +1,26 @@
+﻿@inherits LayoutComponentBase
+
+<!--blazor-dev-tools:file:open:bdt0894d407:MainLayout:Components/Layout/MainLayout.razor-->
+<div class="page">
+    <div class="sidebar">
+        <!--blazor-dev-tools:usage:open:bdt_usage_NavMenu_0000:NavMenu--><NavMenu />
+    </div>
+
+    <main>
+        <div class="top-row px-4">
+            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+        </div>
+
+        <article class="content px-4">
+            @Body
+        </article>
+    </main>
+</div>
+
+<div id="blazor-error-ui">
+    An unhandled error has occurred.
+    <a href="" class="reload">Reload</a>
+    <a class="dismiss">🗙</a>
+</div>
+<!--blazor-dev-tools:usage:close:bdt_usage_NavMenu_0000:NavMenu-->
+<!--blazor-dev-tools:file:close:bdt0894d407-->

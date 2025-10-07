@@ -1,18 +1,15 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
-	<PropertyGroup>
-		<TargetFramework>net8.0</TargetFramework>
-		<Nullable>enable</Nullable>
-		<ImplicitUsings>enable</ImplicitUsings>
-		<EnableAutomaticMarkers>true</EnableAutomaticMarkers>
-		<EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
-	</PropertyGroup>
-
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+	
 	<!-- Import the targets file -->
 	<Import Project="..\..\src\BlazorDeveloperTools.Pack\build\BlazorDeveloperTools.razor.targets" />
 
 	<!-- Force the UsingTask to use our local DLL by redefining it -->
 	<UsingTask TaskName="BlazorDeveloperTools.Tasks.TransformRazorTask"
                AssemblyFile="..\..\src\BlazorDeveloperTools.Tasks\bin\Debug\netstandard2.0\BlazorDeveloperTools.Tasks.dll" />
-
 </Project>

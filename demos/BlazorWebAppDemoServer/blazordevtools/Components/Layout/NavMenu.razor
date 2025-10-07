@@ -1,0 +1,33 @@
+﻿<!--blazor-dev-tools:file:open:bdt17062634:NavMenu:Components/Layout/NavMenu.razor-->
+<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="">BlazorWebAppDemoServer</a>
+    </div>
+</div>
+
+<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+
+<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
+    <nav class="flex-column">
+        <div class="nav-item px-3">
+            <!--blazor-dev-tools:usage:open:bdt_usage_NavLink_0001:NavLink--><NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
+            </NavLink><!--blazor-dev-tools:usage:close:bdt_usage_NavLink_0001:NavLink-->
+        </div>
+
+        <div class="nav-item px-3">
+            <!--blazor-dev-tools:usage:open:bdt_usage_NavLink_0002:NavLink--><NavLink class="nav-link" href="counter">
+                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Counter
+            </NavLink><!--blazor-dev-tools:usage:close:bdt_usage_NavLink_0002:NavLink-->
+        </div>
+
+        <div class="nav-item px-3">
+            <!--blazor-dev-tools:usage:open:bdt_usage_NavLink_0003:NavLink--><NavLink class="nav-link" href="weather">
+                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
+            </NavLink><!--blazor-dev-tools:usage:close:bdt_usage_NavLink_0003:NavLink-->
+        </div>
+    </nav>
+</div>
+
+
+<!--blazor-dev-tools:file:close:bdt17062634-->

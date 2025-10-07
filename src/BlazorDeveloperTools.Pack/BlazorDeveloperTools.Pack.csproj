@@ -20,7 +20,7 @@
 
 		<!-- Public package identity -->
 		<PackageId>BlazorDeveloperTools</PackageId>
-		<Version>0.9.6</Version>
+		<Version>0.9.15</Version>
 		<Authors>Joseph E. Gregory</Authors>
 		<Description>Automatic debug markers for Blazor components via MSBuild post-processing of Razor-generated files. Used by the Blazor Developer Tools browser extension.</Description>
 		<PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
@@ -44,14 +44,15 @@
 
 	<!-- Copy task DLL/PDB produced by the Tasks project into this project's /tools -->
 	<Target Name="CopyTasksToPack" AfterTargets="Build">
-		<RemoveDir Directories="$(MSBuildProjectDirectory)\tools" />
+		<!-- Try to clean, but don't fail if we can't -->
+		<RemoveDir Directories="$(MSBuildProjectDirectory)\tools" ContinueOnError="true" />
 		<!-- ensures no stale DLL -->
 		<MakeDir Directories="$(MSBuildProjectDirectory)\tools" />
 		<ItemGroup>
 			<_TasksToPack Include="$(MSBuildProjectDirectory)\..\BlazorDeveloperTools.Tasks\bin\$(Configuration)\netstandard2.0\BlazorDeveloperTools.Tasks.dll" />
 			<_TasksToPack Include="$(MSBuildProjectDirectory)\..\BlazorDeveloperTools.Tasks\bin\$(Configuration)\netstandard2.0\BlazorDeveloperTools.Tasks.pdb" Condition="Exists('..\BlazorDeveloperTools.Tasks\bin\$(Configuration)\netstandard2.0\BlazorDeveloperTools.Tasks.pdb')" />
 		</ItemGroup>
-		<Copy SourceFiles="@(_TasksToPack)" DestinationFolder="$(MSBuildProjectDirectory)\tools" SkipUnchangedFiles="false" />
+		<Copy SourceFiles="@(_TasksToPack)" DestinationFolder="$(MSBuildProjectDirectory)\tools" SkipUnchangedFiles="false" OverwriteReadOnlyFiles="true" Retries="3" RetryDelayMilliseconds="1000" />
 	</Target>
 
 
@@ -76,13 +77,9 @@
 	<!-- pack the targets under build/, not buildTransitive -->
 	<ItemGroup>
 		<!-- pack PROPS into build/ -->
-		<None Include="build\BlazorDeveloperTools.props"
-			  Pack="true"
-			  PackagePath="build/BlazorDeveloperTools.props" />
+		<None Include="build\BlazorDeveloperTools.props" Pack="true" PackagePath="build/BlazorDeveloperTools.props" />
 		<!-- pack TARGETS into build/ -->
-		<None Include="build\BlazorDeveloperTools.razor.targets"
-			  Pack="true"
-			  PackagePath="build/BlazorDeveloperTools.razor.targets" />
+		<None Include="build\BlazorDeveloperTools.targets" Pack="true" PackagePath="build/BlazorDeveloperTools.targets" />
 	</ItemGroup>
 	<!-- Include README in the package -->
 	<ItemGroup>
