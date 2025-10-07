@@ -61,29 +61,32 @@ namespace BlazorDeveloperTools.Tasks
                 bool isRazor = src.EndsWith(".razor", StringComparison.OrdinalIgnoreCase);
 
                 // shadow path from originalContentOfFile relative path
-                string rel = GetRelativePath(ProjectDirectory, src);
-                string dst = System.IO.Path.Combine(IntermediateRoot, rel);
+                string relativePathOfOriginalFile = GetRelativePath(ProjectDirectory, src);
+                string locationOfShadowCopy = System.IO.Path.Combine(IntermediateRoot, relativePathOfOriginalFile);
 
                 try
                 {
+                    // Check if shadow copy already exists and has markers
+                    if (System.IO.File.Exists(locationOfShadowCopy))
+                    {
+                        string shadowContent = System.IO.File.ReadAllText(locationOfShadowCopy);
+                        if (IsAlreadyInjected(shadowContent))
+                        {
+                            Log.LogMessage(MessageImportance.Low, $"BlazorDevTools: Skipping already-injected shadow file for '{src}'");
+                            continue;
+                        }
+                    }
                     // read originalContentOfFile source (never read prior shadow)
                     string originalContentOfFile = System.IO.File.ReadAllText(src, DetectEncoding(src, out Encoding readEncoding));
-
-                    // Check for idempotency
-                    if (IsAlreadyInjected(originalContentOfFile))
-                    {
-                        Log.LogMessage(MessageImportance.Low, $"BlazorDevTools: Skipping already-injected file '{src}'");
-                        continue;
-                    }
 
                     string toWrite;
                     if (isRazor && ShouldInjectMarker(fileName, originalContentOfFile))
                     {
                         // Generate a unique ID for this component to link start and end markers
-                        string componentId = GenerateComponentId(rel);
+                        string componentId = GenerateComponentId(relativePathOfOriginalFile);
 
                         // Build opening and closing markers
-                        string openingSnippet = BuildOpeningMarker(filesRelativePath: rel.Replace('\\', '/'), componentId: componentId);
+                        string openingSnippet = BuildOpeningMarker(filesRelativePath: relativePathOfOriginalFile.Replace('\\', '/'), componentId: componentId);
                         string closingSnippet = BuildClosingMarker(componentId: componentId);
 
                         // Find where to insert the opening marker (after directives)
@@ -113,11 +116,11 @@ namespace BlazorDeveloperTools.Tasks
                     }
 
                     // ensure directory and write (overwrite if exists)
-                    string dir = System.IO.Path.GetDirectoryName(dst);
+                    string dir = System.IO.Path.GetDirectoryName(locationOfShadowCopy);
                     if (!System.IO.Directory.Exists(dir))
                         System.IO.Directory.CreateDirectory(dir);
 
-                    System.IO.File.WriteAllText(dst, toWrite, readEncoding ?? new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+                    System.IO.File.WriteAllText(locationOfShadowCopy, toWrite, readEncoding ?? new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
                 }
                 catch (System.Exception ex)
                 {
