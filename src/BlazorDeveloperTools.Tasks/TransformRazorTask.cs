@@ -1,7 +1,9 @@
 ﻿using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -92,21 +94,28 @@ namespace BlazorDeveloperTools.Tasks
 
                         // Find where to insert the opening marker (after directives)
                         int insertIndex = FindDirectiveBlockEndIndex(originalContentOfFile);
-
-                        // Insert opening marker at the beginning and closing marker at the end
+                        //////////////////////////////////////////////////////////////////////////////////////////
+                        string contentAfterDirectives;
+                        string directivesSection;
                         if (insertIndex >= originalContentOfFile.Length)
                         {
                             // File is all directives or empty
-                            toWrite = originalContentOfFile + Environment.NewLine + openingSnippet + Environment.NewLine + closingSnippet;
+                            directivesSection = originalContentOfFile;
+                            contentAfterDirectives = "";
                         }
                         else
                         {
-                            // Insert opening after directives, closing at the very end
-                            toWrite = originalContentOfFile.Substring(0, insertIndex)
-                                    + openingSnippet + Environment.NewLine
-                                    + originalContentOfFile.Substring(insertIndex)
-                                    + Environment.NewLine + closingSnippet;
+                            directivesSection = originalContentOfFile.Substring(0, insertIndex);
+                            contentAfterDirectives = originalContentOfFile.Substring(insertIndex);
                         }
+                        // Inject markers around nested components in the content
+                        string processedContent = InjectMarkersAroundComponents(contentAfterDirectives, relativePathOfOriginalFile);
+                        // Combine everything
+                        toWrite = directivesSection
+                                + openingSnippet + Environment.NewLine
+                                + processedContent
+                                + Environment.NewLine + closingSnippet;
+
                         injectedCount++;
                     }
                     else
@@ -218,7 +227,7 @@ namespace BlazorDeveloperTools.Tasks
             // Opening marker for the browser extension to detect
             string openingMarker = $@"<blazor-dev-tools-marker type=""open"" id=""{componentId}"" component=""@GetType().Name""{fileAttr}></blazor-dev-tools-marker>";
             return openingMarker;
-            
+
         }
         private static string BuildClosingMarker(string componentId)
         {
@@ -259,6 +268,72 @@ namespace BlazorDeveloperTools.Tasks
             }
             // If we got here, file is all directives or empty
             return len;
+        }
+        private string InjectMarkersAroundComponents(string content, string relativeFilePath)
+        {
+            var componentPattern = @"<([A-Z][A-Za-z0-9]*(?:\.[A-Z][A-Za-z0-9]*)*)(\s[^/>]*)?(/?>)";
+
+            content = Regex.Replace(content, componentPattern, match =>
+            {
+                var componentName = match.Groups[1].Value;
+                if (ShouldSkipComponent(componentName)) return match.Value;
+
+                var componentId = GenerateComponentId($"{relativeFilePath}#{componentName}#{match.Index}");
+
+                // Try injecting MarkupString comment
+                var marker = $@"@((MarkupString)""<!-- bdt-marker:{componentId}:{componentName} -->"")";
+
+                return marker + match.Value;
+            });
+
+            return content;
+        }
+        private int FindMatchingClosingTag(string content, int startIndex, string componentName)
+        {
+            var openingTag = $"<{componentName}";
+            var closingTag = $"</{componentName}>";
+
+            int depth = 1; // We've already found one opening tag
+            int currentIndex = startIndex;
+
+            while (currentIndex < content.Length && depth > 0)
+            {
+                // Look for next opening or closing tag of this component
+                var nextOpening = content.IndexOf(openingTag, currentIndex);
+                var nextClosing = content.IndexOf(closingTag, currentIndex);
+
+                if (nextClosing == -1) return -1; // No closing tag found
+
+                if (nextOpening != -1 && nextOpening < nextClosing)
+                {
+                    // Found another opening tag first
+                    depth++;
+                    currentIndex = nextOpening + openingTag.Length;
+                }
+                else
+                {
+                    // Found a closing tag
+                    depth--;
+                    if (depth == 0)
+                    {
+                        return nextClosing; // Found the matching closing tag
+                    }
+                    currentIndex = nextClosing + closingTag.Length;
+                }
+            }
+
+            return -1; // No matching closing tag found
+        }
+        private static bool ShouldSkipComponent(string componentName)
+        {
+            // Skip certain framework/routing components
+            var skipList = new[] {
+                "Router", "RouteView", "CascadingAuthenticationState",
+                "AuthorizeView", "NotAuthorized", "Authorized",
+                "PageTitle", "HeadContent", "HeadOutlet"
+            };
+
+            return skipList.Contains(componentName);
         }
     }
 }
