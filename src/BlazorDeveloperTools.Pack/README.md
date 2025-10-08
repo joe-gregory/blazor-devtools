@@ -133,10 +133,9 @@ These markers are:
 ### Components not showing in DevTools?
 
 1. **Check the browser extension is installed**: Look for the Blazor tab in DevTools
-2. **Verify package installation**: Ensure `AddBlazorDeveloperTools()` is called in your startup
-3. **Cleand and rebuild your Blazor project 
-4. **Development mode**: Confirm you're running in Debug configuration
-5. **Refresh DevTools**: Click the refresh button in the Blazor panel
+2. **Cleand and rebuild your Blazor project 
+3. **Development mode**: Confirm you're running in Debug configuration
+4. **Refresh DevTools**: Click the refresh button in the Blazor panel
 
 ### Performance considerations?
 
