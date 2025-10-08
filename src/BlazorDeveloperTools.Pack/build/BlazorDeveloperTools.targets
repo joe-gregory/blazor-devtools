@@ -10,6 +10,9 @@
 		<BdtVerbose Condition="'$(BdtVerbose)'==''">false</BdtVerbose>
 		<!-- Track if transform has been done -->
 		<_BdtTransformed>false</_BdtTransformed>
+		<!-- Components to skip when injecting nested markers (semicolon-separated) -->
+		<!-- Users can override this in their project file -->
+		<BdtSkipComponents Condition="'$(BdtSkipComponents)'==''">MudTimelineItem</BdtSkipComponents>
 	</PropertyGroup>
 
 	<!-- Main transformation target that runs VERY EARLY -->
@@ -39,7 +42,8 @@
 			IntermediateRoot="$(_BdtRoot)"
 			ProjectDirectory="$(MSBuildProjectDirectory)"
 			SkipUnderscoreFiles="true"
-			OnlyRazorFiles="true" />
+			OnlyRazorFiles="true" 
+			ComponentsToSkip="$(BdtSkipComponents)" />
 
 		<!-- Copy CSS isolation files -->
 		<ItemGroup>
