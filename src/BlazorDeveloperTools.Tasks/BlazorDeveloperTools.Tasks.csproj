@@ -7,7 +7,7 @@
 		<!-- OK with C# 8 -->
 		<ImplicitUsings>disable</ImplicitUsings>
 		<!-- avoid C# 10 global usings -->
-		<Version>0.9.10</Version>
+		<Version>0.9.7</Version>
 	</PropertyGroup>
 	<ItemGroup>
 		<PackageReference Include="Microsoft.Build.Framework" Version="17.10.4" PrivateAssets="all" />

@@ -20,7 +20,12 @@
 
 		<!-- Public package identity -->
 		<PackageId>BlazorDeveloperTools</PackageId>
-		<Version>0.9.10</Version>
+		<Version>0.9.7</Version>
+
+		<PackageReleaseNotes>
+			There is a new option to skip some inner components of a page that can be problematic with the added spans. For example, MudTimelineItem
+		</PackageReleaseNotes>
+		
 		<Authors>Joseph E. Gregory</Authors>
 		<Description>Automatic debug markers for Blazor components via MSBuild post-processing of Razor-generated files. Used by the Blazor Developer Tools browser extension.</Description>
 		<PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
