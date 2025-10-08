@@ -3,8 +3,8 @@
 	<!--
     Build-only NuGet package "BlazorDeveloperTools".
     Ships:
-      • build/BlazorDeveloperTools.targets  (auto-imported by NuGet)
-      • tools/BlazorDeveloperTools.Tasks.dll (MSBuild task assembly)
+      â€¢ build/BlazorDeveloperTools.targets  (auto-imported by NuGet)
+      â€¢ tools/BlazorDeveloperTools.Tasks.dll (MSBuild task assembly)
     Intentionally ships NO runtime lib/ binaries; placeholders silence analyzers.
   -->
 	<PropertyGroup>
@@ -20,7 +20,7 @@
 
 		<!-- Public package identity -->
 		<PackageId>BlazorDeveloperTools</PackageId>
-		<Version>0.9.7</Version>
+		<Version>0.9.8</Version>
 
 		<PackageReleaseNotes>
 			There is a new option to skip some inner components of a page that can be problematic with the added spans. For example, MudTimelineItem
