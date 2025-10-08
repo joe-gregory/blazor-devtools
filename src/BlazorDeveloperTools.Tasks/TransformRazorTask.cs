@@ -301,7 +301,7 @@ namespace BlazorDeveloperTools.Tasks
 
                 var componentId = GenerateComponentId($"{relativeFilePath}#{componentName}#{match.Index}");
 
-                var openMarker = $@"<span data-blazordevtools-marker=""open"" data-blazordevtools-id=""{componentId}"" data-blazordevtools-component=""{componentName}"" data-blazordevtools-nested=""true"" style=""display:none!important""></span>";
+                var openMarker = $@"<span data-blazordevtools-marker=""open"" data-blazordevtools-id=""{componentId}"" data-blazordevtools-component=""{componentName}"" data-blazordevtools-file=""{relativeFilePath}"" data-blazordevtools-nested=""true"" style=""display:none!important""></span>";
                 var closeMarker = $@"<span data-blazordevtools-marker=""close"" data-blazordevtools-id=""{componentId}"" style=""display:none!important""></span>";
 
                 // For self-closing, wrap the entire tag
