@@ -5,7 +5,7 @@
 		<BlazorDeveloperToolsImported>true</BlazorDeveloperToolsImported>
 
 		<!-- Hook into Razor SDK -->
-		<CustomAfterRazorSdkTargets>$(MSBuildThisFileDirectory)BlazorDeveloperTools.razor.targets</CustomAfterRazorSdkTargets>
+		<CustomAfterRazorSdkTargets>$(MSBuildThisFileDirectory)BlazorDeveloperTools.targets</CustomAfterRazorSdkTargets>
 
 		<!-- Ensure CSS isolation is enabled -->
 		<ScopedCssEnabled>true</ScopedCssEnabled>

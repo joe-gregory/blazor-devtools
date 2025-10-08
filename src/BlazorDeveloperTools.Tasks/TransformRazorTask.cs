@@ -1,6 +1,7 @@
 ﻿using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
 using System;
+using System.ComponentModel;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -135,7 +136,6 @@ namespace BlazorDeveloperTools.Tasks
 
             return true;
         }
-
         private static bool ShouldInjectMarker(string fileName, string content)
         {
             // Skip files that start with underscore (_Imports.razor, _Layout.razor, etc.)
@@ -160,7 +160,6 @@ namespace BlazorDeveloperTools.Tasks
 
             return true;
         }
-
         private static string GetRelativePath(string root, string fullPath)
         {
             string rootNorm = System.IO.Path.GetFullPath(root).TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar) + System.IO.Path.DirectorySeparatorChar;
@@ -170,7 +169,6 @@ namespace BlazorDeveloperTools.Tasks
             // Fall back to file name if not under project (unlikely)
             return System.IO.Path.GetFileName(fullPath);
         }
-
         private static Encoding DetectEncoding(string path, out Encoding detected)
         {
             byte[] bom = new byte[4];
@@ -188,11 +186,10 @@ namespace BlazorDeveloperTools.Tasks
             detected = new UTF8Encoding(false);
             return detected;
         }
-
         private static bool IsAlreadyInjected(string text)
         {
             // Cheap idempotency check
-            if (text.Contains("data-blazordevtools-marker"))
+            if (text.Contains("blazor-dev-tools-marker"))
                 return true;
 
             // Or check for the comment header
@@ -214,23 +211,21 @@ namespace BlazorDeveloperTools.Tasks
             int hash = relativeFilePath.GetHashCode();
             return $"bdt{Math.Abs(hash):x8}";
         }
-
         private static string BuildOpeningMarker(string filesRelativePath, string componentId)
         {
             string fileAttr = string.IsNullOrEmpty(filesRelativePath) ? "" : $@" data-blazordevtools-file=""{filesRelativePath}""";
 
             // Opening marker for the browser extension to detect
-            return $@"@* Injected by BlazorDeveloperTools (Dev-only) - Open *@
-                <span data-blazordevtools-marker=""open"" data-blazordevtools-id=""{componentId}"" data-blazordevtools-component=""@GetType().Name""{fileAttr} style=""display:none!important""></span>";
+            string openingMarker = $@"<blazor-dev-tools-marker type=""open"" id=""{componentId}"" component=""@GetType().Name""{fileAttr}></blazor-dev-tools-marker>";
+            return openingMarker;
+            
         }
-
         private static string BuildClosingMarker(string componentId)
         {
             // Closing marker that matches the opening marker's ID
-            return $@"<span data-blazordevtools-marker=""close"" data-blazordevtools-id=""{componentId}"" style=""display:none!important""></span>
-@* Injected by BlazorDeveloperTools (Dev-only) - Close *@";
+            string closingMarker = $"<blazor-dev-tools-marker type=\"close\" id=\"{componentId}\"></blazor-dev-tools-marker>";
+            return closingMarker;
         }
-
         private static int FindDirectiveBlockEndIndex(string text)
         {
             int idx = 0, len = text.Length;

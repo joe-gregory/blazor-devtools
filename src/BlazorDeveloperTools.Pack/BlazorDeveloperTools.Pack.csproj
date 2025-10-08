@@ -20,7 +20,7 @@
 
 		<!-- Public package identity -->
 		<PackageId>BlazorDeveloperTools</PackageId>
-		<Version>0.9.2</Version>
+		<Version>0.9.175</Version>
 		<Authors>Joseph E. Gregory</Authors>
 		<Description>Automatic debug markers for Blazor components via MSBuild post-processing of Razor-generated files. Used by the Blazor Developer Tools browser extension.</Description>
 		<PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
@@ -41,9 +41,16 @@
 	<ItemGroup>
 		<ProjectReference Include="..\BlazorDeveloperTools.Tasks\BlazorDeveloperTools.Tasks.csproj" ReferenceOutputAssembly="false" />
 	</ItemGroup>
-
+	
+	<Target Name="CleanTasksBeforeBuild" BeforeTargets="Build">
+		<RemoveDir Directories="$(MSBuildProjectDirectory)\tools" />
+		<Delete Files="$(MSBuildProjectDirectory)\..\BlazorDeveloperTools.Tasks\bin\$(Configuration)\netstandard2.0\BlazorDeveloperTools.Tasks.dll" />
+	</Target>
+	
 	<!-- Copy task DLL/PDB produced by the Tasks project into this project's /tools -->
 	<Target Name="CopyTasksToPack" AfterTargets="Build">
+		<!-- Force rebuild of Tasks project -->
+		<MSBuild Projects="..\BlazorDeveloperTools.Tasks\BlazorDeveloperTools.Tasks.csproj" Properties="Configuration=$(Configuration);Platform=$(Platform)" Targets="Rebuild" />
 		<RemoveDir Directories="$(MSBuildProjectDirectory)\tools" />
 		<!-- ensures no stale DLL -->
 		<MakeDir Directories="$(MSBuildProjectDirectory)\tools" />
@@ -57,8 +64,9 @@
 
 	<!-- Include MSBuild artifacts in the nupkg -->
 	<ItemGroup>
-		<None Include="tools\BlazorDeveloperTools.Tasks.dll" Pack="true" PackagePath="tools/BlazorDeveloperTools.Tasks.dll" />
-		<None Include="tools\BlazorDeveloperTools.Tasks.pdb" Pack="true" PackagePath="tools/BlazorDeveloperTools.Tasks.pdb" Condition="Exists('tools\BlazorDeveloperTools.Tasks.pdb')" />
+		<!-- Include the tools folder contents -->
+		<None Include="tools\BlazorDeveloperTools.Tasks.dll" Pack="true" PackagePath="tools/" />
+		<None Include="tools\BlazorDeveloperTools.Tasks.pdb" Pack="true" PackagePath="tools/" Condition="Exists('tools\BlazorDeveloperTools.Tasks.pdb')" />
 	</ItemGroup>
 
 	<!-- Generate placeholder _._ right before Pack and include it in lib/ref to silence analyzers -->
@@ -76,17 +84,16 @@
 	<!-- pack the targets under build/, not buildTransitive -->
 	<ItemGroup>
 		<!-- pack PROPS into build/ -->
-		<None Include="build\BlazorDeveloperTools.props"
-			  Pack="true"
-			  PackagePath="build/BlazorDeveloperTools.props" />
+		<None Include="build\BlazorDeveloperTools.props" Pack="true" PackagePath="build/BlazorDeveloperTools.props" />
 		<!-- pack TARGETS into build/ -->
-		<None Include="build\BlazorDeveloperTools.razor.targets"
-			  Pack="true"
-			  PackagePath="build/BlazorDeveloperTools.razor.targets" />
+		<None Include="build\BlazorDeveloperTools.targets" Pack="true" PackagePath="build/BlazorDeveloperTools.targets" />
 	</ItemGroup>
 	<!-- Include README in the package -->
 	<ItemGroup>
 		<None Include="README.md" Pack="true" PackagePath="\" />
+	</ItemGroup>
+	<ItemGroup>
+	  <Folder Include="artifacts\packages\" />
 	</ItemGroup>
 
 </Project>
