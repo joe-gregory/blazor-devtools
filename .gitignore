@@ -4,6 +4,7 @@
 /src/**/obj/
 /demos/**/bin/
 /demos/**/obj/
+/src/BlazorDeveloperTools.Pack/tools/
 
 # VS/IDE
 .vs/
