@@ -30,7 +30,7 @@ dotnet add package BlazorDeveloperTools
 
 ### PackageReference
 ```xml
-<PackageReference Include="BlazorDeveloperTools" Version="0.9.2" />
+<PackageReference Include="BlazorDeveloperTools" Version="0.9.7" />
 ```
 
 ## 🔧 Setup
@@ -82,15 +82,31 @@ The tools are automatically disabled in Release builds. No action required.
 
 ### Manual Control
 
-You can manually control when the tools are active:
+You can manually control when the tools are active. 
 
-```csharp
-builder.AddBlazorDeveloperTools(options =>
-{
-    options.EnableInProduction = false; // Default: false
-    options.EnableComponentMarkers = true; // Default: true
-    options.IncludeFileInfo = true; // Default: true
-});
+In Development, BlazorDevTools markers are added automatically. 
+If you want to turn BDT OFF in development (default is ON):
+```
+<PropertyGroup>
+  <EnableAutomaticMarkers>false</EnableAutomaticMarkers>
+</PropertyGroup>
+```
+
+Enable BlazorDevTools in Production (default is OFF):
+```
+<PropertyGroup>
+  <EnableBlazorDevToolsInProduction>true</EnableBlazorDevToolsInProduction>
+</PropertyGroup>
+```
+
+Some components can be problematic if they throw exceptions when they have unexpected children (example MudTimelineItem and ItemContent from MudBlazor). 
+
+Skip specific components: 
+
+```
+<PropertyGroup>
+  <BdtSkipComponents>MudTimelineItem;ItemContent</BdtSkipComponents>
+</PropertyGroup>
 ```
 
 ## 🎨 What Gets Added to Your HTML?
@@ -102,15 +118,15 @@ In development mode, components are wrapped with invisible marker elements:
 <div>Your Component Content</div>
 
 <!-- After (Development only) -->
-<blazor-devtools-marker data-component="YourComponent" style="display:none"></blazor-devtools-marker>
+<span data-blazordevtools-marker=""open"" data-blazordevtools-id=""{componentId}"" data-blazordevtools-component=""{componentName}""{fileAttr} style=""display:none!important""></span>"
 <div>Your Component Content</div>
-<blazor-devtools-marker style="display:none"></blazor-devtools-marker>
+<span data-blazordevtools-marker=""close"" data-blazordevtools-id=""{componentId}"" style=""display:none!important""></span>
 ```
 
 These markers are:
 - Completely invisible (display: none)
-- Removed in production builds
-- Used only by the browser extension
+- Removed in production builds by default
+- Used by the browser extension to rebuild the razor component tree
 
 ## 🔍 Troubleshooting
 
@@ -118,12 +134,13 @@ These markers are:
 
 1. **Check the browser extension is installed**: Look for the Blazor tab in DevTools
 2. **Verify package installation**: Ensure `AddBlazorDeveloperTools()` is called in your startup
-3. **Development mode**: Confirm you're running in Debug configuration
-4. **Refresh DevTools**: Click the refresh button in the Blazor panel
+3. **Cleand and rebuild your Blazor project 
+4. **Development mode**: Confirm you're running in Debug configuration
+5. **Refresh DevTools**: Click the refresh button in the Blazor panel
 
 ### Performance considerations?
 
-The markers have negligible performance impact and are only added in development. In Release builds, your application runs exactly as it would without this package.
+The markers have negligible performance impact and are only added in development (by default). In Release builds, your application runs exactly as it would without this package (unless you add option to include).
 
 ## 🤝 Contributing
 
@@ -136,14 +153,6 @@ We welcome contributions! Please see our [Contributing Guide](https://github.com
 - [GitHub Repository](https://github.com/joe-gregory/blazor-devtools)
 - [Documentation](https://blazordevelopertools.com)
 - [Report Issues](https://github.com/joe-gregory/blazor-devtools/issues)
-
-## 📈 Roadmap
-
-- [ ] State inspection for components
-- [ ] Performance profiling integration
-- [ ] Event tracking and debugging
-- [ ] Component render count tracking
-- [ ] Firefox extension support
 
 ## ⭐ Support
 
