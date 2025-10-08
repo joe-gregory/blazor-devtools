@@ -68,3 +68,5 @@ artifacts/
 *.pdb
 bin/
 obj/
+/src/BlazorDeveloperTools.Pack/tools/BlazorDeveloperTools.Tasks.dll
+/src/BlazorDeveloperTools.Pack/tools/BlazorDeveloperTools.Tasks.pdb

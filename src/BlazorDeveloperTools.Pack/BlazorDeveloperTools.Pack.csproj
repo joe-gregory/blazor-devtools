@@ -20,7 +20,12 @@
 
 		<!-- Public package identity -->
 		<PackageId>BlazorDeveloperTools</PackageId>
-		<Version>0.9.6</Version>
+		<Version>0.9.7</Version>
+
+		<PackageReleaseNotes>
+			There is a new option to skip some inner components of a page that can be problematic with the added spans. For example, MudTimelineItem
+		</PackageReleaseNotes>
+		
 		<Authors>Joseph E. Gregory</Authors>
 		<Description>Automatic debug markers for Blazor components via MSBuild post-processing of Razor-generated files. Used by the Blazor Developer Tools browser extension.</Description>
 		<PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
@@ -76,13 +81,9 @@
 	<!-- pack the targets under build/, not buildTransitive -->
 	<ItemGroup>
 		<!-- pack PROPS into build/ -->
-		<None Include="build\BlazorDeveloperTools.props"
-			  Pack="true"
-			  PackagePath="build/BlazorDeveloperTools.props" />
+		<None Include="build\BlazorDeveloperTools.props" Pack="true" PackagePath="build/BlazorDeveloperTools.props" />
 		<!-- pack TARGETS into build/ -->
-		<None Include="build\BlazorDeveloperTools.razor.targets"
-			  Pack="true"
-			  PackagePath="build/BlazorDeveloperTools.razor.targets" />
+		<None Include="build\BlazorDeveloperTools.targets" Pack="true" PackagePath="build/BlazorDeveloperTools.targets" />
 	</ItemGroup>
 	<!-- Include README in the package -->
 	<ItemGroup>
@@ -94,6 +95,9 @@
 
 	<ItemGroup>
 		<None Include="..\..\docs\images\icon-128.png" Pack="true" PackagePath="icon.png" />
+	</ItemGroup>
+	<ItemGroup>
+	  <Folder Include="artifacts\packages\" />
 	</ItemGroup>
 
 </Project>

@@ -1,6 +1,7 @@
 ﻿using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
 using System;
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -25,7 +26,10 @@ namespace BlazorDeveloperTools.Tasks
         public bool SkipUnderscoreFiles { get; set; } = true;
 
         public bool OnlyRazorFiles { get; set; } = true;
-
+        /// <summary>
+        /// Semicolon-separated list of component names to skip when injecting nested markers
+        /// </summary>
+        public string ComponentsToSkip { get; set; } = string.Empty;
         public override bool Execute()
         {
             if (Sources == null || Sources.Length == 0)
@@ -47,72 +51,64 @@ namespace BlazorDeveloperTools.Tasks
                 string fileName = System.IO.Path.GetFileName(src);
                 bool isRazor = src.EndsWith(".razor", StringComparison.OrdinalIgnoreCase);
 
-                string rel = GetRelativePath(ProjectDirectory, src);
-                string dst = System.IO.Path.Combine(IntermediateRoot, rel);
+                // shadow path from originalContentOfFile relative path
+                string relativePathOfOriginalFile = GetRelativePath(ProjectDirectory, src);
+                string locationOfShadowCopy = System.IO.Path.Combine(IntermediateRoot, relativePathOfOriginalFile);
 
                 try
                 {
-                    // IMPORTANT: Check if shadow copy already exists and has markers
-                    if (System.IO.File.Exists(dst))
+                    // Check if shadow copy already exists and has markers
+                    if (System.IO.File.Exists(locationOfShadowCopy))
                     {
-                        string existingShadowContent = System.IO.File.ReadAllText(dst);
-                        if (IsAlreadyInjected(existingShadowContent))
+                        string shadowContent = System.IO.File.ReadAllText(locationOfShadowCopy);
+                        if (IsAlreadyInjected(shadowContent))
                         {
-                            Log.LogMessage(MessageImportance.Low, $"BlazorDevTools: Shadow copy already has markers: '{dst}'");
-                            skippedCount++;
+                            Log.LogMessage(MessageImportance.Low, $"BlazorDevTools: Skipping already-injected shadow file for '{src}'");
                             continue;
                         }
                     }
-
-                    // Read the ORIGINAL source file (never the shadow)
+                    // read originalContentOfFile source (never read prior shadow)
                     string originalContentOfFile = System.IO.File.ReadAllText(src, DetectEncoding(src, out Encoding readEncoding));
-
-                    // Also check if original has markers (shouldn't happen, but defensive)
-                    if (IsAlreadyInjected(originalContentOfFile))
-                    {
-                        Log.LogMessage(MessageImportance.Low, $"BlazorDevTools: Original file already has markers: '{src}'");
-
-                        // Copy as-is to shadow location
-                        string dir = System.IO.Path.GetDirectoryName(dst);
-                        if (!System.IO.Directory.Exists(dir))
-                            System.IO.Directory.CreateDirectory(dir);
-
-                        System.IO.File.WriteAllText(dst, originalContentOfFile, readEncoding ?? new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-                        skippedCount++;
-                        continue;
-                    }
 
                     string toWrite;
                     if (isRazor && ShouldInjectMarker(fileName, originalContentOfFile))
                     {
-                        // Generate a unique ID for this component
-                        string componentId = GenerateComponentId(rel);
+                        // Generate a unique ID for this component to link start and end markers
+                        string componentId = GenerateComponentId(relativePathOfOriginalFile);
 
                         // Get component name from file
                         string componentName = System.IO.Path.GetFileNameWithoutExtension(fileName);
 
                         // Build opening and closing markers
-                        string openingSnippet = BuildOpeningMarker(
-                            componentName: componentName,
-                            filesRelativePath: rel.Replace('\\', '/'),
-                            componentId: componentId);
+                        string openingSnippet = BuildOpeningMarker(filesRelativePath: relativePathOfOriginalFile.Replace('\\', '/'), componentId: componentId);
                         string closingSnippet = BuildClosingMarker(componentId: componentId);
 
                         // Find where to insert the opening marker (after directives)
                         int insertIndex = FindDirectiveBlockEndIndex(originalContentOfFile);
 
-                        // Insert opening marker at the beginning and closing marker at the end
+                        string contentAfterDirectives;
+                        string directivesSection;
+
                         if (insertIndex >= originalContentOfFile.Length)
                         {
-                            toWrite = originalContentOfFile + Environment.NewLine + openingSnippet + Environment.NewLine + closingSnippet;
+                            directivesSection = originalContentOfFile;
+                            contentAfterDirectives = "";
                         }
                         else
                         {
-                            toWrite = originalContentOfFile.Substring(0, insertIndex)
-                                    + openingSnippet + Environment.NewLine
-                                    + originalContentOfFile.Substring(insertIndex)
-                                    + Environment.NewLine + closingSnippet;
+                            directivesSection = originalContentOfFile.Substring(0, insertIndex);
+                            contentAfterDirectives = originalContentOfFile.Substring(insertIndex);
                         }
+
+                        // Inject markers around nested components
+                        string processedContent = InjectMarkersAroundComponents(contentAfterDirectives, relativePathOfOriginalFile);
+
+                        // Combine everything
+                        toWrite = directivesSection
+                                + openingSnippet + Environment.NewLine
+                                + processedContent
+                                + Environment.NewLine + closingSnippet;
+
                         injectedCount++;
                     }
                     else
@@ -121,12 +117,12 @@ namespace BlazorDeveloperTools.Tasks
                         copiedCount++;
                     }
 
-                    // Ensure directory and write
-                    string directory = System.IO.Path.GetDirectoryName(dst);
-                    if (!System.IO.Directory.Exists(directory))
-                        System.IO.Directory.CreateDirectory(directory);
+                    // ensure directory and write (overwrite if exists)
+                    string dir = System.IO.Path.GetDirectoryName(locationOfShadowCopy);
+                    if (!System.IO.Directory.Exists(dir))
+                        System.IO.Directory.CreateDirectory(dir);
 
-                    System.IO.File.WriteAllText(dst, toWrite, readEncoding ?? new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+                    System.IO.File.WriteAllText(locationOfShadowCopy, toWrite, readEncoding ?? new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
                 }
                 catch (System.Exception ex)
                 {
@@ -256,6 +252,122 @@ namespace BlazorDeveloperTools.Tasks
                 return lineStart;
             }
             return len;
+        }
+        private string InjectMarkersAroundComponents(string content, string relativeFilePath)
+        {
+            // Parse the components to skip from the property
+            var skipComponents = ComponentsToSkip?.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries)
+                                ?? new string[0];
+
+            // If configured to skip all nested components
+            if (ComponentsToSkip == "*")
+                return content;
+
+            // First, handle self-closing components
+            var selfClosingPattern = @"<([A-Z][A-Za-z0-9]*(?:\.[A-Z][A-Za-z0-9]*)*)(\s[^/>]*)?/>";
+
+            content = Regex.Replace(content, selfClosingPattern, match =>
+            {
+                var componentName = match.Groups[1].Value;
+
+                if (skipComponents.Contains(componentName) || ShouldSkipComponent(componentName))
+                    return match.Value;
+
+                var componentId = GenerateComponentId($"{relativeFilePath}#{componentName}#{match.Index}");
+
+                var openMarker = $@"<span data-blazordevtools-marker=""open"" data-blazordevtools-id=""{componentId}"" data-blazordevtools-component=""{componentName}"" data-blazordevtools-file=""{relativeFilePath}"" data-blazordevtools-nested=""true"" style=""display:none!important""></span>";
+                var closeMarker = $@"<span data-blazordevtools-marker=""close"" data-blazordevtools-id=""{componentId}"" style=""display:none!important""></span>";
+
+                // For self-closing, wrap the entire tag
+                return openMarker + match.Value + closeMarker;
+            });
+
+            // Then handle paired tags - we need to find the closing tag
+            var openingTagPattern = @"<([A-Z][A-Za-z0-9]*(?:\.[A-Z][A-Za-z0-9]*)*)(\s[^/>]*)?>(?!/)";
+            var matches = Regex.Matches(content, openingTagPattern);
+
+            // Process in reverse to maintain positions
+            for (int i = matches.Count - 1; i >= 0; i--)
+            {
+                var match = matches[i];
+                var componentName = match.Groups[1].Value;
+
+                if (skipComponents.Contains(componentName) || ShouldSkipComponent(componentName))
+                    continue;
+
+                // Find the matching closing tag
+                var closingTag = $"</{componentName}>";
+                var closingIndex = FindMatchingClosingTag(content, match.Index + match.Length, componentName);
+
+                if (closingIndex == -1)
+                    continue; // No closing tag found, skip
+
+                var componentId = GenerateComponentId($"{relativeFilePath}#{componentName}#{match.Index}");
+
+                var openMarker = $@"<span data-blazordevtools-marker=""open"" data-blazordevtools-id=""{componentId}"" data-blazordevtools-component=""{componentName}"" data-blazordevtools-nested=""true"" style=""display:none!important""></span>";
+                var closeMarker = $@"<span data-blazordevtools-marker=""close"" data-blazordevtools-id=""{componentId}"" style=""display:none!important""></span>";
+
+                // Insert closing marker AFTER the closing tag
+                var closingTagEnd = closingIndex + closingTag.Length;
+                content = content.Substring(0, closingTagEnd) + closeMarker + content.Substring(closingTagEnd);
+
+                // Insert opening marker BEFORE the opening tag
+                content = content.Substring(0, match.Index) + openMarker + content.Substring(match.Index);
+            }
+
+            return content;
+        }
+        private int FindMatchingClosingTag(string content, int startIndex, string componentName)
+        {
+            var openingTag = $"<{componentName}";
+            var closingTag = $"</{componentName}>";
+
+            int depth = 1;
+            int currentIndex = startIndex;
+
+            while (currentIndex < content.Length && depth > 0)
+            {
+                var nextOpening = content.IndexOf(openingTag, currentIndex);
+                var nextClosing = content.IndexOf(closingTag, currentIndex);
+
+                if (nextClosing == -1)
+                    return -1; // No closing tag found
+
+                if (nextOpening != -1 && nextOpening < nextClosing)
+                {
+                    // Check it's not a self-closing tag
+                    var selfCloseCheck = content.IndexOf("/>", nextOpening);
+                    if (selfCloseCheck == -1 || selfCloseCheck > nextClosing)
+                    {
+                        // It's a real opening tag
+                        depth++;
+                    }
+                    currentIndex = nextOpening + openingTag.Length;
+                }
+                else
+                {
+                    depth--;
+                    if (depth == 0)
+                    {
+                        return nextClosing;
+                    }
+                    currentIndex = nextClosing + closingTag.Length;
+                }
+            }
+
+            return -1;
+        }
+        private static bool ShouldSkipComponent(string componentName)
+        {
+            // Skip framework/routing components that shouldn't be marked
+            var skipList = new[] {
+            "Router", "RouteView", "CascadingAuthenticationState",
+            "AuthorizeView", "NotAuthorized", "Authorized",
+            "PageTitle", "HeadContent", "HeadOutlet", "SectionContent",
+            "CascadingValue", "ErrorBoundary", "FocusOnNavigate"
+        };
+
+            return skipList.Contains(componentName);
         }
     }
 }
