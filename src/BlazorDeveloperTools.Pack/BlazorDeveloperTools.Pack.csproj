@@ -1,10 +1,10 @@
-ï»¿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
 	<!--
     Build-only NuGet package "BlazorDeveloperTools".
     Ships:
-      â€¢ build/BlazorDeveloperTools.targets  (auto-imported by NuGet)
-      â€¢ tools/BlazorDeveloperTools.Tasks.dll (MSBuild task assembly)
+      • build/BlazorDeveloperTools.targets  (auto-imported by NuGet)
+      • tools/BlazorDeveloperTools.Tasks.dll (MSBuild task assembly)
     Intentionally ships NO runtime lib/ binaries; placeholders silence analyzers.
   -->
 	<PropertyGroup>
@@ -101,3 +101,4 @@
 	</ItemGroup>
 
 </Project>
+

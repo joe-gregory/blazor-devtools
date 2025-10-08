@@ -80,7 +80,7 @@ namespace BlazorDeveloperTools.Tasks
                         string componentName = System.IO.Path.GetFileNameWithoutExtension(fileName);
 
                         // Build opening and closing markers
-                        string openingSnippet = BuildOpeningMarker(filesRelativePath: relativePathOfOriginalFile.Replace('\\', '/'), componentId: componentId);
+                        string openingSnippet = BuildOpeningMarker(filesRelativePath: relativePathOfOriginalFile.Replace('\\', '/'), componentId: componentId, componentName: componentName);
                         string closingSnippet = BuildClosingMarker(componentId: componentId);
 
                         // Find where to insert the opening marker (after directives)
@@ -256,7 +256,7 @@ namespace BlazorDeveloperTools.Tasks
         private string InjectMarkersAroundComponents(string content, string relativeFilePath)
         {
             // Parse the components to skip from the property
-            var skipComponents = ComponentsToSkip?.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries)
+            string[] skipComponents = ComponentsToSkip?.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries)
                                 ?? new string[0];
 
             // If configured to skip all nested components
@@ -268,7 +268,7 @@ namespace BlazorDeveloperTools.Tasks
 
             content = Regex.Replace(content, selfClosingPattern, match =>
             {
-                var componentName = match.Groups[1].Value;
+                string componentName = match.Groups[1].Value;
 
                 if (skipComponents.Contains(componentName) || ShouldSkipComponent(componentName))
                     return match.Value;
