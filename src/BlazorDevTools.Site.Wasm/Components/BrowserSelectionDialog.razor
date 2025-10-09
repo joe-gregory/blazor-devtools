@@ -1,0 +1,51 @@
+﻿@inject NavigationManager NavigationManager
+
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudText Typo="Typo.body1">
+                The Blazor Developer Tools extension is currently only available for Chrome and Edge browsers.
+            </MudText>
+
+            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                Please select your browser to download the extension:
+            </MudText>
+
+            <MudStack Spacing="2">
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Custom.Brands.Microsoft"
+                           FullWidth="true"
+                           OnClick="@(() => NavigateToExtension(EdgeExtensionUrl))">
+                    Download for Microsoft Edge
+                </MudButton>
+
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Custom.Brands.Chrome"
+                           FullWidth="true"
+                           OnClick="@(() => NavigateToExtension(ChromeExtensionUrl))">
+                    Download for Google Chrome
+                </MudButton>
+            </MudStack>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Close</MudButton>
+    </DialogActions>
+</MudDialog>
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    private const string EdgeExtensionUrl = "https://microsoftedge.microsoft.com/addons/detail/blazor-developer-tools/pdggeigaaicabckehkeldfpfikihgcdj";
+    private const string ChromeExtensionUrl = "https://chromewebstore.google.com/detail/blazor-developer-tools/pfddbenemjnlceffaemllejnjbobadhp";
+
+    private void NavigateToExtension(string url)
+    {
+        NavigationManager.NavigateTo(url, true);
+        MudDialog.Close(DialogResult.Ok(url));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

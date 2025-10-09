@@ -4,11 +4,11 @@
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-	  <BdtSkipComponents>ItemContent;MudTimelineItem;</BdtSkipComponents>
+	  <BdtSkipComponents>ItemContent;MudTimelineItem;MudDialog;DialogActions;DialogContent</BdtSkipComponents>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="BlazorDeveloperTools" Version="0.9.7">
+    <PackageReference Include="BlazorDeveloperTools" Version="0.9.8">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>

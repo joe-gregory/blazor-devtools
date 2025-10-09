@@ -1,4 +1,7 @@
 ﻿@attribute [Route(PagesRoutes.Home)]
+@inject IJSRuntime JSRuntime
+@inject NavigationManager NavigationManager
+@inject IDialogService DialogService
 
 <PageTitle>Blazor Developer Tools - Browser DevTools Extension</PageTitle>
 
@@ -7,28 +10,23 @@
     <MudGrid Justify="Justify.Center" Class="mb-12">
         <MudItem xs="12" md="10" lg="8">
             <MudStack Spacing="4" AlignItems="AlignItems.Center">
-                <MudIcon Icon="@Icons.Custom.Brands.MicrosoftAzure" 
-                         Size="Size.Large" 
-                         Style="font-size: 4rem;" 
-                         Color="Color.Primary" />
 
-                         <MudImage Src="/images/logo.png" />
-                
+                <MudImage Src="/images/logo.png" Width="200" />
+
                 <MudText Typo="Typo.h2" Align="Align.Center" GutterBottom="false">
                     Blazor Developer Tools
                 </MudText>
-                
+
                 <MudText Typo="Typo.h5" Align="Align.Center" Color="Color.Secondary">
                     Razor in your browser
                 </MudText>
-                
+
                 <MudStack Row="true" Spacing="2" Class="mt-4">
-                    <MudButton Variant="Variant.Filled" 
-                               Color="Color.Primary" 
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
                                Size="Size.Large"
                                StartIcon="@Icons.Material.Filled.Download"
-                               Href="https://chrome.google.com/webstore" 
-                               Target="_blank">
+                               OnClick="@OnClickGetExtension">
                         Install Extension
                     </MudButton>
                     <MudButton Variant="Variant.Outlined"
@@ -39,11 +37,11 @@
                                Target="_blank">
                         NuGet Package
                     </MudButton>
-                    <MudButton Variant="Variant.Outlined" 
-                               Color="Color.Primary" 
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Primary"
                                Size="Size.Large"
                                StartIcon="@Icons.Custom.Brands.GitHub"
-                               Href="https://github.com/yourusername/BlazorDeveloperTools" 
+                               Href="https://github.com/yourusername/BlazorDeveloperTools"
                                Target="_blank">
                         View on GitHub
                     </MudButton>
@@ -60,7 +58,7 @@
                     <MudText Typo="Typo.h4" Align="Align.Center">
                         See It In Action
                     </MudText>
-                    
+
                     @* Placeholder for video - replace with actual YouTube embed when ready *@
                     <MudCard>
                         <MudCardContent>
@@ -70,7 +68,7 @@
                             </MudStack>
                         </MudCardContent>
                     </MudCard>
-                    
+
                     @* When you have the YouTube URL, replace above with:
                     <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden;">
                         <iframe style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" 
@@ -92,10 +90,10 @@
                 <MudText Typo="Typo.h4" Align="Align.Center">
                     What Is Blazor Developer Tools?
                 </MudText>
-                
+
                 <MudText Typo="Typo.body1" Align="Align.Center">
-                    Blazor Developer Tools is a browser extension that adds a dedicated Blazor panel to Chrome DevTools. 
-                    It helps developers debug and inspect Blazor applications by visualizing component trees, 
+                    Blazor Developer Tools is a browser extension that adds a dedicated Blazor panel to Chrome DevTools.
+                    It helps developers debug and inspect Blazor applications by visualizing component trees,
                     tracking component state, and providing real-time insights into your Blazor components.
                 </MudText>
 
@@ -113,7 +111,7 @@
                             </MudCardContent>
                         </MudCard>
                     </MudItem>
-                    
+
                     <MudItem xs="12" md="4">
                         <MudCard Class="h-100">
                             <MudCardContent>
@@ -127,7 +125,7 @@
                             </MudCardContent>
                         </MudCard>
                     </MudItem>
-                    
+
                     <MudItem xs="12" md="4">
                         <MudCard Class="h-100">
                             <MudCardContent>
@@ -158,25 +156,25 @@
                     <MudText Typo="Typo.body1" Align="Align.Center" Style="color: white;">
                         Join our mailing list to get notified about new features and updates
                     </MudText>
-                    
+
                     <MudGrid Spacing="2" Style="width: 100%; max-width: 500px;">
                         <MudItem xs="8">
-                            <MudTextField @bind-Value="@_email" 
-                                        Label="Email Address" 
-                                        Variant="Variant.Filled"
-                                        Style="background-color: white;"
-                                        FullWidth="true" />
+                            <MudTextField @bind-Value="@_email"
+                                          Label="Email Address"
+                                          Variant="Variant.Filled"
+                                          Style="background-color: white;"
+                                          FullWidth="true" />
                         </MudItem>
                         <MudItem xs="4">
-                            <MudButton Variant="Variant.Filled" 
-                                     Color="Color.Secondary"
-                                     FullWidth="true"
-                                     OnClick="@SubscribeToMailingList">
+                            <MudButton Variant="Variant.Filled"
+                                       Color="Color.Secondary"
+                                       FullWidth="true"
+                                       OnClick="@SubscribeToMailingList">
                                 Subscribe
                             </MudButton>
                         </MudItem>
                     </MudGrid>
-                    
+
                     @if (_subscribed)
                     {
                         <MudAlert Severity="Severity.Success" Style="background-color: white;">
@@ -195,7 +193,7 @@
                 <MudText Typo="Typo.h4" Align="Align.Center">
                     How to Install
                 </MudText>
-                
+
                 <MudTimeline TimelineOrientation="TimelineOrientation.Vertical" TimelinePosition="TimelinePosition.Alternate">
                     <MudTimelineItem Color="Color.Primary" Size="Size.Small">
                         <ItemContent>
@@ -209,7 +207,7 @@
                             </MudCard>
                         </ItemContent>
                     </MudTimelineItem>
-                    
+
                     <MudTimelineItem Color="Color.Primary" Size="Size.Small">
                         <ItemContent>
                             <MudCard>
@@ -222,7 +220,7 @@
                             </MudCard>
                         </ItemContent>
                     </MudTimelineItem>
-                    
+
                     <MudTimelineItem Color="Color.Primary" Size="Size.Small">
                         <ItemContent>
                             <MudCard>
@@ -235,7 +233,7 @@
                             </MudCard>
                         </ItemContent>
                     </MudTimelineItem>
-                    
+
                     <MudTimelineItem Color="Color.Primary" Size="Size.Small">
                         <ItemContent>
                             <MudCard>
@@ -260,7 +258,7 @@
                 <MudText Typo="Typo.h4" Align="Align.Center">
                     How to Use
                 </MudText>
-                
+
                 <MudGrid>
                     <MudItem xs="12" md="6">
                         <MudCard Class="h-100">
@@ -275,7 +273,7 @@
                             </MudCardContent>
                         </MudCard>
                     </MudItem>
-                    
+
                     <MudItem xs="12" md="6">
                         <MudCard Class="h-100">
                             <MudCardContent>
@@ -289,7 +287,7 @@
                             </MudCardContent>
                         </MudCard>
                     </MudItem>
-                    
+
                     <MudItem xs="12" md="6">
                         <MudCard Class="h-100">
                             <MudCardContent>
@@ -303,7 +301,7 @@
                             </MudCardContent>
                         </MudCard>
                     </MudItem>
-                    
+
                     <MudItem xs="12" md="6">
                         <MudCard Class="h-100">
                             <MudCardContent>
@@ -338,48 +336,48 @@
                     </MudText>
                 </MudStack>
             </MudItem>
-            
+
             <MudItem xs="12" md="6">
                 <MudStack Row="true" Spacing="3" Justify="Justify.FlexEnd" AlignItems="AlignItems.Center">
                     <MudTooltip Text="Email Us">
-                        <MudIconButton Icon="@Icons.Material.Filled.Email" 
-                                     Color="Color.Primary"
-                                     Href="mailto:contact@blazordevtools.com" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Email"
+                                       Color="Color.Primary"
+                                       Href="mailto:contact@blazordevtools.com" />
                     </MudTooltip>
-                    
+
                     <MudTooltip Text="Twitter">
-                        <MudIconButton Icon="@Icons.Custom.Brands.Twitter" 
-                                     Color="Color.Primary"
-                                     Href="https://twitter.com/yourusername" 
-                                     Target="_blank" />
+                        <MudIconButton Icon="@Icons.Custom.Brands.Twitter"
+                                       Color="Color.Primary"
+                                       Href="https://twitter.com/yourusername"
+                                       Target="_blank" />
                     </MudTooltip>
-                    
+
                     <MudTooltip Text="YouTube">
-                        <MudIconButton Icon="@Icons.Custom.Brands.YouTube" 
-                                     Color="Color.Primary"
-                                     Href="https://youtube.com/yourchannel" 
-                                     Target="_blank" />
+                        <MudIconButton Icon="@Icons.Custom.Brands.YouTube"
+                                       Color="Color.Primary"
+                                       Href="https://youtube.com/yourchannel"
+                                       Target="_blank" />
                     </MudTooltip>
-                    
+
                     <MudTooltip Text="Instagram">
-                        <MudIconButton Icon="@Icons.Custom.Brands.Instagram" 
-                                     Color="Color.Primary"
-                                     Href="https://instagram.com/yourusername" 
-                                     Target="_blank" />
+                        <MudIconButton Icon="@Icons.Custom.Brands.Instagram"
+                                       Color="Color.Primary"
+                                       Href="https://instagram.com/yourusername"
+                                       Target="_blank" />
                     </MudTooltip>
-                    
+
                     <MudTooltip Text="Reddit">
-                        <MudIconButton Icon="@Icons.Custom.Brands.Reddit" 
-                                     Color="Color.Primary"
-                                     Href="https://reddit.com/r/blazordevtools" 
-                                     Target="_blank" />
+                        <MudIconButton Icon="@Icons.Custom.Brands.Reddit"
+                                       Color="Color.Primary"
+                                       Href="https://reddit.com/r/blazordevtools"
+                                       Target="_blank" />
                     </MudTooltip>
-                    
+
                     <MudTooltip Text="GitHub">
-                        <MudIconButton Icon="@Icons.Custom.Brands.GitHub" 
-                                     Color="Color.Primary"
-                                     Href="https://github.com/yourusername/BlazorDeveloperTools" 
-                                     Target="_blank" />
+                        <MudIconButton Icon="@Icons.Custom.Brands.GitHub"
+                                       Color="Color.Primary"
+                                       Href="https://github.com/yourusername/BlazorDeveloperTools"
+                                       Target="_blank" />
                     </MudTooltip>
                 </MudStack>
             </MudItem>
@@ -388,8 +386,61 @@
 </MudPaper>
 
 @code {
+    private const string EdgeExtensionUrl = "https://microsoftedge.microsoft.com/addons/detail/blazor-developer-tools/pdggeigaaicabckehkeldfpfikihgcdj";
+    private const string ChromeExtensionUrl = "https://chromewebstore.google.com/detail/blazor-developer-tools/pfddbenemjnlceffaemllejnjbobadhp";
+
     private string _email = "";
     private bool _subscribed = false;
+
+    private DialogOptions _dialogOptions = new()
+    {
+        CloseOnEscapeKey = true,
+        MaxWidth = MaxWidth.Small,
+        FullWidth = true
+    };
+
+    private async Task OnClickGetExtension()
+    {
+        try
+        {
+            // Get user agent string using a proper JS interop call
+            var userAgent = await JSRuntime.InvokeAsync<string>("blazorDevTools.getUserAgent");
+
+            if (string.IsNullOrWhiteSpace(userAgent))
+            {
+                // If we can't get user agent, show dialog
+                await OpenDialogAsync();
+                return;
+            }
+
+            if (userAgent.Contains("Edg/", StringComparison.OrdinalIgnoreCase))
+            {
+                // Edge browser detected
+                NavigationManager.NavigateTo(EdgeExtensionUrl, true);
+            }
+            else if (userAgent.Contains("Chrome", StringComparison.OrdinalIgnoreCase))
+            {
+                // Chrome browser detected (includes Brave and other Chromium browsers)
+                NavigationManager.NavigateTo(ChromeExtensionUrl, true);
+            }
+            else
+            {
+                // Unable to determine browser - show dialog
+                await OpenDialogAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            // If browser detection fails, show dialog
+            Console.WriteLine($"Browser detection error: {ex.Message}");
+            await OpenDialogAsync();
+        }
+    }
+
+    private void NavigateToExtension(string url)
+    {
+        NavigationManager.NavigateTo(url, true);
+    }
 
     private async Task SubscribeToMailingList()
     {
@@ -399,12 +450,18 @@
         {
             _subscribed = true;
             StateHasChanged();
-            
+
             // Hide the success message after 3 seconds
             await Task.Delay(3000);
             _subscribed = false;
             _email = "";
             StateHasChanged();
         }
+    }
+    private Task OpenDialogAsync()
+    {
+        var options = new DialogOptions { CloseOnEscapeKey = true };
+
+        return DialogService.ShowAsync<Components.BrowserSelectionDialog>("Browser Selection Dialog", options);
     }
 }
