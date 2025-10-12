@@ -92,9 +92,7 @@
                 </MudText>
 
                 <MudText Typo="Typo.body1" Align="Align.Center">
-                    Blazor Developer Tools is a browser extension that adds a dedicated Blazor panel to Chrome DevTools.
-                    It helps developers debug and inspect Blazor applications by visualizing component trees,
-                    tracking component state, and providing real-time insights into your Blazor components.
+                    Blazor Developer Tools allows you to inspect your app's razor code in the browser. 
                 </MudText>
 
                 <MudGrid Class="mt-4">
@@ -412,22 +410,27 @@
                 await OpenDialogAsync();
                 return;
             }
+            string extensionUrl;
 
             if (userAgent.Contains("Edg/", StringComparison.OrdinalIgnoreCase))
             {
                 // Edge browser detected
-                NavigationManager.NavigateTo(EdgeExtensionUrl, true);
+                extensionUrl = EdgeExtensionUrl;
             }
             else if (userAgent.Contains("Chrome", StringComparison.OrdinalIgnoreCase))
             {
                 // Chrome browser detected (includes Brave and other Chromium browsers)
-                NavigationManager.NavigateTo(ChromeExtensionUrl, true);
+                extensionUrl = ChromeExtensionUrl;
             }
             else
             {
                 // Unable to determine browser - show dialog
                 await OpenDialogAsync();
+                return;
             }
+
+            // Open extension store in new tab
+            await JSRuntime.InvokeVoidAsync("blazorDevTools.openInNewTab", extensionUrl);
         }
         catch (Exception ex)
         {
@@ -435,11 +438,6 @@
             Console.WriteLine($"Browser detection error: {ex.Message}");
             await OpenDialogAsync();
         }
-    }
-
-    private void NavigateToExtension(string url)
-    {
-        NavigationManager.NavigateTo(url, true);
     }
 
     private async Task SubscribeToMailingList()

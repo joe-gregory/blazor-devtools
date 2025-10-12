@@ -36,6 +36,9 @@
         window.blazorDevTools = {
             getUserAgent: function () {
                 return navigator.userAgent;
+            },
+            openInNewTab: function (url) {
+                window.open(url, '_blank', 'noopener,noreferrer');
             }
         };
     </script>

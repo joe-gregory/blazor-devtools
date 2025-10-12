@@ -1,4 +1,4 @@
-﻿@inject NavigationManager NavigationManager
+﻿@inject IJSRuntime JSRuntime
 
 <MudDialog>
     <DialogContent>
@@ -41,9 +41,9 @@
     private const string EdgeExtensionUrl = "https://microsoftedge.microsoft.com/addons/detail/blazor-developer-tools/pdggeigaaicabckehkeldfpfikihgcdj";
     private const string ChromeExtensionUrl = "https://chromewebstore.google.com/detail/blazor-developer-tools/pfddbenemjnlceffaemllejnjbobadhp";
 
-    private void NavigateToExtension(string url)
+    private async void NavigateToExtension(string url)
     {
-        NavigationManager.NavigateTo(url, true);
+        await JSRuntime.InvokeVoidAsync("blazorDevTools.openInNewTab", url);
         MudDialog.Close(DialogResult.Ok(url));
     }
 
