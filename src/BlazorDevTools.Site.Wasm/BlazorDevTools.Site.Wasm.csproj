@@ -5,7 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
 	  <BdtSkipComponents>ItemContent;MudTimelineItem;MudDialog;DialogActions;DialogContent</BdtSkipComponents>
-	  <EnableBlazorDevToolsInProduction>true</EnableBlazorDevToolsInProduction>
+	  <EnableBlazorDevToolsInProduction>false</EnableBlazorDevToolsInProduction>
 	  <RunAOTCompilation>false</RunAOTCompilation>
 	  <BlazorEnableCompression>false</BlazorEnableCompression>
   </PropertyGroup>
