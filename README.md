@@ -1,4 +1,7 @@
 ﻿![](https://i.imgur.com/H4eojC5.png)
+ 
+## [Docs](https://blazordevelopertools.com/)
+
 # Blazor Developer Tools
 
 Ever wished you could right-click on a Blazor app and see the actual Razor markup instead of just HTML? Or click on any element and instantly know which .razor component it belongs to?
@@ -36,8 +39,8 @@ Or add to your `.csproj`:
 
 ### 2. Install the Browser Extension
 
-- **Chrome**: [Chrome Web Store](#) *(coming soon)*
-- **Edge**: [Edge Add-ons](#) *(coming soon)*
+- **Chrome**: [Chrome Web Store]([#](https://chromewebstore.google.com/detail/blazor-developer-tools/pfddbenemjnlceffaemllejnjbobadhp)) 
+- **Edge**: [Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/blazor-developer-tools/pdggeigaaicabckehkeldfpfikihgcdj) 
 
 ## Usage
 
