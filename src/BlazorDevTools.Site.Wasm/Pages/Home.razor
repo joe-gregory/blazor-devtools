@@ -5,13 +5,13 @@
 
 <PageTitle>Blazor Developer Tools - Browser DevTools Extension</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.Large" Class="mt-8">
+<MudContainer MaxWidth="MaxWidth.Large" Class="@(_isDesktop ? "mt-8" : "mt-4 px-2")">
     @* Hero Section *@
     <MudGrid Justify="Justify.Center" Class="mb-12">
         <MudItem xs="12" md="10" lg="8">
             <MudStack Spacing="4" AlignItems="AlignItems.Center">
 
-                <MudImage Src="/images/logo.png" Width="200" />
+                <MudImage Src="/images/logo.png" Width="@(_isDesktop ? 200 : 150)" />
 
                 <MudText Typo="Typo.h2" Align="Align.Center" GutterBottom="false">
                     Blazor Developer Tools
@@ -21,17 +21,22 @@
                     Razor in your browser
                 </MudText>
 
-                <MudStack Row="true" Spacing="2" Class="mt-4">
+                <MudStack Row="@_isDesktop"
+                          Spacing="2"
+                          Class="mt-4 hero-buttons"
+                          AlignItems="AlignItems.Center">
                     <MudButton Variant="Variant.Filled"
                                Color="Color.Primary"
-                               Size="Size.Large"
+                               Size="@(_isDesktop ? Size.Large : Size.Medium)"
+                               FullWidth="@(!_isDesktop)"
                                StartIcon="@Icons.Material.Filled.Download"
                                OnClick="@OnClickGetExtension">
                         Install Extension
                     </MudButton>
                     <MudButton Variant="Variant.Outlined"
                                Color="Color.Primary"
-                               Size="Size.Large"
+                               Size="@(_isDesktop ? Size.Large : Size.Medium)"
+                               FullWidth="@(!_isDesktop)"
                                StartIcon="@Icons.Material.Filled.Code"
                                Href="https://www.nuget.org/packages/BlazorDeveloperTools"
                                Target="_blank">
@@ -39,7 +44,8 @@
                     </MudButton>
                     <MudButton Variant="Variant.Outlined"
                                Color="Color.Primary"
-                               Size="Size.Large"
+                               Size="@(_isDesktop ? Size.Large : Size.Medium)"
+                               FullWidth="@(!_isDesktop)"
                                StartIcon="@Icons.Custom.Brands.GitHub"
                                Href="https://github.com/joe-gregory/blazor-devtools"
                                Target="_blank">
@@ -49,7 +55,31 @@
             </MudStack>
         </MudItem>
     </MudGrid>
-
+    @* Try Now! *@
+    <MudGrid Justify="Justify.Center" Class="mb-8">
+        <MudItem xs="12" md="10" lg="8">
+            <MudCard Elevation="4" Style="border: 2px solid var(--mud-palette-primary); background: linear-gradient(135deg, var(--mud-palette-primary-lighten) 0%, var(--mud-palette-surface) 100%);">
+                <MudCardContent Class="py-4">
+                    <MudStack Row="@_isDesktop" Spacing="3" AlignItems="AlignItems.Center" Justify="Justify.Center">
+                        <MudIcon Icon="@Icons.Material.Filled.TipsAndUpdates"
+                                 Size="Size.Large"
+                                 Color="Color.Primary" />
+                        <MudStack Spacing="1" Style="flex: 1;">
+                            <MudText Typo="Typo.h6" Color="Color.Primary">
+                                🚀 Try BDT Right Now!
+                            </MudText>
+                            <MudText Typo="Typo.body1">
+                                <MudLink OnClick="@OnClickGetExtension" Style="cursor: pointer; text-decoration: underline; font-weight: bold;">
+                                    Install the browser extension
+                                </MudLink>
+                                and inspect this very website to see Blazor Developer Tools in action!
+                            </MudText>
+                        </MudStack>
+                    </MudStack>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+    </MudGrid>
     @* Video Section *@
     <MudGrid Justify="Justify.Center" Class="mb-12">
         <MudItem xs="12" md="10" lg="8">
@@ -85,7 +115,45 @@
             </MudPaper>
         </MudItem>
     </MudGrid>
+    @* Beta Release Section *@
+    <MudGrid Justify="Justify.Center" Class="mb-12">
+        <MudItem xs="12" md="10" lg="8">
+            <MudPaper Elevation="3" Class="pa-6">
+                <MudText Typo="Typo.h4" GutterBottom="true">
+                    <MudIcon Icon="@Icons.Material.Filled.Rocket" Class="mr-2" />
+                    Announcing BDT v0.9.x Beta Release
+                </MudText>
+                <MudDivider Class="my-4" />
 
+                <MudText Typo="Typo.body1" Class="mb-4">
+                    I'm happy to announce the first beta release of BDT! This initial version (0.9.x)
+                    is the MVP - it's far from what I would like it to be, but it's a start.
+                </MudText>
+
+                <MudText Typo="Typo.body1" Class="mb-4">
+                    Looking ahead, I envision features like displaying component property values in real-time
+                    while the app is running, and much more. This first release has plenty of shortcomings,
+                    but I believe it's best to release early and iterate along the way.
+                </MudText>
+
+                <MudAlert Severity="Severity.Success" Class="my-4">
+                    I'm excited and happy to finally share this with you!
+                </MudAlert>
+
+                <MudText Typo="Typo.body1" Class="mb-4">
+                    If you'd like to contribute or report an issue, please visit the GitHub repository:
+                </MudText>
+
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Custom.Brands.GitHub"
+                           Href="https://github.com/joe-gregory/blazor-devtools"
+                           Target="_blank">
+                    View on GitHub
+                </MudButton>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
     @* What Is It Section *@
     <MudGrid Justify="Justify.Center" Class="mb-12">
         <MudItem xs="12" md="10" lg="8">
@@ -95,7 +163,7 @@
                 </MudText>
 
                 <MudText Typo="Typo.body1" Align="Align.Center">
-                    Blazor Developer Tools allows you to inspect your app's razor code in the browser. 
+                    Blazor Developer Tools bridges the gap between your HTML and your Razor components. Inspect any element to instantly see which component rendered it, navigate your component tree, and debug faster. Free, open source, and Apache 2.0 licensed.
                 </MudText>
 
                 <MudGrid Class="mt-4">
@@ -108,6 +176,7 @@
                                     <MudText Typo="Typo.body2">
                                         Visualize your entire Blazor component hierarchy in a tree structure
                                     </MudText>
+                                    <MudImage Src="/images/ComponentTreeView.png" />
                                 </MudStack>
                             </MudCardContent>
                         </MudCard>
@@ -122,6 +191,7 @@
                                     <MudText Typo="Typo.body2">
                                         Select components in the page and see their details instantly
                                     </MudText>
+                                    <MudImage Src="/images/ComponentInspector.png" />
                                 </MudStack>
                             </MudCardContent>
                         </MudCard>
@@ -132,10 +202,11 @@
                             <MudCardContent>
                                 <MudStack Spacing="2">
                                     <MudIcon Icon="@Icons.Material.Filled.Speed" Size="Size.Large" Color="Color.Primary" />
-                                    <MudText Typo="Typo.h6">Real-time Updates</MudText>
+                                    <MudText Typo="Typo.h6">Detailed Info</MudText>
                                     <MudText Typo="Typo.body2">
-                                        See component changes as they happen in your application
+                                        Click on a component to get file location and additional information.
                                     </MudText>
+                                    <MudImage Src="/images/ComponentInfo.png" />
                                 </MudStack>
                             </MudCardContent>
                         </MudCard>
@@ -145,109 +216,80 @@
         </MudItem>
     </MudGrid>
 
-    @* Mailing List Section *@
-    <MudGrid Justify="Justify.Center" Class="mb-12">
-        <MudItem xs="12" md="8" lg="6">
-            <MudPaper Elevation="2" Class="pa-6" Style="background: linear-gradient(135deg, var(--mud-palette-primary-lighten), var(--mud-palette-primary));">
-                <MudStack Spacing="4" AlignItems="AlignItems.Center">
-                    <MudIcon Icon="@Icons.Material.Filled.Email" Size="Size.Large" Style="color: white;" />
-                    <MudText Typo="Typo.h5" Align="Align.Center" Style="color: white;">
-                        Stay Updated
-                    </MudText>
-                    <MudText Typo="Typo.body1" Align="Align.Center" Style="color: white;">
-                        Join our mailing list to get notified about new features and updates
-                    </MudText>
-
-                    <MudGrid Spacing="2" Style="width: 100%; max-width: 500px;">
-                        <MudItem xs="8">
-                            <MudTextField @bind-Value="@_email"
-                                          Label="Email Address"
-                                          Variant="Variant.Filled"
-                                          Style="background-color: white;"
-                                          FullWidth="true" />
-                        </MudItem>
-                        <MudItem xs="4">
-                            <MudButton Variant="Variant.Filled"
-                                       Color="Color.Secondary"
-                                       FullWidth="true"
-                                       OnClick="@SubscribeToMailingList">
-                                Subscribe
-                            </MudButton>
-                        </MudItem>
-                    </MudGrid>
-
-                    @if (_subscribed)
-                    {
-                        <MudAlert Severity="Severity.Success" Style="background-color: white;">
-                            Thanks for subscribing! We'll keep you updated.
-                        </MudAlert>
-                    }
-                </MudStack>
-            </MudPaper>
-        </MudItem>
-    </MudGrid>
-
     @* Installation Section *@
     <MudGrid Justify="Justify.Center" Class="mb-12">
         <MudItem xs="12" md="10" lg="8">
             <MudStack Spacing="4">
                 <MudText Typo="Typo.h4" Align="Align.Center">
-                    How to Install
+                    Quick Start
                 </MudText>
 
-                <MudTimeline TimelineOrientation="TimelineOrientation.Vertical" TimelinePosition="TimelinePosition.Alternate">
-                    <MudTimelineItem Color="Color.Primary" Size="Size.Small">
+                <MudText Typo="Typo.body1" Align="Align.Center" Color="Color.Secondary">
+                    Get up and running in 2 simple steps
+                </MudText>
+
+                <MudTimeline TimelineOrientation="TimelineOrientation.Vertical"
+                             TimelinePosition="@(_isDesktop ? TimelinePosition.Alternate : TimelinePosition.Start)"
+                             Class="mt-4">
+                    <MudTimelineItem Color="Color.Primary" Size="Size.Large">
                         <ItemContent>
-                            <MudCard>
+                            <MudCard Elevation="3">
                                 <MudCardContent>
-                                    <MudText Typo="Typo.h6">1. Visit Chrome Web Store</MudText>
-                                    <MudText Typo="Typo.body2">
-                                        Go to the Chrome Web Store and search for "Blazor Developer Tools"
-                                    </MudText>
+                                    <MudStack Spacing="2">
+                                        <MudText Typo="Typo.h5">
+                                            <MudIcon Icon="@Icons.Material.Filled.Code" Class="mr-2" />
+                                            1. Install NuGet Package
+                                        </MudText>
+                                        <MudText Typo="Typo.body1">
+                                            Add the BlazorDeveloperTools package to your Blazor project:
+                                        </MudText>
+                                        <MudPaper Class="pa-3" Style="background-color: var(--mud-palette-background-grey);">
+                                            <code>dotnet add package BlazorDeveloperTools</code>
+                                        </MudPaper>
+                                        <MudButton Variant="Variant.Outlined"
+                                                   Color="Color.Primary"
+                                                   StartIcon="@Icons.Material.Filled.OpenInNew"
+                                                   Href="https://www.nuget.org/packages/BlazorDeveloperTools"
+                                                   Target="_blank">
+                                            View on NuGet
+                                        </MudButton>
+                                    </MudStack>
                                 </MudCardContent>
                             </MudCard>
                         </ItemContent>
                     </MudTimelineItem>
 
-                    <MudTimelineItem Color="Color.Primary" Size="Size.Small">
+                    <MudTimelineItem Color="Color.Primary" Size="Size.Large">
                         <ItemContent>
-                            <MudCard>
+                            <MudCard Elevation="3">
                                 <MudCardContent>
-                                    <MudText Typo="Typo.h6">2. Add to Chrome</MudText>
-                                    <MudText Typo="Typo.body2">
-                                        Click the "Add to Chrome" button to install the extension
-                                    </MudText>
-                                </MudCardContent>
-                            </MudCard>
-                        </ItemContent>
-                    </MudTimelineItem>
-
-                    <MudTimelineItem Color="Color.Primary" Size="Size.Small">
-                        <ItemContent>
-                            <MudCard>
-                                <MudCardContent>
-                                    <MudText Typo="Typo.h6">3. Open Your Blazor App</MudText>
-                                    <MudText Typo="Typo.body2">
-                                        Navigate to any Blazor application in your browser
-                                    </MudText>
-                                </MudCardContent>
-                            </MudCard>
-                        </ItemContent>
-                    </MudTimelineItem>
-
-                    <MudTimelineItem Color="Color.Primary" Size="Size.Small">
-                        <ItemContent>
-                            <MudCard>
-                                <MudCardContent>
-                                    <MudText Typo="Typo.h6">4. Open DevTools</MudText>
-                                    <MudText Typo="Typo.body2">
-                                        Press F12 and find the new "Blazor" tab in Chrome DevTools
-                                    </MudText>
+                                    <MudStack Spacing="2">
+                                        <MudText Typo="Typo.h5">
+                                            <MudIcon Icon="@Icons.Material.Filled.Extension" Class="mr-2" />
+                                            2. Install Browser Extension
+                                        </MudText>
+                                        <MudText Typo="Typo.body1">
+                                            Add the extension to Chrome or Edge from your browser's web store.
+                                        </MudText>
+                                        <MudButton Variant="Variant.Filled"
+                                                   Color="Color.Primary"
+                                                   StartIcon="@Icons.Material.Filled.Download"
+                                                   OnClick="@OnClickGetExtension"
+                                                   Size="Size.Large">
+                                            Install Extension
+                                        </MudButton>
+                                    </MudStack>
                                 </MudCardContent>
                             </MudCard>
                         </ItemContent>
                     </MudTimelineItem>
                 </MudTimeline>
+
+                <MudAlert Severity="Severity.Success" Class="mt-4">
+                    <MudText Typo="Typo.body1">
+                        <strong>That's it!</strong> Open your Blazor app, press F12, and look for the "Blazor" tab in DevTools.
+                    </MudText>
+                </MudAlert>
             </MudStack>
         </MudItem>
     </MudGrid>
@@ -260,58 +302,150 @@
                     How to Use
                 </MudText>
 
-                <MudGrid>
+                <MudText Typo="Typo.body1" Align="Align.Center" Color="Color.Secondary">
+                    Start inspecting your Blazor components in seconds
+                </MudText>
+
+                <MudGrid Class="mt-4" Justify="Justify.Center">
+                    <MudItem xs="12" sm="6" md="4">
+                        <MudPaper Class="pa-6" Elevation="2" Style="height: 100%;">
+                            <MudStack Spacing="3" AlignItems="AlignItems.Center">
+                                <MudIcon Icon="@Icons.Material.Filled.RocketLaunch"
+                                         Size="Size.Large"
+                                         Color="Color.Primary" />
+                                <MudText Typo="Typo.h6" Align="Align.Center">
+                                    1. Launch Your App
+                                </MudText>
+                                <MudText Typo="Typo.body2" Align="Align.Center">
+                                    Run your Blazor application in Chrome or Edge
+                                </MudText>
+                            </MudStack>
+                        </MudPaper>
+                    </MudItem>
+
+                    <MudItem xs="12" sm="4">
+                        <MudPaper Class="pa-6" Elevation="2" Style="height: 100%;">
+                            <MudStack Spacing="3" AlignItems="AlignItems.Center">
+                                <MudIcon Icon="@Icons.Material.Filled.DeveloperMode"
+                                         Size="Size.Large"
+                                         Color="Color.Primary" />
+                                <MudText Typo="Typo.h6" Align="Align.Center">
+                                    2. Open DevTools
+                                </MudText>
+                                <MudText Typo="Typo.body2" Align="Align.Center">
+                                    Right-click and select "Inspect" or press F12
+                                </MudText>
+                            </MudStack>
+                        </MudPaper>
+                    </MudItem>
+
+                    <MudItem xs="12" sm="4">
+                        <MudPaper Class="pa-6" Elevation="2" Style="height: 100%;">
+                            <MudStack Spacing="3" AlignItems="AlignItems.Center">
+                                <MudIcon Icon="@Icons.Material.Filled.Tab"
+                                         Size="Size.Large"
+                                         Color="Color.Primary" />
+                                <MudText Typo="Typo.h6" Align="Align.Center">
+                                    3. Find Blazor Tab
+                                </MudText>
+                                <MudText Typo="Typo.body2" Align="Align.Center">
+                                    Look for the "Blazor" tab in DevTools
+                                </MudText>
+                            </MudStack>
+                        </MudPaper>
+                    </MudItem>
+                </MudGrid>
+
+                <MudDivider Class="my-6" />
+
+                <MudText Typo="Typo.body1" Align="Align.Center">
+                    <strong>Pro tip:</strong> Click the picker tool in the Blazor tab to select elements
+                    and see which component rendered them.
+                </MudText>
+            </MudStack>
+        </MudItem>
+    </MudGrid>
+    @* How to Customize Section *@
+    <MudGrid Justify="Justify.Center" Class="mb-12">
+        <MudItem xs="12" md="10" lg="8">
+            <MudStack Spacing="4">
+                <MudText Typo="Typo.h4" Align="Align.Center">
+                    Configuration Options
+                </MudText>
+
+                <MudText Typo="Typo.body1" Align="Align.Center" Color="Color.Secondary">
+                    Customize Blazor Developer Tools to fit your workflow
+                </MudText>
+
+                <MudGrid Class="mt-4">
+                    @* Debug vs Production *@
                     <MudItem xs="12" md="6">
-                        <MudCard Class="h-100">
+                        <MudCard Elevation="3" Style="height: 100%;">
                             <MudCardContent>
-                                <MudStack Spacing="2">
-                                    <MudIcon Icon="@Icons.Material.Filled.Mouse" Color="Color.Primary" />
-                                    <MudText Typo="Typo.h6">Component Selection</MudText>
+                                <MudStack Spacing="3">
+                                    <MudIcon Icon="@Icons.Material.Filled.Settings"
+                                             Size="Size.Large"
+                                             Color="Color.Primary" />
+                                    <MudText Typo="Typo.h6">Enable in Production</MudText>
                                     <MudText Typo="Typo.body2">
-                                        Click the picker tool and hover over any element in your Blazor app to see which component it belongs to.
+                                        By default, BDT only runs in Debug mode. To enable it in Release/Production builds,
+                                        add this to your <code>.csproj</code> file:
                                     </MudText>
+                                    <MudPaper Class="pa-3" Style="background-color: var(--mud-palette-background-grey); max-width: 100%; overflow-x: auto;">
+                                        <pre style="margin: 0; font-size: 0.875rem;"><code>&lt;PropertyGroup&gt;
+  &lt;EnableBlazorDevToolsInProduction&gt;true&lt;/EnableBlazorDevToolsInProduction&gt;
+&lt;/PropertyGroup&gt;</code></pre>
+                                    </MudPaper>
                                 </MudStack>
                             </MudCardContent>
                         </MudCard>
                     </MudItem>
 
+                    @* Skip Components *@
                     <MudItem xs="12" md="6">
-                        <MudCard Class="h-100">
+                        <MudCard Elevation="3" Style="height: 100%;">
                             <MudCardContent>
-                                <MudStack Spacing="2">
-                                    <MudIcon Icon="@Icons.Material.Filled.ViewList" Color="Color.Primary" />
-                                    <MudText Typo="Typo.h6">Tree Navigation</MudText>
+                                <MudStack Spacing="3">
+                                    <MudIcon Icon="@Icons.Material.Filled.Block"
+                                             Size="Size.Large"
+                                             Color="Color.Primary" />
+                                    <MudText Typo="Typo.h6">Skip Problematic Components</MudText>
                                     <MudText Typo="Typo.body2">
-                                        Navigate through your component hierarchy using the tree view. Click on any component to see its details.
+                                        Some components may have issues with BDT's markers. Skip them by adding
+                                        this to your <code>.csproj</code> file:
                                     </MudText>
+                                    <MudPaper Class="pa-3" Style="background-color: var(--mud-palette-background-grey); max-width: 100%; overflow-x: auto;">
+                                        <pre style="margin: 0; font-size: 0.875rem;"><code>&lt;PropertyGroup&gt;
+  &lt;BdtSkipComponents&gt;ItemContent;MudTimelineItem;MudDialog&lt;/BdtSkipComponents&gt;
+&lt;/PropertyGroup&gt;</code></pre>
+                                    </MudPaper>
+                                    <MudAlert Severity="Severity.Info" Dense="true">
+                                        Semicolon-separated list of component names
+                                    </MudAlert>
                                 </MudStack>
                             </MudCardContent>
                         </MudCard>
                     </MudItem>
 
-                    <MudItem xs="12" md="6">
-                        <MudCard Class="h-100">
+                    @* Disable Entirely *@
+                    <MudItem xs="12">
+                        <MudCard Elevation="2">
                             <MudCardContent>
                                 <MudStack Spacing="2">
-                                    <MudIcon Icon="@Icons.Material.Filled.Info" Color="Color.Primary" />
-                                    <MudText Typo="Typo.h6">Component Details</MudText>
+                                    @* Changed from Row to regular Stack *@
+                                    <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                                        <MudIcon Icon="@Icons.Material.Filled.PowerSettingsNew"
+                                                 Color="Color.Secondary" />
+                                        <MudText Typo="Typo.subtitle1"><strong>Disable BDT</strong></MudText>
+                                    </MudStack>
                                     <MudText Typo="Typo.body2">
-                                        View detailed information about selected components including file location and component ID.
+                                        To completely disable BDT (even in Debug), set:
                                     </MudText>
-                                </MudStack>
-                            </MudCardContent>
-                        </MudCard>
-                    </MudItem>
-
-                    <MudItem xs="12" md="6">
-                        <MudCard Class="h-100">
-                            <MudCardContent>
-                                <MudStack Spacing="2">
-                                    <MudIcon Icon="@Icons.Material.Filled.Refresh" Color="Color.Primary" />
-                                    <MudText Typo="Typo.h6">Real-time Updates</MudText>
-                                    <MudText Typo="Typo.body2">
-                                        The component tree automatically updates as your application state changes. Use the refresh button for manual updates.
-                                    </MudText>
+                                    <MudPaper Class="pa-2" Style="background-color: var(--mud-palette-background-grey); overflow-x: auto;">
+                                        <code style="word-break: break-all;">
+                                            &lt;EnableAutomaticMarkers&gt;false&lt;/EnableAutomaticMarkers&gt;
+                                        </code>
+                                    </MudPaper>
                                 </MudStack>
                             </MudCardContent>
                         </MudCard>
@@ -320,8 +454,8 @@
             </MudStack>
         </MudItem>
     </MudGrid>
+   
 </MudContainer>
-
 @* Footer *@
 <MudPaper Square="true" Elevation="0" Class="mt-16 py-8" Style="background-color: var(--mud-palette-background-grey);">
     <MudContainer MaxWidth="MaxWidth.Large">
@@ -339,45 +473,41 @@
             </MudItem>
 
             <MudItem xs="12" md="6">
-                <MudStack Row="true" Spacing="3" Justify="Justify.FlexEnd" AlignItems="AlignItems.Center">
+                <MudStack Row="@_isDesktop"
+                          Spacing="3"
+                          Justify="@(_isDesktop ? Justify.FlexEnd : Justify.Center)"
+                          AlignItems="AlignItems.Center">
                     <MudTooltip Text="Email Us">
                         <MudIconButton Icon="@Icons.Material.Filled.Email"
                                        Color="Color.Primary"
-                                       Href="mailto:contact@blazordevtools.com" />
+                                       Href="mailto:blazordevelopertools@gmail.com" />
                     </MudTooltip>
 
                     <MudTooltip Text="Twitter">
-                        <MudIconButton Icon="@Icons.Custom.Brands.Twitter"
+                        <MudIconButton Icon="@Icons.Custom.Brands.X"
                                        Color="Color.Primary"
-                                       Href="https://twitter.com/yourusername"
+                                       Href="https://x.com/_joe_gregory"
                                        Target="_blank" />
                     </MudTooltip>
 
                     <MudTooltip Text="YouTube">
                         <MudIconButton Icon="@Icons.Custom.Brands.YouTube"
                                        Color="Color.Primary"
-                                       Href="https://youtube.com/yourchannel"
+                                       Href=@_youtubeUrl
                                        Target="_blank" />
                     </MudTooltip>
 
                     <MudTooltip Text="Instagram">
                         <MudIconButton Icon="@Icons.Custom.Brands.Instagram"
                                        Color="Color.Primary"
-                                       Href="https://instagram.com/yourusername"
-                                       Target="_blank" />
-                    </MudTooltip>
-
-                    <MudTooltip Text="Reddit">
-                        <MudIconButton Icon="@Icons.Custom.Brands.Reddit"
-                                       Color="Color.Primary"
-                                       Href="https://reddit.com/r/blazordevtools"
+                                       Href="https://www.instagram.com/blazordevelopertools/"
                                        Target="_blank" />
                     </MudTooltip>
 
                     <MudTooltip Text="GitHub">
                         <MudIconButton Icon="@Icons.Custom.Brands.GitHub"
                                        Color="Color.Primary"
-                                       Href="https://github.com/yourusername/BlazorDeveloperTools"
+                                       Href="https://github.com/joe-gregory/blazor-devtools"
                                        Target="_blank" />
                     </MudTooltip>
                 </MudStack>
@@ -389,9 +519,8 @@
 @code {
     private const string EdgeExtensionUrl = "https://microsoftedge.microsoft.com/addons/detail/blazor-developer-tools/pdggeigaaicabckehkeldfpfikihgcdj";
     private const string ChromeExtensionUrl = "https://chromewebstore.google.com/detail/blazor-developer-tools/pfddbenemjnlceffaemllejnjbobadhp";
-
-    private string _email = "";
-    private bool _subscribed = false;
+    private const string _youtubeUrl = "https://www.youtube.com/@BlazorDeveloperTools";
+    private bool _isDesktop = true;
 
     private DialogOptions _dialogOptions = new()
     {
@@ -399,7 +528,23 @@
         MaxWidth = MaxWidth.Small,
         FullWidth = true
     };
-
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                var width = await JSRuntime.InvokeAsync<int>("eval", "window.innerWidth");
+                _isDesktop = width >= 960; // MudBlazor md breakpoint
+                StateHasChanged();
+            }
+            catch
+            {
+                // Fallback to desktop layout if JS fails
+                _isDesktop = true;
+            }
+        }
+    }
     private async Task OnClickGetExtension()
     {
         try
@@ -443,22 +588,6 @@
         }
     }
 
-    private async Task SubscribeToMailingList()
-    {
-        // TODO: Implement actual mailing list subscription
-        // For now, just show success message
-        if (!string.IsNullOrWhiteSpace(_email))
-        {
-            _subscribed = true;
-            StateHasChanged();
-
-            // Hide the success message after 3 seconds
-            await Task.Delay(3000);
-            _subscribed = false;
-            _email = "";
-            StateHasChanged();
-        }
-    }
     private Task OpenDialogAsync()
     {
         var options = new DialogOptions { CloseOnEscapeKey = true };
