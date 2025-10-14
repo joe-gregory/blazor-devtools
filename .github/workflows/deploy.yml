@@ -28,16 +28,9 @@ jobs:
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '8.0.x'
-    
-    - name: Clear NuGet sources and add nuget.org
-      run: |
-        dotnet nuget list source
-        dotnet nuget remove source BlazorDeveloperTools.Pack || true
-        dotnet nuget add source https://api.nuget.org/v3/index.json -n nuget.org || true
-        dotnet nuget list source
         
     - name: Restore dependencies
-      run: dotnet restore src/BlazorDevTools.Site.Wasm/BlazorDevTools.Site.Wasm.csproj
+      run: dotnet restore src/BlazorDevTools.Site.Wasm/BlazorDevTools.Site.Wasm.csproj --ignore-failed-sources
       
     - name: Build
       run: dotnet build src/BlazorDevTools.Site.Wasm/BlazorDevTools.Site.Wasm.csproj --configuration Release --no-restore
