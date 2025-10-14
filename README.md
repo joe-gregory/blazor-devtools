@@ -1,5 +1,7 @@
 ﻿![](https://i.imgur.com/H4eojC5.png)
-[Docs](https://blazordevelopertools.com/)
+ 
+## [Docs](https://blazordevelopertools.com/)
+
 # Blazor Developer Tools
 
 Ever wished you could right-click on a Blazor app and see the actual Razor markup instead of just HTML? Or click on any element and instantly know which .razor component it belongs to?
