@@ -1,0 +1,50 @@
+﻿@page "/"
+
+@*
+    This is a multi-line comment that will cause the bug.
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    grid-template-rows: minmax(0, 1fr);
+    grid-column-gap: 1em;
+    height: 100%;
+    min-height: 0;
+
+    @include size-down(md) {
+        // Smaller than a tablet, we just have one column
+        grid-template-columns: 1fr;
+    }
+*@
+
+<div class="test-component">
+    <h3>Test Component</h3>
+    <p>This component demonstrates the multi-line comment bug.</p>
+    <button @onclick="HandleClick">Click me</button>
+</div>
+
+@code
+{
+
+
+    private
+
+    void
+
+    HandleClick
+    (
+    )
+
+
+    {
+
+        Console
+.
+WriteLine
+(
+"Button clicked!"
+)
+;
+
+
+    }
+
+}
