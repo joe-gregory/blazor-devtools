@@ -20,7 +20,7 @@
 
 		<!-- Public package identity -->
 		<PackageId>BlazorDeveloperTools</PackageId>
-		<Version>0.9.8</Version>
+		<Version>0.9.9</Version>
 
 		<PackageReleaseNotes>
 			There is a new option to skip some inner components of a page that can be problematic with the added spans. For example, MudTimelineItem
@@ -48,7 +48,7 @@
 	</ItemGroup>
 
 	<!-- Copy task DLL/PDB produced by the Tasks project into this project's /tools -->
-	<Target Name="CopyTasksToPack" AfterTargets="Build">
+	<Target Name="CopyTasksToPack" BeforeTargets="GenerateNuspec">
 		<RemoveDir Directories="$(MSBuildProjectDirectory)\tools" />
 		<!-- ensures no stale DLL -->
 		<MakeDir Directories="$(MSBuildProjectDirectory)\tools" />
