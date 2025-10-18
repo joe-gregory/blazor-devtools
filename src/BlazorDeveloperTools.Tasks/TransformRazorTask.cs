@@ -231,25 +231,58 @@ namespace BlazorDeveloperTools.Tasks
             int idx = 0, len = text.Length;
             while (idx < len)
             {
-                int lineStart = idx;
-                int lineEnd = text.IndexOf('\n', idx);
-                if (lineEnd < 0) lineEnd = len;
+                // Skip whitespace at the beginning of the line
+                while (idx < len && (text[idx] == ' ' || text[idx] == '\t'))
+                    idx++;
 
-                string line = text.Substring(lineStart, lineEnd - lineStart);
-                string trimmed = line.TrimStart();
+                if (idx >= len)
+                    break;
 
-                idx = (lineEnd < len) ? lineEnd + 1 : len;
+                // Check if this is the start of a directive or comment
+                if (text[idx] == '@')
+                {
+                    // Check if this is a multi-line comment @* ... *@
+                    if (idx + 1 < len && text[idx + 1] == '*')
+                    {
+                        // Find the closing *@
+                        int commentEnd = text.IndexOf("*@", idx + 2);
+                        if (commentEnd >= 0)
+                        {
+                            // Move past the comment
+                            idx = commentEnd + 2;
 
-                if (trimmed.Length == 0)
-                    continue;
-
-                if (trimmed.StartsWith("@", StringComparison.Ordinal))
-                    continue;
-
-                if (trimmed.StartsWith("@*", StringComparison.Ordinal))
-                    continue;
-
-                return lineStart;
+                            // Skip to the next line if we're not already at the end
+                            int nextNewline = text.IndexOf('\n', idx);
+                            if (nextNewline >= 0)
+                                idx = nextNewline + 1;
+                            else
+                                idx = len;
+                        }
+                        else
+                        {
+                            // Unclosed comment, treat rest of file as comment
+                            return len;
+                        }
+                    }
+                    else
+                    {
+                        // Regular directive (like @using, @page, @attribute, @inherits, etc.)
+                        // or inline Razor expression - skip to end of line
+                        int lineEnd = text.IndexOf('\n', idx);
+                        if (lineEnd >= 0)
+                            idx = lineEnd + 1;
+                        else
+                            idx = len;
+                    }
+                }
+                else
+                {
+                    // This is not a directive or comment, so we've found the end of the directive block
+                    // Backtrack to the beginning of this line
+                    while (idx > 0 && text[idx - 1] != '\n')
+                        idx--;
+                    return idx;
+                }
             }
             return len;
         }
