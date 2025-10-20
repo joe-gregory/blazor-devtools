@@ -2,7 +2,6 @@
 # Set default behavior to automatically normalize line endings.
 ###############################################################################
 * text=auto
-
 ###############################################################################
 # Set default behavior for command prompt diff.
 #
@@ -11,7 +10,6 @@
 # Note: This is only used by command line
 ###############################################################################
 #*.cs     diff=csharp
-
 ###############################################################################
 # Set the merge driver for project and solution files
 #
@@ -34,7 +32,6 @@
 #*.modelproj merge=binary
 #*.sqlproj   merge=binary
 #*.wwaproj   merge=binary
-
 ###############################################################################
 # behavior for image files
 #
@@ -43,7 +40,6 @@
 #*.jpg   binary
 #*.png   binary
 #*.gif   binary
-
 ###############################################################################
 # diff behavior for common document formats
 # 
@@ -61,3 +57,28 @@
 #*.PDF   diff=astextplain
 #*.rtf   diff=astextplain
 #*.RTF   diff=astextplain
+
+###############################################################################
+# GitHub Linguist Configuration
+# 
+# Override repository language detection to properly show this as a C# project
+# since Blazor Developer Tools is primarily for .NET/C# developers
+###############################################################################
+* linguist-language=C#
+
+# Still properly identify specific file types for syntax highlighting
+*.html linguist-language=HTML
+*.css linguist-language=CSS
+*.js linguist-language=JavaScript
+*.ts linguist-language=TypeScript
+*.json linguist-language=JSON
+*.xml linguist-language=XML
+*.md linguist-language=Markdown
+*.yml linguist-language=YAML
+*.yaml linguist-language=YAML
+
+# Ensure Blazor and C# files are properly recognized
+*.cs linguist-language=C#
+*.razor linguist-language=C#
+*.cshtml linguist-language=C#
+*.csproj linguist-language=XML
