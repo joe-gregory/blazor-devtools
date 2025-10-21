@@ -5,14 +5,14 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
 	  <BdtSkipComponents>ItemContent;MudTimelineItem;MudDialog;DialogActions;DialogContent</BdtSkipComponents>
-	  <EnableBlazorDevToolsInProduction>false</EnableBlazorDevToolsInProduction>
 	  <RunAOTCompilation>false</RunAOTCompilation>
 	  <BlazorEnableCompression>false</BlazorEnableCompression>
 	  <BdtVerbose>true</BdtVerbose>
+	  <EnableBlazorDevToolsInProduction>true</EnableBlazorDevToolsInProduction>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="BlazorDeveloperTools" Version="0.9.11">
+    <PackageReference Include="BlazorDeveloperTools" Version="0.9.12">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
