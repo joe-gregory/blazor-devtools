@@ -20,7 +20,7 @@
 
 		<!-- Public package identity -->
 		<PackageId>BlazorDeveloperTools</PackageId>
-		<Version>0.9.11</Version>
+		<Version>0.9.12</Version>
 
 		<PackageReleaseNotes>
 			This is a critical bugfix release. It fixes an issue where markers were being added to @code sections. 

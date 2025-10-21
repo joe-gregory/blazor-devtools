@@ -121,7 +121,7 @@
 		<!-- Fix the TargetPath to remove shadow directory prefix -->
 		<ItemGroup>
 			<RazorComponentWithTargetPath>
-				<TargetPath>$([System.String]::Copy('%(RazorComponentWithTargetPath.TargetPath)').Replace('obj\Debug\net8.0\blazordevtools\', '').Replace('obj/Debug/net8.0/blazordevtools/', '').Replace('obj\Debug\net9.0\blazordevtools\', '').Replace('obj/Debug/net9.0/blazordevtools/', ''))</TargetPath>
+				<TargetPath>$([System.String]::Copy('%(RazorComponentWithTargetPath.TargetPath)').Replace('obj\Debug\net8.0\blazordevtools\', '').Replace('obj/Debug/net8.0/blazordevtools/', '').Replace('obj\Debug\net9.0\blazordevtools\', '').Replace('obj/Debug/net9.0/blazordevtools/', '').Replace('obj\Release\net8.0\blazordevtools\', '').Replace('obj/Release/net8.0/blazordevtools/', '').Replace('obj\Release\net9.0\blazordevtools\', '').Replace('obj/Release/net9.0/blazordevtools/', ''))</TargetPath>
 			</RazorComponentWithTargetPath>
 		</ItemGroup>
 
