@@ -293,7 +293,119 @@
             </MudStack>
         </MudItem>
     </MudGrid>
+    @* Render Mode Installation Section *@
+    <MudGrid Justify="Justify.Center" Class="mb-12">
+        <MudItem xs="12" md="10" lg="8">
+            <MudStack Spacing="4">
+                <MudText Typo="Typo.h4" Align="Align.Center">
+                    Installation by Render Mode
+                </MudText>
 
+                <MudText Typo="Typo.body1" Align="Align.Center" Color="Color.Secondary">
+                    Different Blazor render modes require slightly different installation approaches
+                </MudText>
+
+                <MudGrid Class="mt-4">
+                    @* WebAssembly Standalone *@
+                    <MudItem xs="12" md="6">
+                        <MudCard Elevation="3" Style="height: 100%;">
+                            <MudCardContent>
+                                <MudStack Spacing="3">
+                                    <MudIcon Icon="@Icons.Material.Filled.Public"
+                                             Size="Size.Large"
+                                             Color="Color.Primary" />
+                                    <MudText Typo="Typo.h6">WebAssembly Standalone</MudText>
+                                    <MudText Typo="Typo.body2">
+                                        Simply install the NuGet package in your main project:
+                                    </MudText>
+                                    <MudPaper Class="pa-3" Style="background-color: var(--mud-palette-background-grey);">
+                                        <code>dotnet add package BlazorDeveloperTools</code>
+                                    </MudPaper>
+                                </MudStack>
+                            </MudCardContent>
+                        </MudCard>
+                    </MudItem>
+
+                    @* Global Server *@
+                    <MudItem xs="12" md="6">
+                        <MudCard Elevation="3" Style="height: 100%;">
+                            <MudCardContent>
+                                <MudStack Spacing="3">
+                                    <MudIcon Icon="@Icons.Material.Filled.Storage"
+                                             Size="Size.Large"
+                                             Color="Color.Primary" />
+                                    <MudText Typo="Typo.h6">Global Server</MudText>
+                                    <MudText Typo="Typo.body2">
+                                        Simply install the NuGet package in your main project:
+                                    </MudText>
+                                    <MudPaper Class="pa-3" Style="background-color: var(--mud-palette-background-grey);">
+                                        <code>dotnet add package BlazorDeveloperTools</code>
+                                    </MudPaper>
+                                </MudStack>
+                            </MudCardContent>
+                        </MudCard>
+                    </MudItem>
+
+                    @* Auto Render - WebAssembly Global *@
+                    <MudItem xs="12" md="6">
+                        <MudCard Elevation="3" Style="height: 100%;">
+                            <MudCardContent>
+                                <MudStack Spacing="3">
+                                    <MudIcon Icon="@Icons.Material.Filled.AutoAwesome"
+                                             Size="Size.Large"
+                                             Color="Color.Primary" />
+                                    <MudText Typo="Typo.h6">Auto Render (WebAssembly Global)</MudText>
+                                    <MudText Typo="Typo.body2">
+                                        Install the package in your <strong>.Client</strong> project only:
+                                    </MudText>
+                                    <MudPaper Class="pa-3" Style="background-color: var(--mud-palette-background-grey);">
+                                        <code>cd YourProject.Client<br />dotnet add package BlazorDeveloperTools</code>
+                                    </MudPaper>
+                                </MudStack>
+                            </MudCardContent>
+                        </MudCard>
+                    </MudItem>
+
+                    @* Auto Render - Both Server and Client *@
+                    <MudItem xs="12" md="6">
+                        <MudCard Elevation="3" Style="height: 100%;">
+                            <MudCardContent>
+                                <MudStack Spacing="3">
+                                    <MudIcon Icon="@Icons.Material.Filled.DynamicFeed"
+                                             Size="Size.Large"
+                                             Color="Color.Primary" />
+                                    <MudText Typo="Typo.h6">Auto Render (Server + Client)</MudText>
+                                    <MudText Typo="Typo.body2">
+                                        Install the package in both your <strong>main</strong> project and <strong>.Client</strong> project:
+                                    </MudText>
+                                    <MudPaper Class="pa-3" Style="background-color: var(--mud-palette-background-grey);">
+                                        <code>dotnet add package BlazorDeveloperTools<br />cd YourProject.Client<br />dotnet add package BlazorDeveloperTools</code>
+                                    </MudPaper>
+                                </MudStack>
+                            </MudCardContent>
+                        </MudCard>
+                    </MudItem>
+                </MudGrid>
+
+                @* Demo Projects Info *@
+                <MudAlert Severity="Severity.Info" Class="mt-4">
+                    <MudText Typo="Typo.body1">
+                        <strong>Need examples?</strong> Check out the <code>demos/</code> folder in the GitHub repository,
+                        which contains 4 demo projects showcasing installation for each render mode.
+                    </MudText>
+                </MudAlert>
+
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.FolderOpen"
+                           Href="https://github.com/joe-gregory/blazor-devtools/tree/master/demos"
+                           Target="_blank"
+                           Class="mt-2">
+                    View Demo Projects
+                </MudButton>
+            </MudStack>
+        </MudItem>
+    </MudGrid>
     @* How to Use Section *@
     <MudGrid Justify="Justify.Center" Class="mb-12">
         <MudItem xs="12" md="10" lg="8">
