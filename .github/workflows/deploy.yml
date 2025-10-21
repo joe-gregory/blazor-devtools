@@ -4,7 +4,9 @@ on:
   push:
     branches: [ main ]
     paths:
-      - 'src/BlazorDevTools.Site.Wasm/**'
+      # Trigger only when the site project (or anything under it) changes
+      - 'docs/BlazorDevTools.Site.Wasm/**'
+      # Or when this workflow changes
       - '.github/workflows/deploy-website.yml'
   workflow_dispatch:
 
@@ -21,33 +23,36 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '8.0.x'
-        
-    - name: Restore dependencies
-      run: dotnet restore src/BlazorDevTools.Site.Wasm/BlazorDevTools.Site.Wasm.csproj --ignore-failed-sources
-      
-    - name: Build
-      run: dotnet build src/BlazorDevTools.Site.Wasm/BlazorDevTools.Site.Wasm.csproj --configuration Release --no-restore
-      
-    - name: Publish
-      run: dotnet publish src/BlazorDevTools.Site.Wasm/BlazorDevTools.Site.Wasm.csproj -c Release -o release --nologo
-      
-    - name: Add .nojekyll file
-      run: touch release/wwwroot/.nojekyll
-      
-    - name: Copy CNAME file
-      run: cp src/BlazorDevTools.Site.Wasm/wwwroot/CNAME release/wwwroot/CNAME
-      
-    - name: Upload artifact
-      uses: actions/upload-pages-artifact@v3
-      with:
-        path: release/wwwroot
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore docs/BlazorDevTools.Site.Wasm/BlazorDevTools.Site.Wasm.csproj --ignore-failed-sources
+
+      - name: Build
+        run: dotnet build docs/BlazorDevTools.Site.Wasm/BlazorDevTools.Site.Wasm.csproj --configuration Release --no-restore
+
+      - name: Publish
+        run: dotnet publish docs/BlazorDevTools.Site.Wasm/BlazorDevTools.Site.Wasm.csproj -c Release -o release --nologo
+
+      - name: Add .nojekyll
+        run: touch release/wwwroot/.nojekyll
+
+      - name: Copy CNAME (if present)
+        run: |
+          if [ -f docs/BlazorDevTools.Site.Wasm/wwwroot/CNAME ]; then
+            cp docs/BlazorDevTools.Site.Wasm/wwwroot/CNAME release/wwwroot/CNAME
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: release/wwwroot
 
   deploy:
     needs: build
@@ -56,6 +61,6 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-    - name: Deploy to GitHub Pages
-      id: deployment
-      uses: actions/deploy-pages@v4
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
