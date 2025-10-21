@@ -43,7 +43,9 @@
 			ProjectDirectory="$(MSBuildProjectDirectory)"
 			SkipUnderscoreFiles="true"
 			OnlyRazorFiles="true" 
-			ComponentsToSkip="$(BdtSkipComponents)" />
+			ComponentsToSkip="$(BdtSkipComponents)"
+			Verbose="$(BdtVerbose)"
+			/>
 
 		<!-- Copy CSS isolation files -->
 		<ItemGroup>
