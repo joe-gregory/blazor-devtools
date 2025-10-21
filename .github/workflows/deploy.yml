@@ -2,22 +2,13 @@ name: Deploy Website to GitHub Pages
 
 on:
   push:
-    branches: [ main ]
+    branches: [ master ]  # Changed from main
     paths:
-      # Trigger only when the site project (or anything under it) changes
       - 'docs/BlazorDevTools.Site.Wasm/**'
-      # Or when this workflow changes
-      - '.github/workflows/deploy-website.yml'
+      - '.github/workflows/deploy.yml'  # Match actual filename
   workflow_dispatch:
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: "pages"
-  cancel-in-progress: false
+# ... rest stays the same until:
 
 jobs:
   build:
@@ -29,38 +20,12 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: '9.0.x'  # Changed from 8.0.x
 
       - name: Restore dependencies
         run: dotnet restore docs/BlazorDevTools.Site.Wasm/BlazorDevTools.Site.Wasm.csproj --ignore-failed-sources
 
       - name: Build
-        run: dotnet build docs/BlazorDevTools.Site.Wasm/BlazorDevTools.Site.Wasm.csproj --configuration Release --no-restore
+        run: dotnet build docs/BlazorDevTools.Site.Wasm/BlazorDevTools.Site.Wasm.csproj --configuration Release --no-restore /p:EnableBlazorDevToolsInProduction=true /p:EnableAutomaticMarkers=true
 
-      - name: Publish
-        run: dotnet publish docs/BlazorDevTools.Site.Wasm/BlazorDevTools.Site.Wasm.csproj -c Release -o release --nologo
-
-      - name: Add .nojekyll
-        run: touch release/wwwroot/.nojekyll
-
-      - name: Copy CNAME (if present)
-        run: |
-          if [ -f docs/BlazorDevTools.Site.Wasm/wwwroot/CNAME ]; then
-            cp docs/BlazorDevTools.Site.Wasm/wwwroot/CNAME release/wwwroot/CNAME
-          fi
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: release/wwwroot
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+# ... rest stays the same
