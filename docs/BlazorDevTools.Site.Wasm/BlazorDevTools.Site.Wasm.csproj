@@ -9,6 +9,7 @@
 	  <BlazorEnableCompression>false</BlazorEnableCompression>
 	  <BdtVerbose>true</BdtVerbose>
 	  <EnableBlazorDevToolsInProduction>true</EnableBlazorDevToolsInProduction>
+	  <EnableAutomaticMarkers>true</EnableAutomaticMarkers>
   </PropertyGroup>
 
   <ItemGroup>
