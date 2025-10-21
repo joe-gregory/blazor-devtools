@@ -20,10 +20,10 @@
 
 		<!-- Public package identity -->
 		<PackageId>BlazorDeveloperTools</PackageId>
-		<Version>0.9.10</Version>
+		<Version>0.9.11</Version>
 
 		<PackageReleaseNotes>
-			This version solves issue #3 where multiline comments at the top of razor files was causing issues during marker injection.
+			This is a critical bugfix release. It fixes an issue where markers were being added to @code sections. 
 		</PackageReleaseNotes>
 		
 		<Authors>Joseph E. Gregory</Authors>

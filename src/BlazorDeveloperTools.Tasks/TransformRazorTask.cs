@@ -106,8 +106,26 @@ namespace BlazorDeveloperTools.Tasks
                             contentAfterDirectives = originalContentOfFile.Substring(insertIndex);
                         }
 
-                        // Inject markers around nested components, using our complete map
-                        string processedContent = InjectMarkersAroundComponents(contentAfterDirectives, relativePathOfOriginalFile, componentRenderFragmentMap);
+                        // Find @code block if it exists and only process content before it
+                        string templateContent = contentAfterDirectives;
+                        string codeBlockContent = "";
+
+                        int codeBlockIndex = contentAfterDirectives.IndexOf("@code", StringComparison.Ordinal);
+                        if (codeBlockIndex >= 0)
+                        {
+                            // Split content into template and code sections
+                            templateContent = contentAfterDirectives.Substring(0, codeBlockIndex);
+                            codeBlockContent = contentAfterDirectives.Substring(codeBlockIndex);
+                        }
+
+                        // Inject markers ONLY in the template portion, not in @code blocks
+                        string processedContent = InjectMarkersAroundComponents(templateContent, relativePathOfOriginalFile, componentRenderFragmentMap);
+
+                        // Recombine with the unmodified @code block
+                        if (!string.IsNullOrEmpty(codeBlockContent))
+                        {
+                            processedContent = processedContent + codeBlockContent;
+                        }
 
                         // Combine everything
                         toWrite = directivesSection
