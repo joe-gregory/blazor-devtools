@@ -1,3 +1,5 @@
+import { ComponentDetector } from '@shared/detectors/component-detector';
+
 // DevTools Panel logic with tree view
 console.log("Blazor DevTools Panel Loaded");
 
@@ -219,7 +221,6 @@ function highlightComponentInPage(componentId: string) {
   `);
 }
 
-// Request and display components
 function loadComponents() {
   chrome.devtools.inspectedWindow.eval(`
     (function() {
@@ -228,30 +229,54 @@ function loadComponents() {
       
       openMarkers.forEach(openMarker => {
         const id = openMarker.getAttribute('data-blazordevtools-id');
+        const name = openMarker.getAttribute('data-blazordevtools-component');
         const closeMarker = document.querySelector('[data-blazordevtools-marker="close"][data-blazordevtools-id="' + id + '"]');
         
         if (closeMarker) {
-          // Get DOM position for hierarchy building
           const allElements = Array.from(document.querySelectorAll('*'));
           components.push({
             id: id,
-            name: openMarker.getAttribute('data-blazordevtools-component') || 'Unknown',
+            name: name || 'Unknown',
             file: openMarker.getAttribute('data-blazordevtools-file') || '',
+            nested: openMarker.getAttribute('data-blazordevtools-nested') === 'true',
             openIndex: allElements.indexOf(openMarker),
             closeIndex: allElements.indexOf(closeMarker)
           });
         }
       });
       
-      return components;
+      const roots = [];
+      components.forEach(comp => { comp.children = []; });
+      
+      components.forEach(child => {
+        let directParent = null;
+        components.forEach(parent => {
+          if (parent.id !== child.id &&
+              child.openIndex > parent.openIndex && 
+              child.closeIndex < parent.closeIndex) {
+            if (!directParent || 
+                (parent.openIndex > directParent.openIndex && 
+                 parent.closeIndex < directParent.closeIndex)) {
+              directParent = parent;
+            }
+          }
+        });
+        
+        if (directParent) {
+          directParent.children.push(child);
+        } else {
+          roots.push(child);
+        }
+      });
+      
+      return roots;
     })()
   `, (result: any) => {
     if (result && result.length > 0) {
-      const tree = buildComponentTree(result);
       const container = document.getElementById('components-tree');
       if (container) {
         container.innerHTML = '';
-        displayComponentTree(container, tree, 0);
+        displayComponentTree(container, result, 0);
       }
     } else {
       displayNoComponents();
@@ -259,39 +284,6 @@ function loadComponents() {
   });
 }
 
-function buildComponentTree(components: any[]): any[] {
-  const roots: any[] = [];
-  
-  // First pass: add children arrays
-  components.forEach(comp => {
-    comp.children = [];
-  });
-  
-  // Second pass: build relationships
-  components.forEach(child => {
-    let directParent: any = null;
-    
-    // Find the immediate parent (smallest component that contains this one)
-    components.forEach(parent => {
-      if (parent.id !== child.id &&
-          child.openIndex > parent.openIndex && 
-          child.closeIndex < parent.closeIndex) {
-        if (!directParent || 
-            (parent.openIndex > directParent.openIndex && parent.closeIndex < directParent.closeIndex)) {
-          directParent = parent;
-        }
-      }
-    });
-    
-    if (directParent) {
-      directParent.children.push(child);
-    } else {
-      roots.push(child);
-    }
-  });
-  
-  return roots;
-}
 
 function displayNoComponents() {
   const container = document.getElementById('components-tree');

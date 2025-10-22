@@ -69,8 +69,16 @@ export class ComponentDetector {
     });
   }
   
-  private isNested(parent: BlazorComponent, child: BlazorComponent): boolean {
-    const position = parent.startElement.compareDocumentPosition(child.startElement);
-    return !!(position & Node.DOCUMENT_POSITION_CONTAINED_BY);
-  }
+private isNested(parent: BlazorComponent, child: BlazorComponent): boolean {
+  // Check if child's start marker comes after parent's start marker
+  const childAfterParentStart = parent.startElement.compareDocumentPosition(child.startElement);
+  const childStartFollows = !!(childAfterParentStart & Node.DOCUMENT_POSITION_FOLLOWING);
+  
+  // Check if child's end marker comes before parent's end marker
+  const childBeforeParentEnd = child.endElement.compareDocumentPosition(parent.endElement);
+  const childEndPrecedes = !!(childBeforeParentEnd & Node.DOCUMENT_POSITION_FOLLOWING);
+  
+  // Child is nested if: parent.start < child.start AND child.end < parent.end
+  return childStartFollows && childEndPrecedes;
+}
 }

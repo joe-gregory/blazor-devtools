@@ -20,10 +20,10 @@
 
 		<!-- Public package identity -->
 		<PackageId>BlazorDeveloperTools</PackageId>
-		<Version>0.9.12</Version>
+		<Version>0.9.13</Version>
 
 		<PackageReleaseNotes>
-			This is a critical bugfix release. It fixes an issue where markers were being added to @code sections. 
+			Along with updates to extension, addresses issues of tree not displaying inner components of pages and tool picker saying the page name rather than the component.
 		</PackageReleaseNotes>
 		
 		<Authors>Joseph E. Gregory</Authors>
