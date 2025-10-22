@@ -487,6 +487,7 @@ namespace BlazorDeveloperTools.Tasks
             // Track which RenderFragment parameters we're currently inside
             var renderFragmentDepth = 0;
 
+            Stack<string> componentIdStack = new Stack<string>();
             foreach (Match match in matches)
             {
                 // Append content before this match
@@ -571,6 +572,9 @@ namespace BlazorDeveloperTools.Tasks
                     else if (!isClosing)
                     {
                         // Opening tag of a real component
+                        var componentId = GenerateComponentId($"{relativeFilePath}#{tagName}#{match.Index}");
+                        componentIdStack.Push(componentId);  // ✅ PUSH ID ONTO STACK
+                        // Opening tag of a real component
                         var usage = new ComponentUsage(
                             tagName,
                             match.Index,
@@ -581,9 +585,7 @@ namespace BlazorDeveloperTools.Tasks
                         );
                         componentStack.Push(usage);
 
-                        var componentId = GenerateComponentId($"{relativeFilePath}#{tagName}#{match.Index}");
-                        var openMarker = $@"<span data-blazordevtools-marker=""open"" data-blazordevtools-id=""{componentId}"" data-blazordevtools-component=""{tagName}"" data-blazordevtools-file=""{relativeFilePath.Replace('\\', '/')}"" data-blazordevtools-nested=""true"" style=""display:none!important""></span>";
-
+                        string openMarker = $@"<span data-blazordevtools-marker=""open"" data-blazordevtools-id=""{componentId}"" data-blazordevtools-component=""{tagName}"" data-blazordevtools-file=""{relativeFilePath.Replace('\\', '/')}"" data-blazordevtools-nested=""true"" style=""display:none!important""></span>";
                         result.Append(openMarker);
                         result.Append(match.Value);
                     }
@@ -595,7 +597,8 @@ namespace BlazorDeveloperTools.Tasks
                             componentStack.Pop();
                         }
 
-                        var componentId = GenerateComponentId($"{relativeFilePath}#{tagName}#close{match.Index}");
+                        // ✅ REUSE THE SAME ID FROM THE STACK
+                        var componentId = componentIdStack.Count > 0 ? componentIdStack.Pop() : GenerateComponentId($"{relativeFilePath}#{tagName}#close{match.Index}");
                         var closeMarker = $@"<span data-blazordevtools-marker=""close"" data-blazordevtools-id=""{componentId}"" style=""display:none!important""></span>";
 
                         result.Append(match.Value);
