@@ -20,10 +20,10 @@
 
 		<!-- Public package identity -->
 		<PackageId>BlazorDeveloperTools</PackageId>
-		<Version>0.9.13</Version>
+		<Version>0.9.16</Version>
 
 		<PackageReleaseNotes>
-			Along with updates to extension, addresses issues of tree not displaying inner components of pages and tool picker saying the page name rather than the component.
+			Continuation to Addresses critical bug where generics inside lambda expressions inside components cause the generic to incorrectly be identified as a component. This would end up adding markers inside a component (in the lambda expression) breaking code. This re-adds BdtSkip components optional parameter.
 		</PackageReleaseNotes>
 		
 		<Authors>Joseph E. Gregory</Authors>

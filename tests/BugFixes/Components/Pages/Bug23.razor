@@ -1,0 +1,128 @@
+﻿@page "/test-generics-simple"
+@using System.Collections.Generic
+@* https://github.com/joe-gregory/blazor-devtools/issues/23 *@
+<h3>Simple Generics Test</h3>
+
+<p>This page uses only simple scenarios to test the generic type parameter fix.</p>
+
+<!-- 
+    THE BUG: Before the fix, the tool would incorrectly identify:
+    - "SomeClass" as a component (from List<SomeClass>)
+    - "string" as a component (from Dictionary<string, object>)
+    - "int" as a component (from List<int>)
+    
+    After the fix, only TestComponent should be detected as a component.
+-->
+
+<!-- Test 1: Simple List generic -->
+<TestComponent Data="@(new List<int>())" />
+
+<!-- Test 2: Dictionary generic -->
+<TestComponent Data="@(new Dictionary<string, object>())" />
+
+<!-- Test 3: Generic in conditional -->
+<TestComponent Data="@(hasData ? existingList : new List<string>())" />
+
+<!-- Test 4: Nested generics -->
+<TestComponent Data="@(new Dictionary<string, List<int>>())" />
+
+<!-- Test 5: Multiple parameters with generics -->
+<TestComponent 
+    Data="@(new List<string>())"
+    Config="@(new Dictionary<string, object>())"
+    Items="@items" />
+
+<!-- Test 6: Opening and closing tags -->
+<TestComponent Data="@(new List<MyModel>())">
+    <ChildContent>
+        <p>Some content here</p>
+    </ChildContent>
+</TestComponent>
+
+<!-- Test 7: CRITICAL - Lambda with generic type parameter (like Telerik Grid) -->
+<TestComponent 
+    OnStateChanged="@((StateEventArgs<MyModel> args) => HandleStateChanged(args))" />
+
+<!-- Test 8: Multiple lambdas with generics -->
+<TestComponent 
+    OnStateInit="@((StateEventArgs<MyModel> args) => OnInit(args))"
+    OnStateChanged="@((StateEventArgs<MyModel> args) => OnChanged(args))"
+    OnUpdate="@((GridUpdateArgs<MyModel> args) => OnUpdate(args))" />
+
+<!-- Test 9: Complex Telerik-like scenario -->
+<TelerikStyleGrid 
+    Data="@Data" 
+    OnStateInit="@((GridStateEventArgs<LeftGridRoleDto> args) => OnStateInitHandler(args))" 
+    OnStateChanged="@((GridStateEventArgs<LeftGridRoleDto> args) => OnStateChanged(args))" 
+    OnUpdate="@UpdateHandler"
+    OnDelete="@DeleteHandler" />
+
+@code {
+    // Test data
+    private bool hasData = false;
+    private List<string> existingList = new();
+    private List<MyModel> items = new();
+    private List<LeftGridRoleDto> Data = new();
+    
+    // Event handlers
+    private void HandleStateChanged(StateEventArgs<MyModel> args) { }
+    private void OnInit(StateEventArgs<MyModel> args) { }
+    private void OnChanged(StateEventArgs<MyModel> args) { }
+    private void OnUpdate(GridUpdateArgs<MyModel> args) { }
+    private void OnStateInitHandler(GridStateEventArgs<LeftGridRoleDto> args) { }
+    private void OnStateChanged(GridStateEventArgs<LeftGridRoleDto> args) { }
+    private void UpdateHandler() { }
+    private void DeleteHandler() { }
+    
+    public class MyModel 
+    { 
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+    }
+    
+    public class LeftGridRoleDto
+    {
+        public string RoleName { get; set; } = "";
+        public int RoleId { get; set; }
+    }
+    
+    // Event arg classes to simulate Telerik-style components
+    public class StateEventArgs<T>
+    {
+        public T? State { get; set; }
+    }
+    
+    public class GridStateEventArgs<T>
+    {
+        public T? State { get; set; }
+    }
+    
+    public class GridUpdateArgs<T>
+    {
+        public T? Item { get; set; }
+    }
+}
+
+@code {
+    // Minimal test component
+    class TestComponent : ComponentBase
+    {
+        [Parameter] public object? Data { get; set; }
+        [Parameter] public object? Config { get; set; }
+        [Parameter] public object? Items { get; set; }
+        [Parameter] public RenderFragment? ChildContent { get; set; }
+        [Parameter] public EventCallback<StateEventArgs<MyModel>> OnStateChanged { get; set; }
+        [Parameter] public EventCallback<StateEventArgs<MyModel>> OnStateInit { get; set; }
+        [Parameter] public EventCallback<GridUpdateArgs<MyModel>> OnUpdate { get; set; }
+    }
+    
+    // Telerik-style grid component for testing
+    class TelerikStyleGrid : ComponentBase
+    {
+        [Parameter] public object? Data { get; set; }
+        [Parameter] public EventCallback<GridStateEventArgs<LeftGridRoleDto>> OnStateInit { get; set; }
+        [Parameter] public EventCallback<GridStateEventArgs<LeftGridRoleDto>> OnStateChanged { get; set; }
+        [Parameter] public EventCallback OnUpdate { get; set; }
+        [Parameter] public EventCallback OnDelete { get; set; }
+    }
+}
