@@ -124,7 +124,7 @@ namespace BlazorDeveloperTools.Tasks
                         // Recombine with the unmodified @code block
                         if (!string.IsNullOrEmpty(codeBlockContent))
                         {
-                            processedContent = processedContent + codeBlockContent;
+                            processedContent += codeBlockContent;
                         }
 
                         // Combine everything
@@ -463,23 +463,35 @@ namespace BlazorDeveloperTools.Tasks
             return renderFragments;
         }
 
-        private string InjectMarkersAroundComponents(string content, string relativeFilePath, Dictionary<string, HashSet<string>> componentRenderFragmentMap)
+        private string InjectMarkersAroundComponents(
+            string content,
+            string relativeFilePath,
+            Dictionary<string, HashSet<string>> componentRenderFragmentMap)
         {
-            // Parse the components to skip from the property
-            string[] skipComponents = ComponentsToSkip?.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries)
-                                ?? new string[0];
+            // Parse the ComponentsToSkip property from the project file (semicolon-separated)
+            HashSet<string> skipComponents = new HashSet<string>();
+            if (!string.IsNullOrEmpty(ComponentsToSkip))
+            {
+                // Special case: "*" means skip all nested component markers
+                if (ComponentsToSkip == "*")
+                    return content;
 
-            // If configured to skip all nested components
-            if (ComponentsToSkip == "*")
+                var componentsToSkipArray = ComponentsToSkip.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
+                foreach (var comp in componentsToSkipArray)
+                {
+                    skipComponents.Add(comp.Trim());
+                }
+            }
+
+            if (string.IsNullOrEmpty(content))
                 return content;
 
             // Process all components, keeping track of their parent-child relationships
             var result = new StringBuilder();
             int lastIndex = 0;
 
-            // Find all component-like tags (opening, closing, and self-closing)
-            var allTagsPattern = @"<(/?)([A-Z][A-Za-z0-9]*(?:\.[A-Z][A-Za-z0-9]*)*)(\s[^>]*)?(/)?>";
-            var matches = Regex.Matches(content, allTagsPattern);
+            // Find all component matches using improved logic that handles generics
+            var matches = FindComponentMatches(content);
 
             // Stack to track which component we're currently inside
             var componentStack = new Stack<ComponentUsage>();
@@ -488,14 +500,14 @@ namespace BlazorDeveloperTools.Tasks
             var renderFragmentDepth = 0;
 
             Stack<string> componentIdStack = new Stack<string>();
-            foreach (Match match in matches)
+            foreach (var match in matches)
             {
                 // Append content before this match
-                result.Append(content.Substring(lastIndex, match.Index - lastIndex));
+                result.Append(content.Substring(lastIndex, match.StartPos - lastIndex));
 
-                bool isClosing = match.Groups[1].Value == "/";
-                string tagName = match.Groups[2].Value;
-                bool isSelfClosing = match.Groups[4].Value == "/";
+                string tagName = match.ComponentName;
+                bool isClosing = match.IsClosing;
+                bool isSelfClosing = match.IsSelfClosing;
 
                 // Check if this tag is a RenderFragment parameter
                 bool isRenderFragment = false;
@@ -553,7 +565,7 @@ namespace BlazorDeveloperTools.Tasks
                 if (shouldSkip)
                 {
                     // Just add the original tag without any markers
-                    result.Append(match.Value);
+                    result.Append(match.FullTag);
                 }
                 else
                 {
@@ -561,25 +573,25 @@ namespace BlazorDeveloperTools.Tasks
                     if (isSelfClosing)
                     {
                         // Self-closing component - wrap with markers
-                        var componentId = GenerateComponentId($"{relativeFilePath}#{tagName}#{match.Index}");
+                        var componentId = GenerateComponentId($"{relativeFilePath}#{tagName}#{match.StartPos}");
                         var openMarker = $@"<span data-blazordevtools-marker=""open"" data-blazordevtools-id=""{componentId}"" data-blazordevtools-component=""{tagName}"" data-blazordevtools-file=""{relativeFilePath.Replace('\\', '/')}"" data-blazordevtools-nested=""true"" style=""display:none!important""></span>";
                         var closeMarker = $@"<span data-blazordevtools-marker=""close"" data-blazordevtools-id=""{componentId}"" style=""display:none!important""></span>";
 
                         result.Append(openMarker);
-                        result.Append(match.Value);
+                        result.Append(match.FullTag);
                         result.Append(closeMarker);
                     }
                     else if (!isClosing)
                     {
                         // Opening tag of a real component
-                        var componentId = GenerateComponentId($"{relativeFilePath}#{tagName}#{match.Index}");
+                        var componentId = GenerateComponentId($"{relativeFilePath}#{tagName}#{match.StartPos}");
                         componentIdStack.Push(componentId);  // ✅ PUSH ID ONTO STACK
-                        // Opening tag of a real component
+                                                             // Opening tag of a real component
                         var usage = new ComponentUsage(
                             tagName,
-                            match.Index,
+                            match.StartPos,
                             -1,
-                            match,
+                            null, // We don't need the Match object anymore
                             false,
                             componentStack.Count > 0 ? componentStack.Peek() : null
                         );
@@ -587,7 +599,7 @@ namespace BlazorDeveloperTools.Tasks
 
                         string openMarker = $@"<span data-blazordevtools-marker=""open"" data-blazordevtools-id=""{componentId}"" data-blazordevtools-component=""{tagName}"" data-blazordevtools-file=""{relativeFilePath.Replace('\\', '/')}"" data-blazordevtools-nested=""true"" style=""display:none!important""></span>";
                         result.Append(openMarker);
-                        result.Append(match.Value);
+                        result.Append(match.FullTag);
                     }
                     else
                     {
@@ -598,15 +610,15 @@ namespace BlazorDeveloperTools.Tasks
                         }
 
                         // ✅ REUSE THE SAME ID FROM THE STACK
-                        var componentId = componentIdStack.Count > 0 ? componentIdStack.Pop() : GenerateComponentId($"{relativeFilePath}#{tagName}#close{match.Index}");
+                        var componentId = componentIdStack.Count > 0 ? componentIdStack.Pop() : GenerateComponentId($"{relativeFilePath}#{tagName}#close{match.StartPos}");
                         var closeMarker = $@"<span data-blazordevtools-marker=""close"" data-blazordevtools-id=""{componentId}"" style=""display:none!important""></span>";
 
-                        result.Append(match.Value);
+                        result.Append(match.FullTag);
                         result.Append(closeMarker);
                     }
                 }
 
-                lastIndex = match.Index + match.Length;
+                lastIndex = match.EndPos + 1;
             }
 
             // Append any remaining content
@@ -615,6 +627,271 @@ namespace BlazorDeveloperTools.Tasks
             return result.ToString();
         }
 
+        // ==============================================================================
+        // HELPER METHODS
+        // ==============================================================================
+        /// <summary>
+        /// Checks if a given position is inside a Razor code block (@code, @functions, @{ })
+        /// This prevents us from detecting "components" inside C# code
+        /// </summary>
+        private static bool IsInsideCodeBlock(string content, int position)
+        {
+            // Find all code block ranges
+            var codeBlockRanges = FindCodeBlockRanges(content);
+
+            // Check if position is inside any code block
+            foreach (var range in codeBlockRanges)
+            {
+                if (position >= range.Start && position < range.End)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Finds all code block ranges in the content (@code, @functions, @{ })
+        /// </summary>
+        private static List<CodeBlockRange> FindCodeBlockRanges(string content)
+        {
+            var ranges = new List<CodeBlockRange>();
+
+            // Pattern for @code { ... }, @functions { ... }, @{ ... }
+            var patterns = new[]
+            {
+        @"@code\s*\{",      // @code { }
+        @"@functions\s*\{", // @functions { }
+        @"@\{"              // @{ }
+    };
+
+            foreach (var pattern in patterns)
+            {
+                var regex = new Regex(pattern);
+                var matches = regex.Matches(content);
+
+                foreach (Match match in matches)
+                {
+                    int openBracePos = content.IndexOf('{', match.Index);
+                    if (openBracePos == -1) continue;
+
+                    // Find the matching closing brace
+                    int closeBracePos = FindMatchingCloseBrace(content, openBracePos);
+                    if (closeBracePos == -1) continue;
+
+                    ranges.Add(new CodeBlockRange
+                    {
+                        Start = match.Index,
+                        End = closeBracePos + 1,
+                        Type = match.Value.Contains("code") ? "code" :
+                               match.Value.Contains("functions") ? "functions" : "inline"
+                    });
+                }
+            }
+
+            return ranges;
+        }
+
+        /// <summary>
+        /// Finds the matching closing brace for an opening brace, accounting for nested braces
+        /// </summary>
+        private static int FindMatchingCloseBrace(string content, int openBracePos)
+        {
+            int braceDepth = 1;
+            int pos = openBracePos + 1;
+            bool inString = false;
+            bool inChar = false;
+            char stringDelimiter = '\0';
+
+            while (pos < content.Length && braceDepth > 0)
+            {
+                char c = content[pos];
+                char prev = pos > 0 ? content[pos - 1] : '\0';
+
+                // Handle string literals
+                if (!inChar && (c == '"' || c == '\'') && prev != '\\')
+                {
+                    if (!inString)
+                    {
+                        inString = true;
+                        stringDelimiter = c;
+                    }
+                    else if (c == stringDelimiter)
+                    {
+                        inString = false;
+                    }
+                }
+
+                // Handle char literals
+                if (!inString && c == '\'' && prev != '\\')
+                {
+                    inChar = !inChar;
+                }
+
+                // Only count braces when not inside strings
+                if (!inString && !inChar)
+                {
+                    if (c == '{')
+                    {
+                        braceDepth++;
+                    }
+                    else if (c == '}')
+                    {
+                        braceDepth--;
+
+                        if (braceDepth == 0)
+                        {
+                            return pos;
+                        }
+                    }
+                }
+
+                pos++;
+            }
+
+            return -1; // No matching brace found
+        }
+        
+        /// <summary>
+        /// Checks if a given position in the content is inside a quoted string
+        /// This prevents us from detecting "components" inside attribute values
+        /// </summary>
+        private static bool IsInsideQuotes(string content, int position)
+        {
+            bool inDoubleQuote = false;
+            bool inSingleQuote = false;
+
+            for (int i = 0; i < position && i < content.Length; i++)
+            {
+                char c = content[i];
+
+                // Handle escape sequences
+                if (i > 0 && content[i - 1] == '\\')
+                {
+                    continue;
+                }
+
+                if (c == '"' && !inSingleQuote)
+                {
+                    inDoubleQuote = !inDoubleQuote;
+                }
+                else if (c == '\'' && !inDoubleQuote)
+                {
+                    inSingleQuote = !inSingleQuote;
+                }
+            }
+
+            return inDoubleQuote || inSingleQuote;
+        }
+
+        /// <summary>
+        /// Finds the actual end of a component tag, properly handling:
+        /// - Quoted strings (both single and double)
+        /// - Generic type parameters (List<T>, Dictionary<K,V>, etc.)
+        /// - Nested angle brackets in expressions
+        /// </summary>
+        private static int FindTagEnd(string content, int startPos)
+        {
+            int pos = startPos;
+            bool inDoubleQuote = false;
+            bool inSingleQuote = false;
+            int angleBracketDepth = 0; // Track nested angle brackets
+
+            while (pos < content.Length)
+            {
+                char c = content[pos];
+
+                // Handle quotes (with escape sequences)
+                if (c == '"' && !inSingleQuote && (pos == 0 || content[pos - 1] != '\\'))
+                {
+                    inDoubleQuote = !inDoubleQuote;
+                }
+                else if (c == '\'' && !inDoubleQuote && (pos == 0 || content[pos - 1] != '\\'))
+                {
+                    inSingleQuote = !inSingleQuote;
+                }
+                // Only count angle brackets when NOT inside quotes
+                else if (!inDoubleQuote && !inSingleQuote)
+                {
+                    if (c == '<')
+                    {
+                        angleBracketDepth++;
+                    }
+                    else if (c == '>')
+                    {
+                        if (angleBracketDepth > 0)
+                        {
+                            // This is a closing bracket for a nested generic, not the tag end
+                            angleBracketDepth--;
+                        }
+                        else
+                        {
+                            // This is the actual end of the tag
+                            return pos;
+                        }
+                    }
+                }
+
+                pos++;
+            }
+
+            return -1; // Tag not properly closed
+        }
+
+        /// <summary>
+        /// Finds all component matches using improved logic that handles generics
+        /// </summary>
+        private static List<ComponentMatch> FindComponentMatches(string content)
+        {
+            var matches = new List<ComponentMatch>();
+
+            // Simple pattern to find potential component starts
+            var startPattern = @"<(/?)([A-Z][A-Za-z0-9]*(?:\.[A-Z][A-Za-z0-9]*)*)(?=[\s/>])";
+            var regex = new Regex(startPattern);
+
+            foreach (Match match in regex.Matches(content))
+            {
+                // CRITICAL: Skip matches that are inside quoted attribute values
+                if (IsInsideQuotes(content, match.Index))
+                {
+                    continue;
+                }
+
+                // CRITICAL: Skip matches that are inside code blocks (@code, @functions, @{ })
+                if (IsInsideCodeBlock(content, match.Index))
+                {
+                    continue;
+                }
+
+                bool isClosing = match.Groups[1].Value == "/";
+                string componentName = match.Groups[2].Value;
+                int startPos = match.Index;
+
+                // Find the actual end of this tag, accounting for generics
+                int searchStart = match.Index + match.Length;
+                int endPos = FindTagEnd(content, searchStart);
+
+                if (endPos == -1)
+                {
+                    continue;
+                }
+
+                // Check if it's self-closing
+                bool isSelfClosing = false;
+                if (endPos > 0 && content[endPos - 1] == '/')
+                {
+                    isSelfClosing = true;
+                }
+
+                // Extract the full tag content
+                string fullTag = content.Substring(startPos, endPos - startPos + 1);
+
+                matches.Add(new ComponentMatch(componentName: componentName, startPos: startPos, endPos: endPos, isClosing: isClosing, isSelfClosing: isSelfClosing, fullTag: fullTag));
+            }
+
+            return matches;
+        }
         private static bool ShouldSkipComponent(string componentName)
         {
             // Skip framework/routing components that shouldn't be marked

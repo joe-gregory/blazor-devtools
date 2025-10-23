@@ -8,7 +8,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\AutoServerAndWebAssembly.Client\AutoServerAndWebAssembly.Client.csproj" />
-    <PackageReference Include="BlazorDeveloperTools" Version="0.9.13">
+    <PackageReference Include="BlazorDeveloperTools" Version="0.9.16">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>

@@ -35,6 +35,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AutoWebAssemblyGlobal.Clien
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebAssemblyStandAlone", "demos\WebAssemblyStandAlone\WebAssemblyStandAlone.csproj", "{4129C8E3-73CB-9A04-0432-416018A7131B}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{01E15FD9-F7DF-435B-95EB-14BACEBA62FD}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BugFixes", "tests\BugFixes\BugFixes.csproj", "{0A38F1A6-9C1A-4037-BBCB-8D4C13D94145}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -77,6 +81,10 @@ Global
 		{4129C8E3-73CB-9A04-0432-416018A7131B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4129C8E3-73CB-9A04-0432-416018A7131B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4129C8E3-73CB-9A04-0432-416018A7131B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0A38F1A6-9C1A-4037-BBCB-8D4C13D94145}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0A38F1A6-9C1A-4037-BBCB-8D4C13D94145}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0A38F1A6-9C1A-4037-BBCB-8D4C13D94145}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0A38F1A6-9C1A-4037-BBCB-8D4C13D94145}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -91,6 +99,7 @@ Global
 		{5A977611-9F19-97ED-13D1-397B82294300} = {2CAE55FE-EAC8-4128-A014-923054C668EF}
 		{6888928A-62FD-BA33-2988-B3B128F27EAC} = {2CAE55FE-EAC8-4128-A014-923054C668EF}
 		{4129C8E3-73CB-9A04-0432-416018A7131B} = {2CAE55FE-EAC8-4128-A014-923054C668EF}
+		{0A38F1A6-9C1A-4037-BBCB-8D4C13D94145} = {01E15FD9-F7DF-435B-95EB-14BACEBA62FD}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {E258A0A1-35E3-4DC5-AE28-253C2FE9081A}
