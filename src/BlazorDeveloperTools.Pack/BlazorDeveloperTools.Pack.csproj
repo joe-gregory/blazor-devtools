@@ -20,10 +20,10 @@
 
 		<!-- Public package identity -->
 		<PackageId>BlazorDeveloperTools</PackageId>
-		<Version>0.9.16</Version>
+		<Version>0.10.0</Version>
 
 		<PackageReleaseNotes>
-			Continuation to Addresses critical bug where generics inside lambda expressions inside components cause the generic to incorrectly be identified as a component. This would end up adding markers inside a component (in the lambda expression) breaking code. This re-adds BdtSkip components optional parameter.
+			This is a complete rewrite and approach to Blazor Developer Tools. 
 		</PackageReleaseNotes>
 		
 		<Authors>Joseph E. Gregory</Authors>
