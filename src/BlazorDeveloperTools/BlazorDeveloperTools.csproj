@@ -1,9 +1,24 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Razor">
 
-  <PropertyGroup>
-    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
+	<PropertyGroup>
+		<TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<RootNamespace>BlazorDeveloperTools</RootNamespace>
+
+		<!-- Package metadata -->
+		<PackageId>BlazorDeveloperTools</PackageId>
+		<Version>0.10.0-alpha.1</Version>
+		<Authors>Joseph E. Gregory</Authors>
+		<Description>React DevTools-like component inspector for Blazor applications. See your component tree, inspect parameters, and debug your Blazor app.</Description>
+		<PackageTags>blazor;devtools;debugging;components;razor</PackageTags>
+		<PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+		<PackageProjectUrl>https://github.com/joe-gregory/blazor-devtools</PackageProjectUrl>
+		<RepositoryUrl>https://github.com/joe-gregory/blazor-devtools</RepositoryUrl>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<FrameworkReference Include="Microsoft.AspNetCore.App" />
+	</ItemGroup>
 
 </Project>
