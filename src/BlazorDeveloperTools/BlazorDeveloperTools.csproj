@@ -4,21 +4,32 @@
 		<TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
-		<RootNamespace>BlazorDeveloperTools</RootNamespace>
+		<LangVersion>latest</LangVersion>
 
-		<!-- Package metadata -->
+		<!-- NuGet Package Configuration -->
+		<IsPackable>true</IsPackable>
+		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+		<PackageOutputPath>$(SolutionDir)artifacts\packages</PackageOutputPath>
+
+		<!-- Package Identity -->
 		<PackageId>BlazorDeveloperTools</PackageId>
-		<Version>0.10.0-alpha.1</Version>
+		<Version>0.10.0</Version>
 		<Authors>Joseph E. Gregory</Authors>
-		<Description>React DevTools-like component inspector for Blazor applications. See your component tree, inspect parameters, and debug your Blazor app.</Description>
-		<PackageTags>blazor;devtools;debugging;components;razor</PackageTags>
+		<Description>Developer tools for Blazor applications. Provides component lifecycle tracking, performance metrics, and real-time debugging capabilities.</Description>
 		<PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
-		<PackageProjectUrl>https://github.com/joe-gregory/blazor-devtools</PackageProjectUrl>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<RepositoryUrl>https://github.com/joe-gregory/blazor-devtools</RepositoryUrl>
+		<PackageTags>blazor;devtools;debugging;performance;components</PackageTags>
 	</PropertyGroup>
 
+	<!-- THIS IS THE CRITICAL PART - provides all ASP.NET Core types -->
 	<ItemGroup>
 		<FrameworkReference Include="Microsoft.AspNetCore.App" />
+	</ItemGroup>
+
+	<!-- Package content -->
+	<ItemGroup>
+		<None Include="..\..\README.md" Pack="true" PackagePath="\" />
 	</ItemGroup>
 
 </Project>
