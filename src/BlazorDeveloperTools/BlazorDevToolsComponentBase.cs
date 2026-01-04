@@ -20,6 +20,14 @@
 //   Pillar 2: Runtime Tracking - This class + BlazorDevToolsRegistry + BlazorDevToolsComponentActivator
 //   Pillar 3: JS Interception - Browser extension intercepts render batches
 //
+// LIFECYCLE FLOW:
+//   1. Activator.CreateInstance() → Registry.RegisterPendingComponent(this)
+//   2. IComponent.Attach(renderHandle) → Extract componentId from RenderHandle
+//   3. SetParametersAsync(parameters) → DI injects Registry, JsRuntime, etc.
+//   4. TryResolveWithRegistry() → Registry.ResolveComponentId(this, componentId)
+//   5. Lifecycle methods run with timing instrumentation
+//   6. Events pushed to JS via IJSRuntime
+//
 // DATA FLOW:
 //   1. Component lifecycle method called (e.g., OnInitialized)
 //   2. Stopwatch measures duration
@@ -38,6 +46,7 @@
 //   │ ShouldRender Tracking   │ ✗                   │ ✓                            │
 //   │ EventCallback Timing    │ ✗                   │ ✓                            │
 //   │ Real-time JS Events     │ ✗                   │ ✓                            │
+//   │ Registry Integration    │ ✗                   │ ✓ (self-registers)           │
 //   └─────────────────────────┴─────────────────────┴──────────────────────────────┘
 //
 // USAGE:
@@ -66,7 +75,8 @@ namespace BlazorDeveloperTools;
 
 /// <summary>
 /// Enhanced ComponentBase with full lifecycle instrumentation.
-/// Provides detailed timing metrics and real-time event push to JavaScript.
+/// Provides detailed timing metrics, real-time event push to JavaScript,
+/// and automatic registration with the scoped BlazorDevToolsRegistry.
 /// </summary>
 public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IHandleAfterRender, IDisposable, IAsyncDisposable
 {
@@ -151,9 +161,19 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
     private IJSRuntime JsRuntime { get; set; } = default!;
 
     // ═══════════════════════════════════════════════════════════════
+    // BLAZOR DEVTOOLS: REGISTRY (scoped per circuit)
+    // ═══════════════════════════════════════════════════════════════
+    // The registry tracks all components in the circuit. Nullable because
+    // it may not be available in all scenarios (e.g., WASM without server).
+    // Injected during SetParametersAsync along with other DI services.
+    [Inject]
+    private BlazorDevToolsRegistry? Registry { get; set; }
+
+    // ═══════════════════════════════════════════════════════════════
     // BLAZOR DEVTOOLS: COMPONENT IDENTITY
     // ═══════════════════════════════════════════════════════════════
     private int _componentId;
+    private bool _registryResolved;
 
     // ═══════════════════════════════════════════════════════════════
     // BLAZOR DEVTOOLS: EVENT BUFFERING
@@ -423,6 +443,10 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
 
         parameters.SetParameterProperties(this);
 
+        // After DI injection, resolve this component with the registry.
+        // This moves the component from pending to tracked with its componentId.
+        TryResolveWithRegistry();
+
         if (!_initialized)
         {
             _initialized = true;
@@ -432,6 +456,29 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
         {
             return CallOnParametersSetAsync();
         }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // REGISTRY RESOLUTION
+    // ═══════════════════════════════════════════════════════════════
+    /// <summary>
+    /// Attempts to resolve this component with the scoped registry.
+    /// Called once after DI injection populates the Registry property.
+    /// Moves the component from pending (no ID) to tracked (with ID).
+    /// </summary>
+    private void TryResolveWithRegistry()
+    {
+        if (_registryResolved) return;
+#if DEBUG
+        Console.WriteLine($"[BDT] TryResolveWithRegistry: {GetType().Name} - Registry={Registry != null}, ComponentId={_componentId}");
+#endif
+        if (Registry == null) return;
+        // Note: componentId CAN be 0 for the first component, so we don't check <= 0
+        _registryResolved = true;
+        Registry.ResolveComponentId(this, _componentId);
+#if DEBUG
+        Console.WriteLine($"[BDT] Component resolved with registry: {GetType().Name} (ID: {_componentId})");
+#endif
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -712,7 +759,7 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
             return;
         }
 
-        _bufferedEvents ??= [];
+        _bufferedEvents ??= new List<LifecycleEvent>();
 
         if (_bufferedEvents.Count < BlazorDevToolsConfig.MaxBufferedEvents)
         {

@@ -24,12 +24,26 @@ public class ComponentInfoDto
     // ═══════════════════════════════════════════════════════════════
     // IDENTITY
     // ═══════════════════════════════════════════════════════════════
+    /// <summary>
+    /// Blazor-assigned component ID. -1 indicates a pending component
+    /// (regular ComponentBase not yet resolved via Pillar 3).
+    /// </summary>
     public int ComponentId { get; set; }
     public string TypeName { get; set; } = null!;
     public string? TypeFullName { get; set; }
     public string? SourceFile { get; set; }
     public int? LineNumber { get; set; }
     public int? ParentComponentId { get; set; }
+
+    // ═══════════════════════════════════════════════════════════════
+    // RESOLUTION STATUS
+    // ═══════════════════════════════════════════════════════════════
+    /// <summary>
+    /// True if this component is pending (tracked by Activator but not yet
+    /// resolved with a componentId). Pending components are regular ComponentBase
+    /// instances that haven't been resolved via Pillar 3 (JS render batch interception).
+    /// </summary>
+    public bool IsPending => ComponentId < 0;
 
     // ═══════════════════════════════════════════════════════════════
     // RENDER TRACKING
