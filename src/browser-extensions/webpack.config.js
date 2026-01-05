@@ -1,49 +1,67 @@
 const path = require('path');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 
 module.exports = {
-  entry: {
-    background: './chromium/src/background.ts',
-    content: './chromium/src/content.ts',
-    devtools: './chromium/src/devtools/devtools.ts',
-    panel: './chromium/src/devtools/panel/panel.ts'
-  },
-  output: {
-    path: path.resolve(__dirname, 'chromium/dist'),
-    filename: '[name].js'
-  },
-  module: {
-    rules: [
-      {
-        test: /\.ts$/,
-        use: {
-          loader: 'ts-loader',
-          options: {
-            configFile: path.resolve(__dirname, 'tsconfig.json')
-          }
+    entry: {
+        // Standalone bundle (for testing without extension)
+        'blazor-devtools': './src/standalone/blazor-devtools.ts',
+        
+        // Extension scripts
+        'chromium/background': './src/chromium/background.ts',
+        'chromium/content': './src/chromium/content.ts',
+        'chromium/devtools': './src/chromium/devtools.ts',
+        'chromium/injected': './src/chromium/injected.ts',
+        'chromium/panel/panel': './src/chromium/panel/panel.ts',
+    },
+    
+    output: {
+        path: path.resolve(__dirname, 'dist'),
+        filename: '[name].js',
+        clean: true,
+    },
+    
+    module: {
+        rules: [
+            {
+                test: /\.tsx?$/,
+                use: 'ts-loader',
+                exclude: /node_modules/,
+            },
+            {
+                test: /\.css$/,
+                use: [MiniCssExtractPlugin.loader, 'css-loader'],
+            },
+        ],
+    },
+    
+    resolve: {
+        extensions: ['.tsx', '.ts', '.js'],
+        alias: {
+            '@core': path.resolve(__dirname, 'src/core/'),
+            '@chromium': path.resolve(__dirname, 'src/chromium/'),
         },
-        exclude: /node_modules/
-      },
-      {
-        test: /\.css$/,
-        use: ['style-loader', 'css-loader']
-      }
-    ]
-  },
-  resolve: {
-    extensions: ['.ts', '.js'],
-    alias: {
-      '@shared': path.resolve(__dirname, 'shared')
-    }
-  },
-  plugins: [
-    new CopyWebpackPlugin({
-      patterns: [
-        { from: 'chromium/manifest.json', to: 'manifest.json' },
-        { from: 'chromium/devtools.html', to: 'devtools.html' },
-        { from: 'chromium/src/devtools/panel/panel.html', to: 'panel.html' },
-        { from: 'chromium/assets', to: 'assets', noErrorOnMissing: true }
-      ]
-    })
-  ]
+    },
+    
+    plugins: [
+        new MiniCssExtractPlugin({
+            filename: '[name].css',
+        }),
+        new CopyWebpackPlugin({
+            patterns: [
+                // Extension manifest and HTML files
+                { from: 'src/chromium/manifest.json', to: 'chromium/' },
+                { from: 'src/chromium/devtools.html', to: 'chromium/' },
+                { from: 'src/chromium/panel/panel.html', to: 'chromium/panel/' },
+                { from: 'src/chromium/panel/panel.css', to: 'chromium/panel/' },  // Added CSS copy
+                { from: 'src/chromium/assets', to: 'chromium/assets', noErrorOnMissing: true },
+            ],
+        }),
+    ],
+    
+    devtool: 'source-map',
+    
+    optimization: {
+        minimize: false, // Keep readable for debugging
+    },
 };

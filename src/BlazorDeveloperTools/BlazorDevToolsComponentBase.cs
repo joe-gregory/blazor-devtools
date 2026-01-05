@@ -212,6 +212,7 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
 
                 Metrics.BuildRenderTreeCallCount++;
                 Metrics.LastBuildRenderTreeDurationMs = durationMs;
+                Metrics.LastBuildRenderTreeAt = DateTime.UtcNow;
                 Metrics.TotalBuildRenderTreeDurationMs += durationMs;
 
                 if (Metrics.MaxBuildRenderTreeDurationMs == null || durationMs > Metrics.MaxBuildRenderTreeDurationMs)
@@ -231,6 +232,7 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
             {
                 BuildRenderTree(builder);
                 Metrics.BuildRenderTreeCallCount++;
+                Metrics.LastBuildRenderTreeAt = DateTime.UtcNow;
             }
         };
 
@@ -846,6 +848,8 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
         {
             Metrics.DisposedAt = DateTime.UtcNow;
             PushEvent(LifecycleEventType.Disposed);
+            // Unregister from the scoped registry so disposed components don't appear
+            Registry?.UnregisterComponent(this);
             _bufferedEvents?.Clear();
             _bufferedEvents = null;
         }

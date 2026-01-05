@@ -10,8 +10,8 @@
 // ARCHITECTURE:
 //   - BlazorDevToolsComponentBase creates a LifecycleMetrics instance in its constructor
 //   - Each lifecycle method updates the relevant metrics
-//   - BdtRegistry can read these metrics (Metrics property is public)
-//   - JS can poll for metrics via [JSInvokable] methods in BdtRegistry
+//   - BlazorDevToolsRegistry can read these metrics (Metrics property is public)
+//   - JS can poll for metrics via [JSInvokable] methods in BlazorDevToolsRegistry
 //   - Real-time events also include duration from these metrics
 //
 // DATA FLOW:
@@ -103,6 +103,10 @@ public class LifecycleMetrics
     /// Most recent BuildRenderTree duration (ms).
     /// </summary>
     public double? LastBuildRenderTreeDurationMs { get; set; }
+    /// <summary>
+    /// When BuildRenderTree was last called. Used for "Last Rendered" display.
+    /// </summary>
+    public DateTime? LastBuildRenderTreeAt { get; set; }
     /// <summary>
     /// Slowest BuildRenderTree call (ms). Useful for spotting outliers.
     /// </summary>

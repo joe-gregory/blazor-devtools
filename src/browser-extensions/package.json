@@ -1,20 +1,25 @@
 {
-  "name": "blazor-devtools-browser-extensions",
-  "version": "0.9.4",
-  "private": true,
+  "name": "blazor-developer-tools",
+  "version": "0.10.0",
+  "description": "Browser developer tools for Blazor applications",
   "scripts": {
     "build": "webpack --mode production",
-    "dev": "webpack --mode development --watch",
-    "clean": "rm -rf chromium/dist"
+    "build:dev": "webpack --mode development",
+    "watch": "webpack --mode development --watch",
+    "clean": "rimraf dist"
   },
   "devDependencies": {
-    "@types/chrome": "^0.0.251",
-    "typescript": "^5.2.2",
-    "webpack": "^5.89.0",
-    "webpack-cli": "^5.1.4",
-    "ts-loader": "^9.5.0",
-    "copy-webpack-plugin": "^11.0.0",
-    "css-loader": "^6.8.1",
-    "style-loader": "^3.3.3"
-  }
+    "@types/chrome": "^0.0.268",
+    "copy-webpack-plugin": "^12.0.2",
+    "css-loader": "^7.1.2",
+    "mini-css-extract-plugin": "^2.9.0",
+    "rimraf": "^5.0.7",
+    "ts-loader": "^9.5.1",
+    "typescript": "^5.4.5",
+    "webpack": "^5.91.0",
+    "webpack-cli": "^5.1.4"
+  },
+  "keywords": ["blazor", "devtools", "debugging"],
+  "author": "Joe Gregory",
+  "license": "MIT"
 }

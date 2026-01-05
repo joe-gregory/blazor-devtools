@@ -169,6 +169,35 @@ public class BlazorDevToolsRegistry : IDisposable
 #endif
     }
 
+    /// <summary>
+    /// Unregisters a component when it is disposed.
+    /// Called from BlazorDevToolsComponentBase.Dispose() to ensure the registry
+    /// doesn't hold references to disposed components. Also removes from pending
+    /// if the component was never resolved (e.g., early disposal).
+    /// </summary>
+    /// <param name="component">The component instance being disposed.</param>
+    public void UnregisterComponent(IComponent component)
+    {
+        // Try to remove from resolved components
+        if (_componentsByInstance.TryGetValue(component, out TrackedComponent? tracked))
+        {
+            _componentsById.TryRemove(tracked.ComponentId, out _);
+            _componentsByInstance.Remove(component);
+#if DEBUG
+            Console.WriteLine($"[BDT] Unregistered: {tracked.TypeName} ID {tracked.ComponentId} (Circuit: {CircuitId})");
+#endif
+            return;
+        }
+        // Also check pending (component disposed before Attach)
+        if (_pendingComponents.TryGetValue(component, out PendingComponent? pending))
+        {
+            _pendingComponents.Remove(component);
+#if DEBUG
+            Console.WriteLine($"[BDT] Unregistered pending: {pending.TypeName} (Circuit: {CircuitId})");
+#endif
+        }
+    }
+
     // ═══════════════════════════════════════════════════════════════
     // TRACKED COMPONENT CREATION
     // ═══════════════════════════════════════════════════════════════
@@ -314,6 +343,132 @@ public class BlazorDevToolsRegistry : IDisposable
         return count;
     }
 
+    // ═══════════════════════════════════════════════════════════════
+    // PILLAR 3: JS RENDER BATCH INTERCEPTION METHODS
+    // ═══════════════════════════════════════════════════════════════
+    // These methods are called by blazor-render-interceptor.js to provide
+    // component hierarchy and render tracking for all components.
+
+    /// <summary>
+    /// Called by JS when a component is first seen in a render batch.
+    /// Updates pending components with their real componentId and parent relationship.
+    /// </summary>
+    /// <param name="info">Component info from JS including componentId and parentComponentId.</param>
+    [JSInvokable]
+    public void ResolveComponentFromJs(JsComponentInfo info)
+    {
+        // Try to find a pending component that matches this componentId
+        // First, check if we already have it resolved
+        if (_componentsById.ContainsKey(info.ComponentId))
+        {
+            // Already resolved (likely BlazorDevToolsComponentBase), just update parent
+            if (info.ParentComponentId.HasValue)
+            {
+                TrackedComponent existing = _componentsById[info.ComponentId];
+                existing.ParentComponentId = info.ParentComponentId;
+            }
+            return;
+        }
+        // Look for a pending component that might match
+        // This is tricky because pending components don't have IDs yet
+        // We match by type name if available
+        PendingComponent? matchingPending = null;
+        IComponent? matchingInstance = null;
+        if (!string.IsNullOrEmpty(info.TypeName))
+        {
+            foreach (KeyValuePair<IComponent, PendingComponent> kvp in _pendingComponents)
+            {
+                if (kvp.Value.TypeName == info.TypeName && !kvp.Value.IsEnhanced)
+                {
+                    matchingPending = kvp.Value;
+                    matchingInstance = kvp.Key;
+                    break;
+                }
+            }
+        }
+        if (matchingPending != null && matchingInstance != null)
+        {
+            // Found a matching pending component - promote it
+            TrackedComponent tracked = new()
+            {
+                Instance = matchingInstance,
+                ComponentId = info.ComponentId,
+                TypeName = matchingPending.TypeName,
+                TypeFullName = matchingPending.TypeFullName,
+                CreatedAt = matchingPending.CreatedAt,
+                ParentComponentId = info.ParentComponentId,
+                HasEnhancedMetrics = false,
+                RenderCount = 1,
+                LastRenderedAt = DateTime.UtcNow
+            };
+            _componentsByInstance.AddOrUpdate(matchingInstance, tracked);
+            _componentsById[info.ComponentId] = tracked;
+            _pendingComponents.Remove(matchingInstance);
+#if DEBUG
+            Console.WriteLine($"[BDT Pillar3] Resolved from JS: {tracked.TypeName} → ID {info.ComponentId} (Parent: {info.ParentComponentId}, Circuit: {CircuitId})");
+#endif
+        }
+        else
+        {
+            // No matching pending found - create a minimal tracked entry
+            // This happens when JS sees components before C# activator
+            TrackedComponent tracked = new()
+            {
+                Instance = null!,// Will be updated if we see it later
+                ComponentId = info.ComponentId,
+                TypeName = info.TypeName ?? "Unknown",
+                TypeFullName = null,
+                CreatedAt = DateTime.UtcNow,
+                ParentComponentId = info.ParentComponentId,
+                HasEnhancedMetrics = false,
+                RenderCount = 1,
+                LastRenderedAt = DateTime.UtcNow
+            };
+            _componentsById[info.ComponentId] = tracked;
+#if DEBUG
+            Console.WriteLine($"[BDT Pillar3] New from JS: {tracked.TypeName} ID {info.ComponentId} (Parent: {info.ParentComponentId}, Circuit: {CircuitId})");
+#endif
+        }
+    }
+
+    /// <summary>
+    /// Called by JS when a component is disposed via render batch.
+    /// </summary>
+    /// <param name="componentId">The componentId being disposed.</param>
+    [JSInvokable]
+    public void DisposeComponentFromJs(int componentId)
+    {
+        if (_componentsById.TryRemove(componentId, out TrackedComponent? tracked))
+        {
+            if (tracked.Instance != null)
+            {
+                _componentsByInstance.Remove(tracked.Instance);
+            }
+#if DEBUG
+            Console.WriteLine($"[BDT Pillar3] Disposed from JS: {tracked.TypeName} ID {componentId} (Circuit: {CircuitId})");
+#endif
+        }
+    }
+
+    /// <summary>
+    /// Called by JS when a component renders (for non-enhanced components).
+    /// Updates render count and timestamp.
+    /// </summary>
+    /// <param name="componentId">The componentId that rendered.</param>
+    [JSInvokable]
+    public void UpdateComponentRenderFromJs(int componentId)
+    {
+        if (_componentsById.TryGetValue(componentId, out TrackedComponent? tracked))
+        {
+            // Only update for non-enhanced components (enhanced ones track themselves)
+            if (!tracked.HasEnhancedMetrics)
+            {
+                tracked.RenderCount++;
+                tracked.LastRenderedAt = DateTime.UtcNow;
+            }
+        }
+    }
+
     /// <summary>
     /// Gets a single component's detailed info by ID.
     /// Called via DotNetObjectReference to ensure circuit isolation.
@@ -355,6 +510,38 @@ public class BlazorDevToolsRegistry : IDisposable
     private static ComponentInfoDto? MapToDto(TrackedComponent tracked)
     {
         if (tracked.Instance == null) return null;
+        // For enhanced components, use Metrics.BuildRenderTreeCallCount as the authoritative render count
+        // For regular components, fall back to tracked.RenderCount (updated via Pillar 3)
+        int renderCount = tracked.HasEnhancedMetrics && tracked.Metrics != null
+            ? tracked.Metrics.BuildRenderTreeCallCount
+            : tracked.RenderCount;
+        // Similarly, LastRenderedAt should come from Metrics for enhanced components
+        DateTime? lastRendered = tracked.HasEnhancedMetrics && tracked.Metrics != null && tracked.Metrics.BuildRenderTreeCallCount > 0
+            ? tracked.Metrics.LastBuildRenderTreeAt
+            : tracked.LastRenderedAt;
+        // For enhanced components, read internal state directly from the live component
+        // rather than from cached InternalState which may be stale
+        InternalStateDto? internalState = null;
+        if (tracked.Instance is BlazorDevToolsComponentBase enhanced)
+        {
+            internalState = new InternalStateDto
+            {
+                HasNeverRendered = enhanced.HasNeverRendered,
+                HasPendingQueuedRender = enhanced.HasPendingQueuedRender,
+                HasCalledOnAfterRender = enhanced.HasCalledOnAfterRender,
+                IsInitialized = enhanced.IsInitialized
+            };
+        }
+        else if (tracked.InternalState != null)
+        {
+            internalState = new InternalStateDto
+            {
+                HasNeverRendered = tracked.InternalState.HasNeverRendered,
+                HasPendingQueuedRender = tracked.InternalState.HasPendingQueuedRender,
+                HasCalledOnAfterRender = tracked.InternalState.HasCalledOnAfterRender,
+                IsInitialized = tracked.InternalState.IsInitialized
+            };
+        }
         ComponentInfoDto dto = new()
         {
             ComponentId = tracked.ComponentId,
@@ -363,9 +550,9 @@ public class BlazorDevToolsRegistry : IDisposable
             SourceFile = tracked.SourceFile,
             LineNumber = tracked.LineNumber,
             ParentComponentId = tracked.ParentComponentId,
-            RenderCount = tracked.RenderCount,
+            RenderCount = renderCount,
             CreatedAt = tracked.CreatedAt,
-            LastRenderedAt = tracked.LastRenderedAt,
+            LastRenderedAt = lastRendered,
             HasEnhancedMetrics = tracked.HasEnhancedMetrics,
             Parameters = tracked.Parameters?.Select(p => new ParameterDto
             {
@@ -375,13 +562,7 @@ public class BlazorDevToolsRegistry : IDisposable
                 IsCascading = p.IsCascading
             }).ToList(),
             TrackedState = tracked.TrackedState,
-            InternalState = tracked.InternalState != null ? new InternalStateDto
-            {
-                HasNeverRendered = tracked.InternalState.HasNeverRendered,
-                HasPendingQueuedRender = tracked.InternalState.HasPendingQueuedRender,
-                HasCalledOnAfterRender = tracked.InternalState.HasCalledOnAfterRender,
-                IsInitialized = tracked.InternalState.IsInitialized
-            } : null
+            InternalState = internalState
         };
         if (tracked.HasEnhancedMetrics && tracked.Metrics != null)
         {
@@ -557,4 +738,26 @@ public class ParameterValue
     public string TypeName { get; set; } = null!;
     public object? Value { get; set; }
     public bool IsCascading { get; set; }
+}
+
+/// <summary>
+/// Component info received from JavaScript via Pillar 3 render batch interception.
+/// Contains minimal data needed to establish component identity and hierarchy.
+/// </summary>
+public class JsComponentInfo
+{
+    /// <summary>
+    /// The Blazor componentId extracted from render batch.
+    /// </summary>
+    public int ComponentId { get; set; }
+    /// <summary>
+    /// Parent componentId if known from render batch hierarchy.
+    /// Null for root components.
+    /// </summary>
+    public int? ParentComponentId { get; set; }
+    /// <summary>
+    /// Type name extracted from render batch if available.
+    /// May be null for some component types.
+    /// </summary>
+    public string? TypeName { get; set; }
 }

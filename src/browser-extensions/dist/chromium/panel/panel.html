@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Blazor DevTools Panel</title>
+    <link rel="stylesheet" href="panel.css">
+</head>
+<body>
+    <div class="panel-container">
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <button id="refresh-btn" title="Refresh component list">
+                <span class="icon">↻</span>
+            </button>
+            <button id="picker-btn" title="Select component in page">
+                <span class="icon">⊙</span>
+            </button>
+            <div class="spacer"></div>
+            <div class="status" id="status">
+                <span class="status-dot"></span>
+                <span class="status-text">Connecting...</span>
+            </div>
+        </div>
+        
+        <!-- Main content -->
+        <div class="main-content">
+            <!-- Component tree panel -->
+            <div class="tree-panel">
+                <div class="panel-header">
+                    <span class="panel-title">Components</span>
+                    <span class="component-count" id="component-count"></span>
+                </div>
+                <div class="tree-content" id="component-tree">
+                    <div class="loading">Loading components...</div>
+                </div>
+            </div>
+            
+            <!-- Details panel -->
+            <div class="details-panel">
+                <div class="panel-header">
+                    <span class="panel-title">Details</span>
+                </div>
+                <div class="details-content" id="component-details">
+                    <div class="no-selection">Select a component to view details</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="panel.js"></script>
+</body>
+</html>
