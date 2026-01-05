@@ -20,6 +20,7 @@
 //   │                                                                         │
 //   │ 2. OnCircuitOpenedAsync(circuit)                                        │
 //   │    ├─► Registry.Circuit = circuit (store reference)                    │
+//   │    ├─► Try to capture Renderer via reflection                          │
 //   │    └─► Registry.InitializeJsAsync() (pass DotNetRef to JS)             │
 //   │                                                                         │
 //   │ 3. Components created and tracked...                                    │
@@ -46,6 +47,8 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 using Microsoft.AspNetCore.Components.Server.Circuits;
+using Microsoft.AspNetCore.Components.RenderTree;
+using System.Reflection;
 
 namespace BlazorDeveloperTools;
 
@@ -53,17 +56,139 @@ namespace BlazorDeveloperTools;
 /// Handles circuit lifecycle events to initialize the BlazorDevToolsRegistry.
 /// Scoped service - one instance per circuit, receives events for its circuit only.
 /// </summary>
-/// <remarks>
-/// Creates a new circuit handler. Both this handler and the registry
-/// are scoped to the same circuit, so they share the same lifetime.
-/// </remarks>
-/// <param name="registry">The scoped registry for this circuit.</param>
-public class BlazorDevToolsCircuitHandler(BlazorDevToolsRegistry registry) : CircuitHandler
+public class BlazorDevToolsCircuitHandler : CircuitHandler
 {
     // ═══════════════════════════════════════════════════════════════
     // DEPENDENCIES
     // ═══════════════════════════════════════════════════════════════
-    private readonly BlazorDevToolsRegistry _registry = registry;
+    private readonly BlazorDevToolsRegistry _registry;
+
+    // ═══════════════════════════════════════════════════════════════
+    // REFLECTION CACHE (for Renderer extraction)
+    // ═══════════════════════════════════════════════════════════════
+    private static bool _reflectionInitialized;
+    private static FieldInfo? _circuitHostField;
+    private static FieldInfo? _rendererField;
+
+    // ═══════════════════════════════════════════════════════════════
+    // CONSTRUCTOR
+    // ═══════════════════════════════════════════════════════════════
+    /// <summary>
+    /// Creates a new circuit handler. Both this handler and the registry
+    /// are scoped to the same circuit, so they share the same lifetime.
+    /// </summary>
+    /// <param name="registry">The scoped registry for this circuit.</param>
+    public BlazorDevToolsCircuitHandler(BlazorDevToolsRegistry registry)
+    {
+        _registry = registry;
+        InitializeReflection();
+    }
+
+    private static void InitializeReflection()
+    {
+        if (_reflectionInitialized) return;
+        _reflectionInitialized = true;
+
+        try
+        {
+            // Circuit has a private _circuitHost field (or similar)
+            // CircuitHost has the RemoteRenderer
+            Type circuitType = typeof(Circuit);
+
+            // Look for CircuitHost field on Circuit
+            _circuitHostField = circuitType.GetField(
+                "_circuitHost",
+                BindingFlags.NonPublic | BindingFlags.Instance
+            );
+
+            if (_circuitHostField == null)
+            {
+                // Try alternative names
+                foreach (FieldInfo field in circuitType.GetFields(BindingFlags.NonPublic | BindingFlags.Instance))
+                {
+                    if (field.FieldType.Name.Contains("CircuitHost"))
+                    {
+                        _circuitHostField = field;
+#if DEBUG
+                        Console.WriteLine($"[BDT CircuitHandler] Found CircuitHost field: {field.Name}");
+#endif
+                        break;
+                    }
+                }
+            }
+
+            if (_circuitHostField != null)
+            {
+                // Now find the Renderer field on CircuitHost
+                Type circuitHostType = _circuitHostField.FieldType;
+                foreach (FieldInfo field in circuitHostType.GetFields(BindingFlags.NonPublic | BindingFlags.Instance))
+                {
+                    if (typeof(Renderer).IsAssignableFrom(field.FieldType) ||
+                       field.FieldType.Name.Contains("Renderer"))
+                    {
+                        _rendererField = field;
+#if DEBUG
+                        Console.WriteLine($"[BDT CircuitHandler] Found Renderer field: {field.Name} ({field.FieldType.Name})");
+#endif
+                        break;
+                    }
+                }
+            }
+
+#if DEBUG
+            if (_circuitHostField == null)
+            {
+                Console.WriteLine("[BDT CircuitHandler] Could not find CircuitHost field on Circuit");
+                Console.WriteLine("[BDT CircuitHandler] Available fields on Circuit:");
+                foreach (FieldInfo f in circuitType.GetFields(BindingFlags.NonPublic | BindingFlags.Instance))
+                {
+                    Console.WriteLine($"  - {f.Name}: {f.FieldType.Name}");
+                }
+            }
+            else if (_rendererField == null)
+            {
+                Console.WriteLine("[BDT CircuitHandler] Could not find Renderer field on CircuitHost");
+                Type circuitHostType = _circuitHostField.FieldType;
+                Console.WriteLine($"[BDT CircuitHandler] Available fields on {circuitHostType.Name}:");
+                foreach (FieldInfo f in circuitHostType.GetFields(BindingFlags.NonPublic | BindingFlags.Instance))
+                {
+                    Console.WriteLine($"  - {f.Name}: {f.FieldType.Name}");
+                }
+            }
+#endif
+        }
+        catch (Exception ex)
+        {
+#if DEBUG
+            Console.WriteLine($"[BDT CircuitHandler] Reflection init failed: {ex.Message}");
+#endif
+        }
+    }
+
+    /// <summary>
+    /// Attempts to extract the Renderer from a Circuit via reflection.
+    /// Path: Circuit → CircuitHost → RemoteRenderer
+    /// </summary>
+    private Renderer? TryGetRendererFromCircuit(Circuit circuit)
+    {
+        if (_circuitHostField == null || _rendererField == null) return null;
+
+        try
+        {
+            object? circuitHost = _circuitHostField.GetValue(circuit);
+            if (circuitHost == null) return null;
+
+            object? renderer = _rendererField.GetValue(circuitHost);
+            return renderer as Renderer;
+        }
+        catch (Exception ex)
+        {
+#if DEBUG
+            Console.WriteLine($"[BDT CircuitHandler] Failed to get Renderer from Circuit: {ex.Message}");
+#endif
+            return null;
+        }
+    }
 
     // ═══════════════════════════════════════════════════════════════
     // CIRCUIT OPENED
@@ -78,6 +203,17 @@ public class BlazorDevToolsCircuitHandler(BlazorDevToolsRegistry registry) : Cir
     public override async Task OnCircuitOpenedAsync(Circuit circuit, CancellationToken cancellationToken)
     {
         _registry.Circuit = circuit;
+
+        // Try to capture Renderer via reflection
+        Renderer? renderer = TryGetRendererFromCircuit(circuit);
+        if (renderer != null)
+        {
+            _registry.SetRenderer(renderer);
+#if DEBUG
+            Console.WriteLine($"[BDT CircuitHandler] Captured Renderer from Circuit: {circuit.Id}");
+#endif
+        }
+
         await _registry.InitializeJsAsync();
         await base.OnCircuitOpenedAsync(circuit, cancellationToken);
     }
@@ -110,9 +246,9 @@ public class BlazorDevToolsCircuitHandler(BlazorDevToolsRegistry registry) : Cir
     /// <param name="cancellationToken">Cancellation token for the operation.</param>
     public override Task OnConnectionDownAsync(Circuit circuit, CancellationToken cancellationToken)
     {
-        #if DEBUG
+#if DEBUG
         Console.WriteLine($"[BDT] Connection down for circuit: {circuit.Id}");
-        #endif
+#endif
         return base.OnConnectionDownAsync(circuit, cancellationToken);
     }
 
@@ -125,9 +261,9 @@ public class BlazorDevToolsCircuitHandler(BlazorDevToolsRegistry registry) : Cir
     /// <param name="cancellationToken">Cancellation token for the operation.</param>
     public override Task OnConnectionUpAsync(Circuit circuit, CancellationToken cancellationToken)
     {
-        #if DEBUG
+#if DEBUG
         Console.WriteLine($"[BDT] Connection restored for circuit: {circuit.Id}");
-        #endif
+#endif
         return base.OnConnectionUpAsync(circuit, cancellationToken);
     }
 }

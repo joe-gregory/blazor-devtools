@@ -9,6 +9,14 @@
 
 import type { ComponentInfo, LifecycleMetrics } from '../../core/types';
 
+// Ensure parentComponentId is recognized (added by C# Renderer sync)
+// If your types.ts doesn't have this, add: parentComponentId: number | null;
+declare module '../../core/types' {
+    interface ComponentInfo {
+        parentComponentId?: number | null;
+    }
+}
+
 // The tab ID we're inspecting
 const inspectedTabId = chrome.devtools.inspectedWindow.tabId;
 
@@ -76,36 +84,174 @@ async function refreshComponents(): Promise<void> {
     }
 }
 
+// Tree node with children
+interface TreeNode extends ComponentInfo {
+    children: TreeNode[];
+    depth: number;
+}
+
+/**
+ * Filter out prerender/SSR duplicate components.
+ * In Blazor 8+ with Auto/Server mode and prerendering, components are created twice:
+ * 1. During SSR (often with componentId 0 or low IDs, no parent)
+ * 2. When circuit connects (higher IDs, proper parent hierarchy)
+ * 
+ * We filter out the SSR instances to avoid confusing duplicates.
+ */
+function filterPrerenderDuplicates(components: ComponentInfo[]): ComponentInfo[] {
+    // Group by typeName
+    const byType = new Map<string, ComponentInfo[]>();
+    components.forEach(c => {
+        const list = byType.get(c.typeName) || [];
+        list.push(c);
+        byType.set(c.typeName, list);
+    });
+
+    const filtered: ComponentInfo[] = [];
+    
+    byType.forEach((instances, typeName) => {
+        if (instances.length === 1) {
+            // Only one instance - keep it
+            filtered.push(instances[0]);
+        } else {
+            // Multiple instances - filter out prerender duplicates
+            // Keep instances that have a parent (part of real hierarchy)
+            // Or keep the one with the highest componentId (most recent)
+            
+            const withParent = instances.filter(c => c.parentComponentId !== null);
+            const orphans = instances.filter(c => c.parentComponentId === null);
+            
+            // Always keep instances with parents (they're in the real tree)
+            filtered.push(...withParent);
+            
+            // For orphans, only keep if there's no equivalent with a parent
+            // This handles cases like Routes/Router which are legitimately root components
+            if (withParent.length === 0) {
+                // No instances with parents - keep all orphans (they might be legitimate roots)
+                filtered.push(...orphans);
+            } else {
+                // There are instances with parents - orphans are likely SSR duplicates
+                // But keep orphans that have enhanced metrics and the parented ones don't
+                orphans.forEach(orphan => {
+                    const hasBetterVersion = withParent.some(p => 
+                        p.hasEnhancedMetrics || !orphan.hasEnhancedMetrics
+                    );
+                    if (!hasBetterVersion) {
+                        filtered.push(orphan);
+                    }
+                });
+            }
+        }
+    });
+
+    return filtered;
+}
+
+function buildComponentTree(components: ComponentInfo[]): TreeNode[] {
+    // Filter out prerender duplicates first
+    const filtered = filterPrerenderDuplicates(components);
+    
+    // Create lookup map
+    const nodeMap = new Map<number, TreeNode>();
+    filtered.forEach(c => {
+        nodeMap.set(c.componentId, { ...c, children: [], depth: 0 });
+    });
+
+    // Build parent-child relationships
+    const roots: TreeNode[] = [];
+    nodeMap.forEach(node => {
+        if (node.parentComponentId !== null && nodeMap.has(node.parentComponentId)) {
+            const parent = nodeMap.get(node.parentComponentId)!;
+            parent.children.push(node);
+        } else {
+            roots.push(node);
+        }
+    });
+
+    // Calculate depths and sort children
+    function processNode(node: TreeNode, depth: number) {
+        node.depth = depth;
+        node.children.sort((a, b) => a.componentId - b.componentId);
+        node.children.forEach(child => processNode(child, depth + 1));
+    }
+    roots.sort((a, b) => a.componentId - b.componentId);
+    roots.forEach(root => processNode(root, 0));
+
+    return roots;
+}
+
+function renderTreeNode(container: HTMLElement, node: TreeNode): void {
+    const hasChildren = node.children.length > 0;
+    const indent = node.depth * 16;
+    
+    // Component row
+    const div = document.createElement('div');
+    div.className = `component-node ${node.isPending ? 'pending' : ''} ${node.componentId === selectedComponentId ? 'selected' : ''}`;
+    div.setAttribute('data-id', String(node.componentId));
+    div.style.paddingLeft = `${indent + 8}px`;
+
+    // Arrow for expandable nodes
+    const arrow = hasChildren 
+        ? `<span class="tree-arrow" data-expanded="true">▼</span>` 
+        : `<span class="tree-arrow-spacer"></span>`;
+
+    div.innerHTML = `
+        ${arrow}
+        <span class="component-name">${escapeHtml(node.typeName)}</span>
+        ${node.hasEnhancedMetrics ? '<span class="component-badge enhanced">Enhanced</span>' : ''}
+        ${node.isPending ? '<span class="component-badge pending">Pending</span>' : ''}
+        <span class="component-id">#${node.componentId}</span>
+        ${node.renderCount > 1 ? `<span class="render-badge">${node.renderCount}x</span>` : ''}
+    `;
+
+    // Click handler for selection
+    div.addEventListener('click', (e) => {
+        // Don't select if clicking the arrow
+        if ((e.target as HTMLElement).classList.contains('tree-arrow')) return;
+        const comp = components.find(c => c.componentId === node.componentId);
+        if (comp) selectComponent(comp);
+    });
+
+    // Toggle children on arrow click
+    const arrowEl = div.querySelector('.tree-arrow');
+    if (arrowEl) {
+        arrowEl.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isExpanded = arrowEl.getAttribute('data-expanded') === 'true';
+            arrowEl.setAttribute('data-expanded', String(!isExpanded));
+            arrowEl.textContent = isExpanded ? '▶' : '▼';
+            
+            // Toggle children visibility
+            const childContainer = div.nextElementSibling;
+            if (childContainer?.classList.contains('children-container')) {
+                (childContainer as HTMLElement).style.display = isExpanded ? 'none' : 'block';
+            }
+        });
+    }
+
+    container.appendChild(div);
+
+    // Children container
+    if (hasChildren) {
+        const childrenDiv = document.createElement('div');
+        childrenDiv.className = 'children-container';
+        node.children.forEach(child => renderTreeNode(childrenDiv, child));
+        container.appendChild(childrenDiv);
+    }
+}
+
 function renderTree(): void {
     if (components.length === 0) {
         componentTree.innerHTML = '<div class="loading">No components found</div>';
         return;
     }
 
-    // Sort: resolved first, then by type name
-    const sorted = [...components].sort((a, b) => {
-        if (a.isPending !== b.isPending) return a.isPending ? 1 : -1;
-        return a.typeName.localeCompare(b.typeName);
-    });
-
-    componentTree.innerHTML = sorted.map(c => `
-        <div class="component-node ${c.isPending ? 'pending' : ''} ${c.componentId === selectedComponentId ? 'selected' : ''}"
-             data-id="${c.componentId}"
-             data-index="${components.indexOf(c)}">
-            <span class="component-name">${escapeHtml(c.typeName)}</span>
-            ${c.hasEnhancedMetrics ? '<span class="component-badge">Enhanced</span>' : ''}
-            ${c.isPending ? '<span class="component-badge pending">Pending</span>' : ''}
-            <span class="component-id">#${c.componentId}</span>
-        </div>
-    `).join('');
-
-    // Add click handlers
-    componentTree.querySelectorAll('.component-node').forEach(node => {
-        node.addEventListener('click', () => {
-            const index = parseInt(node.getAttribute('data-index')!, 10);
-            selectComponent(components[index]);
-        });
-    });
+    // Build hierarchical tree from parentComponentId
+    const tree = buildComponentTree(components);
+    
+    // Render tree recursively
+    componentTree.innerHTML = '';
+    tree.forEach(node => renderTreeNode(componentTree, node));
 }
 
 function selectComponent(component: ComponentInfo): void {
@@ -318,6 +464,27 @@ pickerBtn.addEventListener('click', () => {
     pickerBtn.classList.toggle('active');
 });
 
+// Listen for component update events from the page
+// These are pushed by enhanced components via C# → JS bridge
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === 'COMPONENT_UPDATE' && sender.tab?.id === inspectedTabId) {
+        console.log('[BDT Panel] Component update received:', message.data);
+        
+        // If the updated component is currently selected, refresh its details
+        if (message.data?.componentId === selectedComponentId) {
+            // Refresh just the selected component's details
+            const component = components.find(c => c.componentId === selectedComponentId);
+            if (component) {
+                // Re-fetch to get updated metrics
+                refreshComponents();
+            }
+        } else {
+            // Otherwise do a full refresh
+            refreshComponents();
+        }
+    }
+});
+
 // ═══════════════════════════════════════════════════════════════
 // INITIALIZATION
 // ═══════════════════════════════════════════════════════════════
@@ -325,7 +492,8 @@ pickerBtn.addEventListener('click', () => {
 // Initial load
 refreshComponents();
 
-// Auto-refresh every 5 seconds
-setInterval(refreshComponents, 5000);
+// Auto-refresh every 1 second for responsive updates
+// This is a dev tool, so responsiveness > performance
+setInterval(refreshComponents, 1000);
 
 console.log('[BDT Panel] Panel initialized, inspecting tab:', inspectedTabId);

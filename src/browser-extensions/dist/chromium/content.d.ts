@@ -1,4 +1,5 @@
-declare const PREFIX = "[BDT Content]";
+declare let injectedScriptLoaded: boolean;
+declare let blazorReady: boolean;
+declare const pendingRequests: Map<string, (response: unknown) => void>;
 declare function injectScript(): void;
-declare const pendingRequests: Map<string, (response: any) => void>;
 //# sourceMappingURL=content.d.ts.map

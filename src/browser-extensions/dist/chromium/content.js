@@ -9,81 +9,110 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 //
 // Content script injected into web pages.
-// Bridges between the page's window.blazorDevTools and the extension.
+// Bridges between the injected.js (page context) and the extension (background/panel).
 //
 // Content scripts run in an isolated world - they can access the DOM but not
-// window objects from the page. We inject an external script (injected.js)
-// that runs in the page context and communicates via postMessage.
+// window objects from the page. We inject injected.js to access window.blazorDevTools.
+//
+// Message Flow:
+//   Panel → Background → Content (this) → Injected → window.blazorDevTools._dotNetRef
+//   Panel ← Background ← Content (this) ← Injected ← [response]
 //
 // ═══════════════════════════════════════════════════════════════════════════════
-const PREFIX = '[BDT Content]';
-// Inject the external script that will run in page context
+let injectedScriptLoaded = false;
+let blazorReady = false;
+const pendingRequests = new Map();
+// ═══════════════════════════════════════════════════════════════════════════════
+// INJECT THE INJECTED.JS SCRIPT
+// ═══════════════════════════════════════════════════════════════════════════════
 function injectScript() {
+    if (injectedScriptLoaded)
+        return;
     const script = document.createElement('script');
     script.src = chrome.runtime.getURL('injected.js');
     script.onload = () => {
-        script.remove(); // Clean up after injection
+        console.log('[BDT Content] Injected script loaded');
+        injectedScriptLoaded = true;
+    };
+    script.onerror = (e) => {
+        console.error('[BDT Content] Failed to load injected script:', e);
     };
     (document.head || document.documentElement).appendChild(script);
 }
-// Listen for messages from the injected script
+// ═══════════════════════════════════════════════════════════════════════════════
+// LISTEN FOR MESSAGES FROM INJECTED SCRIPT (page context)
+// ═══════════════════════════════════════════════════════════════════════════════
 window.addEventListener('message', (event) => {
     if (event.source !== window)
         return;
-    if (event.data?.type === 'BLAZOR_DEVTOOLS_READY') {
-        chrome.runtime.sendMessage({ type: 'BLAZOR_DETECTED' });
-        console.log(PREFIX, 'Blazor DevTools ready');
-    }
-    if (event.data?.type === 'BLAZOR_DEVTOOLS_LOADED') {
-        console.log(PREFIX, 'Blazor DevTools loaded, waiting for initialization');
+    if (event.data?.source !== 'blazor-devtools-injected')
+        return;
+    const { type, data } = event.data;
+    switch (type) {
+        case 'READY':
+            blazorReady = true;
+            console.log('[BDT Content] Blazor DevTools ready, circuit:', data?.circuitId);
+            // Notify background that Blazor is detected
+            chrome.runtime.sendMessage({ type: 'BLAZOR_DETECTED', circuitId: data?.circuitId });
+            break;
+        case 'RESPONSE':
+            // Forward response to pending request
+            const { id, result, error } = data;
+            const callback = pendingRequests.get(id);
+            if (callback) {
+                pendingRequests.delete(id);
+                if (error) {
+                    callback({ error });
+                }
+                else {
+                    callback({ data: result });
+                }
+            }
+            break;
+        case 'LIFECYCLE_EVENT':
+            // Forward lifecycle events to background for panel
+            chrome.runtime.sendMessage({ type: 'LIFECYCLE_EVENT', event: data });
+            break;
     }
 });
-// Pending requests waiting for responses
-const pendingRequests = new Map();
-// Listen for responses from injected script
-window.addEventListener('message', (event) => {
-    if (event.source !== window)
-        return;
-    if (event.data?.type !== 'BLAZOR_DEVTOOLS_RESPONSE')
-        return;
-    const { requestId, data, error } = event.data;
-    const resolver = pendingRequests.get(requestId);
-    if (resolver) {
-        pendingRequests.delete(requestId);
-        if (error) {
-            resolver({ error });
-        }
-        else {
-            resolver({ data });
-        }
-    }
-});
-// Listen for messages from the panel (via background)
+// ═══════════════════════════════════════════════════════════════════════════════
+// LISTEN FOR MESSAGES FROM BACKGROUND (extension context)
+// ═══════════════════════════════════════════════════════════════════════════════
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'PANEL_REQUEST') {
-        const requestId = Math.random().toString(36).slice(2);
-        // Set up response handler
-        const timeout = setTimeout(() => {
-            pendingRequests.delete(requestId);
-            sendResponse({ error: 'Request timeout' });
-        }, 5000);
-        pendingRequests.set(requestId, (response) => {
-            clearTimeout(timeout);
-            sendResponse(response);
-        });
-        // Send request to injected script
+        const { method, args } = message;
+        // Generate unique request ID
+        const id = Math.random().toString(36).slice(2) + Date.now().toString(36);
+        // Store callback for response
+        pendingRequests.set(id, sendResponse);
+        // Forward to injected script via postMessage
         window.postMessage({
-            type: 'BLAZOR_DEVTOOLS_REQUEST',
-            requestId,
-            method: message.method,
-            args: message.args || []
+            source: 'blazor-devtools-content',
+            id,
+            method,
+            args: args || []
         }, '*');
-        return true; // Keep channel open for async response
+        // Timeout after 5 seconds
+        setTimeout(() => {
+            if (pendingRequests.has(id)) {
+                pendingRequests.delete(id);
+                sendResponse({ error: 'Request timeout' });
+            }
+        }, 5000);
+        // Return true to indicate we'll send response asynchronously
+        return true;
+    }
+    if (message.type === 'CHECK_READY') {
+        sendResponse({ ready: blazorReady });
+        return false;
     }
 });
-// Inject the script
+// ═══════════════════════════════════════════════════════════════════════════════
+// INITIALIZATION
+// ═══════════════════════════════════════════════════════════════════════════════
+// Inject the script immediately
 injectScript();
-console.log(PREFIX, 'Content script loaded');
+console.log('[BDT Content] Content script loaded');
 
 /******/ })()
 ;

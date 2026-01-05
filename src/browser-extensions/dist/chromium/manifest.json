@@ -22,16 +22,16 @@
     }
   ],
   
+  "background": {
+    "service_worker": "background.js"
+  },
+  
   "web_accessible_resources": [
     {
       "resources": ["injected.js"],
       "matches": ["<all_urls>"]
     }
   ],
-  
-  "background": {
-    "service_worker": "background.js"
-  },
   
   "action": {
     "default_icon": {

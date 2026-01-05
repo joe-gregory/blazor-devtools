@@ -14,12 +14,12 @@
 //
 //   ┌─────────────────────────────────────────────────────────────────────────┐
 //   │ Circuit A (Scope A)                Circuit B (Scope B)                  │
-//   │ ┌─────────────────────┐            ┌─────────────────────┐              │
-//   │ │ Registry A          │            │ Registry B          │              │
-//   │ │ ├─ Circuit.Id: "abc"│            │ ├─ Circuit.Id: "xyz"│              │
-//   │ │ ├─ Components: {...}│            │ ├─ Components: {...}│              │
-//   │ │ └─ DotNetRef ───────┼──► JS A    │ └─ DotNetRef ───────┼──► JS B      │
-//   │ └─────────────────────┘            └─────────────────────┘              │
+//   │ ┌─────────────────────┐            ┌─────────────────────┐             │
+//   │ │ Registry A          │            │ Registry B          │             │
+//   │ │ ├─ Circuit.Id: "abc"│            │ ├─ Circuit.Id: "xyz"│             │
+//   │ │ ├─ Components: {...}│            │ ├─ Components: {...}│             │
+//   │ │ └─ DotNetRef ───────┼──► JS A    │ └─ DotNetRef ───────┼──► JS B    │
+//   │ └─────────────────────┘            └─────────────────────┘             │
 //   └─────────────────────────────────────────────────────────────────────────┘
 //
 // LIFECYCLE:
@@ -36,6 +36,7 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.RenderTree;
 using Microsoft.AspNetCore.Components.Server.Circuits;
 using Microsoft.JSInterop;
 using System.Collections.Concurrent;
@@ -56,6 +57,15 @@ public class BlazorDevToolsRegistry : IDisposable
     private DotNetObjectReference<BlazorDevToolsRegistry>? _dotNetRef;
     private bool _jsInitialized;
     private bool _disposed;
+
+    // ═══════════════════════════════════════════════════════════════
+    // RENDERER REFERENCE (for C#-side hierarchy tracking)
+    // ═══════════════════════════════════════════════════════════════
+    // The Renderer contains the authoritative component tree.
+    // We access it via reflection through RendererInterop.
+    private Renderer? _renderer;
+    private DateTime _lastRendererSync = DateTime.MinValue;
+    private static readonly TimeSpan RendererSyncInterval = TimeSpan.FromMilliseconds(100);
 
     // ═══════════════════════════════════════════════════════════════
     // CIRCUIT REFERENCE
@@ -95,11 +105,305 @@ public class BlazorDevToolsRegistry : IDisposable
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // JS INITIALIZATION
+    // RENDERER REGISTRATION
     // ═══════════════════════════════════════════════════════════════
     /// <summary>
-    /// Initializes the JavaScript bridge by passing a DotNetObjectReference to JS.
-    /// Called by BlazorDevToolsCircuitHandler when the circuit opens.
+    /// Sets the Renderer reference for this registry.
+    /// Called by BlazorDevToolsComponentBase.Attach() which has access to RenderHandle.
+    /// The Renderer is needed to extract component hierarchy via reflection.
+    /// </summary>
+    /// <param name="renderer">The Renderer instance for this circuit.</param>
+    internal void SetRenderer(Renderer renderer)
+    {
+        if (_renderer == null)
+        {
+            _renderer = renderer;
+#if DEBUG
+            Console.WriteLine($"[BDT] Renderer set for circuit: {CircuitId}");
+#endif
+        }
+    }
+
+    /// <summary>
+    /// Sets the Renderer from a RenderHandle (extracts via reflection).
+    /// Called by BlazorDevToolsComponentBase.Attach().
+    /// </summary>
+    /// <param name="renderHandle">The RenderHandle from IComponent.Attach().</param>
+    internal void SetRendererFromHandle(RenderHandle renderHandle)
+    {
+        if (_renderer != null) return;
+        Renderer? renderer = RendererInterop.GetRendererFromHandle(renderHandle);
+        if (renderer != null)
+        {
+            SetRenderer(renderer);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // RENDERER SYNC (C#-side Pillar 3 replacement)
+    // ═══════════════════════════════════════════════════════════════
+    /// <summary>
+    /// Synchronizes registry state with the Renderer's authoritative component tree.
+    /// This resolves pending components, establishes hierarchy, and removes disposed.
+    /// Called automatically before returning component data to JS.
+    /// </summary>
+    public void SyncWithRenderer()
+    {
+#if DEBUG
+        Console.WriteLine($"[BDT] SyncWithRenderer called - Renderer={_renderer != null}, IsSupported={RendererInterop.IsSupported}");
+#endif
+        if (_renderer == null)
+        {
+#if DEBUG
+            Console.WriteLine("[BDT] SyncWithRenderer: No renderer available");
+#endif
+            return;
+        }
+
+        if (!RendererInterop.IsSupported)
+        {
+#if DEBUG
+            Console.WriteLine("[BDT] SyncWithRenderer: RendererInterop not supported");
+#endif
+            return;
+        }
+
+        // Throttle sync to avoid excessive reflection
+        DateTime now = DateTime.UtcNow;
+        if (now - _lastRendererSync < RendererSyncInterval) return;
+        _lastRendererSync = now;
+
+        try
+        {
+            Dictionary<int, RendererInterop.ComponentStateInfo>? rendererState =
+                RendererInterop.GetAllComponentStates(_renderer);
+
+            if (rendererState == null)
+            {
+#if DEBUG
+                Console.WriteLine("[BDT] SyncWithRenderer: GetAllComponentStates returned null");
+#endif
+                return;
+            }
+
+#if DEBUG
+            Console.WriteLine($"[BDT] SyncWithRenderer: Got {rendererState.Count} components from Renderer");
+#endif
+
+            // Track which componentIds exist in the Renderer
+            HashSet<int> activeComponentIds = new(rendererState.Keys);
+
+            // 1. Resolve pending components that now exist in Renderer
+            ResolvePendingFromRenderer(rendererState);
+
+            // 2. Update parent relationships for all tracked components
+            UpdateHierarchyFromRenderer(rendererState);
+
+            // 3. Add any components in Renderer that we don't know about
+            AddMissingComponentsFromRenderer(rendererState);
+
+            // 4. Remove disposed components (in our registry but not in Renderer)
+            RemoveDisposedComponents(activeComponentIds);
+
+#if DEBUG
+            Console.WriteLine($"[BDT] Renderer sync complete: {_componentsById.Count} resolved, {CountPending()} pending");
+#endif
+        }
+        catch (Exception ex)
+        {
+#if DEBUG
+            Console.WriteLine($"[BDT] Renderer sync failed: {ex.Message}");
+#endif
+        }
+    }
+
+    private int CountPending()
+    {
+        int count = 0;
+        foreach (KeyValuePair<IComponent, PendingComponent> _ in _pendingComponents) count++;
+        return count;
+    }
+
+    private void ResolvePendingFromRenderer(Dictionary<int, RendererInterop.ComponentStateInfo> rendererState)
+    {
+        // Find pending components that match components in the Renderer
+        List<(IComponent instance, PendingComponent pending, int componentId)> toResolve = new();
+
+        foreach (KeyValuePair<IComponent, PendingComponent> kvp in _pendingComponents)
+        {
+            IComponent instance = kvp.Key;
+            PendingComponent pending = kvp.Value;
+
+            // Find this component in the Renderer by instance reference
+            foreach (KeyValuePair<int, RendererInterop.ComponentStateInfo> rs in rendererState)
+            {
+                if (ReferenceEquals(rs.Value.Component, instance))
+                {
+                    toResolve.Add((instance, pending, rs.Key));
+                    break;
+                }
+            }
+        }
+
+        // Resolve each matched pending component
+        foreach ((IComponent instance, PendingComponent pending, int componentId) item in toResolve)
+        {
+            RendererInterop.ComponentStateInfo? stateInfo = null;
+            rendererState.TryGetValue(item.componentId, out stateInfo);
+
+            TrackedComponent tracked = new()
+            {
+                Instance = item.instance,
+                ComponentId = item.componentId,
+                TypeName = item.pending.TypeName,
+                TypeFullName = item.pending.TypeFullName,
+                CreatedAt = item.pending.CreatedAt,
+                ParentComponentId = stateInfo?.ParentComponentId,
+                HasEnhancedMetrics = item.pending.IsEnhanced,
+                RenderCount = 1,
+                LastRenderedAt = DateTime.UtcNow
+            };
+
+            // If it's an enhanced component, link the metrics
+            if (item.instance is BlazorDevToolsComponentBase enhanced)
+            {
+                tracked.Metrics = enhanced.Metrics;
+            }
+
+            _componentsByInstance.AddOrUpdate(item.instance, tracked);
+            _componentsById[item.componentId] = tracked;
+            _pendingComponents.Remove(item.instance);
+
+#if DEBUG
+            Console.WriteLine($"[BDT] Resolved via Renderer: {tracked.TypeName} → ID {item.componentId} (Parent: {tracked.ParentComponentId})");
+#endif
+        }
+    }
+
+    private void UpdateHierarchyFromRenderer(Dictionary<int, RendererInterop.ComponentStateInfo> rendererState)
+    {
+        foreach (KeyValuePair<int, TrackedComponent> kvp in _componentsById)
+        {
+            if (rendererState.TryGetValue(kvp.Key, out RendererInterop.ComponentStateInfo? stateInfo))
+            {
+                // Update parent relationship
+                kvp.Value.ParentComponentId = stateInfo.ParentComponentId;
+            }
+        }
+    }
+
+    private void AddMissingComponentsFromRenderer(Dictionary<int, RendererInterop.ComponentStateInfo> rendererState)
+    {
+        foreach (KeyValuePair<int, RendererInterop.ComponentStateInfo> kvp in rendererState)
+        {
+            int componentId = kvp.Key;
+            RendererInterop.ComponentStateInfo stateInfo = kvp.Value;
+
+            // Skip if we already track this component
+            if (_componentsById.ContainsKey(componentId)) continue;
+
+            // Check if we have it as pending (by instance)
+            bool isPending = false;
+            if (stateInfo.Component != null)
+            {
+                foreach (KeyValuePair<IComponent, PendingComponent> p in _pendingComponents)
+                {
+                    if (ReferenceEquals(p.Key, stateInfo.Component))
+                    {
+                        isPending = true;
+                        break;
+                    }
+                }
+            }
+            if (isPending) continue;// Will be resolved in ResolvePendingFromRenderer
+
+            // This is a component we didn't see through the Activator
+            // (might happen with certain component types)
+            TrackedComponent tracked = new()
+            {
+                Instance = stateInfo.Component!,
+                ComponentId = componentId,
+                TypeName = stateInfo.TypeName ?? stateInfo.Component?.GetType().Name ?? "Unknown",
+                TypeFullName = stateInfo.TypeFullName ?? stateInfo.Component?.GetType().FullName,
+                CreatedAt = DateTime.UtcNow,
+                ParentComponentId = stateInfo.ParentComponentId,
+                HasEnhancedMetrics = stateInfo.Component is BlazorDevToolsComponentBase,
+                RenderCount = 1,
+                LastRenderedAt = DateTime.UtcNow
+            };
+
+            if (stateInfo.Component is BlazorDevToolsComponentBase enhanced)
+            {
+                tracked.Metrics = enhanced.Metrics;
+            }
+
+            if (stateInfo.Component != null)
+            {
+                _componentsByInstance.AddOrUpdate(stateInfo.Component, tracked);
+            }
+            _componentsById[componentId] = tracked;
+
+#if DEBUG
+            Console.WriteLine($"[BDT] Added from Renderer: {tracked.TypeName} ID {componentId} (Parent: {tracked.ParentComponentId})");
+#endif
+        }
+    }
+
+    private void RemoveDisposedComponents(HashSet<int> activeComponentIds)
+    {
+        // Find components in our registry that no longer exist in Renderer
+        List<int> toRemove = new();
+        foreach (int componentId in _componentsById.Keys)
+        {
+            if (!activeComponentIds.Contains(componentId))
+            {
+                toRemove.Add(componentId);
+            }
+        }
+
+        foreach (int componentId in toRemove)
+        {
+            if (_componentsById.TryRemove(componentId, out TrackedComponent? tracked))
+            {
+                if (tracked.Instance != null)
+                {
+                    _componentsByInstance.Remove(tracked.Instance);
+                }
+#if DEBUG
+                Console.WriteLine($"[BDT] Removed disposed: {tracked.TypeName} ID {componentId}");
+#endif
+            }
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // JS INITIALIZATION
+    // ═══════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Minimal JavaScript bootstrap code injected at runtime.
+    /// Creates window.blazorDevTools with initialize/onEvent methods.
+    /// The browser extension enhances this with Pillar 3 render interception.
+    /// </summary>
+    private const string JsBootstrap = @"
+(function(){
+    if(window.blazorDevTools&&window.blazorDevTools._initialized)return;
+    window.blazorDevTools=window.blazorDevTools||{};
+    window.blazorDevTools.initialize=function(ref){
+        window.blazorDevTools._dotNetRef=ref;
+        window.blazorDevTools._initialized=true;
+        window.dispatchEvent(new CustomEvent('blazorDevToolsReady',{detail:ref}));
+        console.log('[BDT] Bridge initialized');
+    };
+    window.blazorDevTools.onEvent=function(e){
+        window.dispatchEvent(new CustomEvent('blazorDevToolsEvent',{detail:e}));
+    };
+})();";
+
+    /// <summary>
+    /// Initializes the JavaScript bridge by injecting minimal bootstrap code and
+    /// passing a DotNetObjectReference to JS. Called by BlazorDevToolsCircuitHandler
+    /// when the circuit opens. No external JS files required - everything is injected.
     /// After this call, JS can invoke [JSInvokable] methods on this specific instance,
     /// ensuring all queries are scoped to the correct circuit.
     /// </summary>
@@ -108,12 +412,19 @@ public class BlazorDevToolsRegistry : IDisposable
         if (_jsInitialized) return;
         try
         {
+            // Inject minimal JS bootstrap (idempotent - safe to call multiple times)
+            await _js.InvokeVoidAsync("eval", JsBootstrap);
+            // Create and pass DotNetObjectReference to JS
             _dotNetRef = DotNetObjectReference.Create(this);
             await _js.InvokeVoidAsync("blazorDevTools.initialize", _dotNetRef);
             _jsInitialized = true;
 #if DEBUG
             Console.WriteLine($"[BDT] JS initialized for circuit: {CircuitId}");
 #endif
+        }
+        catch (JSDisconnectedException)
+        {
+            // Circuit disconnected during init - expected during shutdown
         }
         catch (Exception ex)
         {
@@ -281,11 +592,15 @@ public class BlazorDevToolsRegistry : IDisposable
     /// Called via DotNetObjectReference to ensure circuit isolation.
     /// Returns data for the DevTools panel component tree.
     /// Includes both fully resolved components and pending components.
+    /// Syncs with Renderer first to ensure accurate hierarchy.
     /// </summary>
     /// <returns>List of component information for the DevTools UI.</returns>
     [JSInvokable]
     public List<ComponentInfoDto> GetAllComponentsDto()
     {
+        // Sync with Renderer to resolve pending components and update hierarchy
+        SyncWithRenderer();
+
         List<ComponentInfoDto> result = new();
         // Add fully resolved components (have componentId)
         foreach (KeyValuePair<int, TrackedComponent> kvp in _componentsById)

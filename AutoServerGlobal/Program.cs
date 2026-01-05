@@ -1,5 +1,7 @@
 using AutoServerGlobal.Components;
 using BlazorDeveloperTools;
+using BlazorDeveloperTools.Diagnostics;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -10,7 +12,11 @@ builder.Services.AddRazorComponents()
 builder.Services.AddBlazorDevTools();
 
 WebApplication app = builder.Build();
- 
+
+RendererDiagnostics.DumpRendererInfo();
+Console.WriteLine("\n[Testing RendererInterop initialization...]");
+Console.WriteLine($"RendererInterop.IsSupported: {BlazorDeveloperTools.RendererInterop.IsSupported}");
+
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {
