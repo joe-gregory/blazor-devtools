@@ -7,10 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="BlazorDeveloperTools" Version="0.9.16">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
+    <ProjectReference Include="..\..\src\BlazorDeveloperTools\BlazorDeveloperTools.csproj" />
   </ItemGroup>
 
 </Project>
