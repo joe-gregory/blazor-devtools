@@ -39,7 +39,7 @@ Or add to your `.csproj`:
 
 ### 2. Install the Browser Extension
 
-- **Chrome**: [Chrome Web Store]([#](https://chromewebstore.google.com/detail/blazor-developer-tools/pfddbenemjnlceffaemllejnjbobadhp)) 
+- **Chrome**: [Chrome Web Store](https://chromewebstore.google.com/detail/blazor-developer-tools/pfddbenemjnlceffaemllejnjbobadhp) 
 - **Edge**: [Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/blazor-developer-tools/pdggeigaaicabckehkeldfpfikihgcdj) 
 
 ## Usage
