@@ -118,9 +118,9 @@ public class BlazorDevToolsRegistry : IDisposable
         if (_renderer == null)
         {
             _renderer = renderer;
-#if DEBUG
+            #if DEBUG
             Console.WriteLine($"[BDT] Renderer set for circuit: {CircuitId}");
-#endif
+            #endif
         }
     }
 
@@ -418,9 +418,9 @@ public class BlazorDevToolsRegistry : IDisposable
             _dotNetRef = DotNetObjectReference.Create(this);
             await _js.InvokeVoidAsync("blazorDevTools.initialize", _dotNetRef);
             _jsInitialized = true;
-#if DEBUG
+            #if DEBUG
             Console.WriteLine($"[BDT] JS initialized for circuit: {CircuitId}");
-#endif
+            #endif
         }
         catch (JSDisconnectedException)
         {
@@ -428,9 +428,9 @@ public class BlazorDevToolsRegistry : IDisposable
         }
         catch (Exception ex)
         {
-#if DEBUG
+            #if DEBUG
             Console.WriteLine($"[BDT] JS initialization failed: {ex.Message}");
-#endif
+            #endif
         }
     }
 
@@ -471,7 +471,7 @@ public class BlazorDevToolsRegistry : IDisposable
     public void ResolveComponentId(IComponent component, int componentId)
     {
         if (!_pendingComponents.TryGetValue(component, out PendingComponent? pending)) return;
-        TrackedComponent tracked = CreateTrackedComponent(component, componentId, pending);
+        TrackedComponent tracked = BlazorDevToolsRegistry.CreateTrackedComponent(component, componentId, pending);
         _componentsByInstance.AddOrUpdate(component, tracked);
         _componentsById[componentId] = tracked;
         _pendingComponents.Remove(component);
@@ -512,7 +512,7 @@ public class BlazorDevToolsRegistry : IDisposable
     // ═══════════════════════════════════════════════════════════════
     // TRACKED COMPONENT CREATION
     // ═══════════════════════════════════════════════════════════════
-    private TrackedComponent CreateTrackedComponent(IComponent component, int componentId, PendingComponent pending)
+    private static TrackedComponent CreateTrackedComponent(IComponent component, int componentId, PendingComponent pending)
     {
         TrackedComponent tracked = new()
         {
@@ -559,10 +559,10 @@ public class BlazorDevToolsRegistry : IDisposable
         if (!_componentsById.TryGetValue(componentId, out TrackedComponent? tracked)) return;
         tracked.RenderCount++;
         tracked.LastRenderedAt = DateTime.UtcNow;
-        RefreshInternalState(tracked);
+        BlazorDevToolsRegistry.RefreshInternalState(tracked);
     }
 
-    private void RefreshInternalState(TrackedComponent tracked)
+    private static void RefreshInternalState(TrackedComponent tracked)
     {
         if (tracked.Instance is BlazorDevToolsComponentBase enhanced)
         {
@@ -795,7 +795,7 @@ public class BlazorDevToolsRegistry : IDisposable
     public ComponentInfoDto? GetComponentInfo(int componentId)
     {
         if (!_componentsById.TryGetValue(componentId, out TrackedComponent? tracked)) return null;
-        RefreshInternalState(tracked);
+        BlazorDevToolsRegistry.RefreshInternalState(tracked);
         return MapToDto(tracked);
     }
 
