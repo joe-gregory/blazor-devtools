@@ -5,47 +5,46 @@
   \*********************************/
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// BLAZOR DEVELOPER TOOLS - content.ts
+// BLAZOR DEVELOPER TOOLS - content.ts (CSP Compatible)
 // ═══════════════════════════════════════════════════════════════════════════════
 //
 // Content script injected into web pages.
-// Bridges between the injected.js (page context) and the extension (background/panel).
+// Bridges between the extension (background/panel) and the page context.
 //
-// Content scripts run in an isolated world - they can access the DOM but not
-// window objects from the page. We inject injected.js to access window.blazorDevTools.
+// This version loads bridge.js as an external file to comply with CSP.
 //
 // Message Flow:
-//   Panel → Background → Content (this) → Injected → window.blazorDevTools._dotNetRef
-//   Panel ← Background ← Content (this) ← Injected ← [response]
+//   Panel → Background → Content (this) → Bridge.js → window.blazorDevTools._dotNetRef
+//   Panel ← Background ← Content (this) ← Bridge.js ← [response]
 //
 // ═══════════════════════════════════════════════════════════════════════════════
-let injectedScriptLoaded = false;
+let bridgeLoaded = false;
 let blazorReady = false;
 const pendingRequests = new Map();
 // ═══════════════════════════════════════════════════════════════════════════════
-// INJECT THE INJECTED.JS SCRIPT
+// INJECT BRIDGE SCRIPT INTO PAGE CONTEXT
 // ═══════════════════════════════════════════════════════════════════════════════
-function injectScript() {
-    if (injectedScriptLoaded)
+function injectBridge() {
+    if (bridgeLoaded)
         return;
+    bridgeLoaded = true;
     const script = document.createElement('script');
-    script.src = chrome.runtime.getURL('injected.js');
+    script.src = chrome.runtime.getURL('bridge.js');
     script.onload = () => {
-        console.log('[BDT Content] Injected script loaded');
-        injectedScriptLoaded = true;
+        console.log('[BDT Content] Bridge script loaded');
     };
     script.onerror = (e) => {
-        console.error('[BDT Content] Failed to load injected script:', e);
+        console.error('[BDT Content] Failed to load bridge script:', e);
     };
     (document.head || document.documentElement).appendChild(script);
 }
 // ═══════════════════════════════════════════════════════════════════════════════
-// LISTEN FOR MESSAGES FROM INJECTED SCRIPT (page context)
+// LISTEN FOR MESSAGES FROM BRIDGE (page context)
 // ═══════════════════════════════════════════════════════════════════════════════
 window.addEventListener('message', (event) => {
     if (event.source !== window)
         return;
-    if (event.data?.source !== 'blazor-devtools-injected')
+    if (event.data?.source !== 'blazor-devtools-bridge')
         return;
     const { type, data } = event.data;
     switch (type) {
@@ -69,23 +68,19 @@ window.addEventListener('message', (event) => {
                 }
             }
             break;
-        case 'LIFECYCLE_EVENT':
-            // Forward lifecycle events to background for panel
-            chrome.runtime.sendMessage({ type: 'LIFECYCLE_EVENT', event: data });
-            break;
     }
 });
 // ═══════════════════════════════════════════════════════════════════════════════
 // LISTEN FOR MESSAGES FROM BACKGROUND (extension context)
 // ═══════════════════════════════════════════════════════════════════════════════
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message.type === 'PANEL_REQUEST') {
         const { method, args } = message;
         // Generate unique request ID
         const id = Math.random().toString(36).slice(2) + Date.now().toString(36);
         // Store callback for response
         pendingRequests.set(id, sendResponse);
-        // Forward to injected script via postMessage
+        // Forward to bridge script via postMessage
         window.postMessage({
             source: 'blazor-devtools-content',
             id,
@@ -106,12 +101,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ ready: blazorReady });
         return false;
     }
+    return false;
 });
 // ═══════════════════════════════════════════════════════════════════════════════
 // INITIALIZATION
 // ═══════════════════════════════════════════════════════════════════════════════
-// Inject the script immediately
-injectScript();
+// Inject the bridge script immediately
+injectBridge();
 console.log('[BDT Content] Content script loaded');
 
 /******/ })()

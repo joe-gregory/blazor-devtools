@@ -85,7 +85,7 @@ export interface LifecycleMetrics {
     lifetimeMs: number | null;
     timeToFirstRenderMs: number | null;
 
-    // Duration measurements (ms)
+    // Duration measurements - Last Call (ms)
     onInitializedDurationMs: number | null;
     onInitializedAsyncDurationMs: number | null;
     onParametersSetDurationMs: number | null;
@@ -93,6 +93,19 @@ export interface LifecycleMetrics {
     onAfterRenderDurationMs: number | null;
     onAfterRenderAsyncDurationMs: number | null;
     setParametersAsyncDurationMs: number | null;
+
+    // Duration measurements - Cumulative Totals (ms)
+    totalOnInitializedDurationMs: number;
+    totalOnInitializedAsyncDurationMs: number;
+    totalOnParametersSetDurationMs: number;
+    totalOnParametersSetAsyncDurationMs: number;
+    totalOnAfterRenderDurationMs: number;
+    totalOnAfterRenderAsyncDurationMs: number;
+    totalSetParametersAsyncDurationMs: number;
+
+    // Duration measurements - Averages (ms)
+    averageOnParametersSetDurationMs: number | null;
+    averageOnAfterRenderDurationMs: number | null;
 
     // BuildRenderTree timing
     totalBuildRenderTreeDurationMs: number;
@@ -104,6 +117,8 @@ export interface LifecycleMetrics {
     // EventCallback timing
     lastEventCallbackDurationMs: number | null;
     maxEventCallbackDurationMs: number | null;
+    totalEventCallbackDurationMs: number;
+    averageEventCallbackDurationMs: number | null;
 
     // Call counts
     onInitializedCallCount: number;

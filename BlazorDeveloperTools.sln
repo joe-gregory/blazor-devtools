@@ -9,9 +9,17 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "demos", "demos", "{2CAE55FE
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{8EC462FD-D22E-90A8-E5CE-7E832BA40C5D}"
 	ProjectSection(SolutionItems) = preProject
+		.editorconfig = .editorconfig
 		.gitattributes = .gitattributes
 		.gitignore = .gitignore
+		demos\AutoServerGlobal\Components\Pages\CartSummary.razor = demos\AutoServerGlobal\Components\Pages\CartSummary.razor
+		demos\AutoServerGlobal\Components\Pages\NavMenu-snippet.razor = demos\AutoServerGlobal\Components\Pages\NavMenu-snippet.razor
 		NuGet.config = NuGet.config
+		demos\AutoServerGlobal\Components\Pages\OrderBuilder.css = demos\AutoServerGlobal\Components\Pages\OrderBuilder.css
+		demos\AutoServerGlobal\Components\Pages\OrderBuilder.razor = demos\AutoServerGlobal\Components\Pages\OrderBuilder.razor
+		demos\AutoServerGlobal\Components\Pages\Product.cs = demos\AutoServerGlobal\Components\Pages\Product.cs
+		demos\AutoServerGlobal\Components\Pages\ProductCardBasic.razor = demos\AutoServerGlobal\Components\Pages\ProductCardBasic.razor
+		demos\AutoServerGlobal\Components\Pages\ProductCardOptimized.razor = demos\AutoServerGlobal\Components\Pages\ProductCardOptimized.razor
 		README.md = README.md
 	EndProjectSection
 EndProject
@@ -21,7 +29,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{EDA60FF5-7
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BlazorDeveloperTools", "src\BlazorDeveloperTools\BlazorDeveloperTools.csproj", "{A19208BD-A1AF-4FAC-A7FD-ACA090799BC4}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AutoServerGlobal", "AutoServerGlobal\AutoServerGlobal.csproj", "{6206386F-B1C7-42D1-B2FD-60ED8A7F312F}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AutoServerGlobal", "demos\AutoServerGlobal\AutoServerGlobal.csproj", "{64480EF5-3365-EB7A-650B-1F4FC1D98D2B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -37,10 +45,10 @@ Global
 		{A19208BD-A1AF-4FAC-A7FD-ACA090799BC4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A19208BD-A1AF-4FAC-A7FD-ACA090799BC4}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A19208BD-A1AF-4FAC-A7FD-ACA090799BC4}.Release|Any CPU.Build.0 = Release|Any CPU
-		{6206386F-B1C7-42D1-B2FD-60ED8A7F312F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{6206386F-B1C7-42D1-B2FD-60ED8A7F312F}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{6206386F-B1C7-42D1-B2FD-60ED8A7F312F}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{6206386F-B1C7-42D1-B2FD-60ED8A7F312F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{64480EF5-3365-EB7A-650B-1F4FC1D98D2B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{64480EF5-3365-EB7A-650B-1F4FC1D98D2B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{64480EF5-3365-EB7A-650B-1F4FC1D98D2B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{64480EF5-3365-EB7A-650B-1F4FC1D98D2B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -48,7 +56,7 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{5328199B-EC7E-3807-3406-765C1DCB1695} = {EDA60FF5-7770-4010-BAE1-B3DA2ADE6E47}
 		{A19208BD-A1AF-4FAC-A7FD-ACA090799BC4} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
-		{6206386F-B1C7-42D1-B2FD-60ED8A7F312F} = {2CAE55FE-EAC8-4128-A014-923054C668EF}
+		{64480EF5-3365-EB7A-650B-1F4FC1D98D2B} = {2CAE55FE-EAC8-4128-A014-923054C668EF}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {E258A0A1-35E3-4DC5-AE28-253C2FE9081A}

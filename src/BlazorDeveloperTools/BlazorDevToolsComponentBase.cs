@@ -1,6 +1,8 @@
 ﻿// ═══════════════════════════════════════════════════════════════════════════════
 // BLAZOR DEVELOPER TOOLS - BlazorDevToolsComponentBase.cs
 // ═══════════════════════════════════════════════════════════════════════════════
+// The guiding principle for the design of this class is: look but don't touch.  
+// <see cref="ComponentBase"/> is meant to be replicated with our instrumentation sprinkled in.
 //
 // PURPOSE:
 //   An enhanced replacement for ComponentBase that provides full lifecycle
@@ -74,6 +76,10 @@ using System.Reflection;
 namespace BlazorDeveloperTools;
 
 /// <summary>
+/// The guiding principle for the design of this class is: look but don't touch.  
+/// <see cref="ComponentBase"/> is meant to be replicated with our instrumentation sprinkled in.
+/// 
+/// 
 /// Enhanced ComponentBase with full lifecycle instrumentation.
 /// Provides detailed timing metrics, real-time event push to JavaScript,
 /// and automatic registration with the scoped BlazorDevToolsRegistry.
@@ -495,6 +501,7 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
 
         Metrics.OnInitializedCallCount++;
         Metrics.OnInitializedDurationMs = _stopwatch.Elapsed.TotalMilliseconds;
+        Metrics.TotalOnInitializedDurationMs += _stopwatch.Elapsed.TotalMilliseconds;
         PushEvent(LifecycleEventType.Initialized, Metrics.OnInitializedDurationMs.Value);
 
         // Time OnInitializedAsync
@@ -523,6 +530,7 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
 
         _stopwatch.Stop();
         Metrics.OnInitializedAsyncDurationMs = _stopwatch.Elapsed.TotalMilliseconds;
+        Metrics.TotalOnInitializedAsyncDurationMs += _stopwatch.Elapsed.TotalMilliseconds;
         PushEvent(LifecycleEventType.InitializedAsync, Metrics.OnInitializedAsyncDurationMs.Value);
 
         await CallOnParametersSetAsync();
@@ -540,6 +548,7 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
 
         Metrics.OnParametersSetCallCount++;
         Metrics.OnParametersSetDurationMs = _stopwatch.Elapsed.TotalMilliseconds;
+        Metrics.TotalOnParametersSetDurationMs += _stopwatch.Elapsed.TotalMilliseconds;
         PushEvent(LifecycleEventType.ParametersSet, Metrics.OnParametersSetDurationMs.Value);
 
         // Time OnParametersSetAsync
@@ -562,10 +571,12 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
         {
             _stopwatch.Stop();
             Metrics.OnParametersSetAsyncDurationMs = _stopwatch.Elapsed.TotalMilliseconds;
+            Metrics.TotalOnParametersSetAsyncDurationMs += _stopwatch.Elapsed.TotalMilliseconds;
             PushEvent(LifecycleEventType.ParametersSetAsync, Metrics.OnParametersSetAsyncDurationMs.Value);
 
             _setParametersAsyncStopwatch.Stop();
             Metrics.SetParametersAsyncDurationMs = _setParametersAsyncStopwatch.Elapsed.TotalMilliseconds;
+            Metrics.TotalSetParametersAsyncDurationMs += _setParametersAsyncStopwatch.Elapsed.TotalMilliseconds;
 
             return Task.CompletedTask;
         }
@@ -589,10 +600,12 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
         {
             _stopwatch.Stop();
             Metrics.OnParametersSetAsyncDurationMs = _stopwatch.Elapsed.TotalMilliseconds;
+            Metrics.TotalOnParametersSetAsyncDurationMs += _stopwatch.Elapsed.TotalMilliseconds;
             PushEvent(LifecycleEventType.ParametersSetAsync, Metrics.OnParametersSetAsyncDurationMs.Value);
 
             _setParametersAsyncStopwatch.Stop();
             Metrics.SetParametersAsyncDurationMs = _setParametersAsyncStopwatch.Elapsed.TotalMilliseconds;
+            Metrics.TotalSetParametersAsyncDurationMs += _setParametersAsyncStopwatch.Elapsed.TotalMilliseconds;
         }
 
         StateHasChanged();
@@ -650,6 +663,7 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
     private void RecordEventCallbackDuration(double durationMs)
     {
         Metrics.LastEventCallbackDurationMs = durationMs;
+        Metrics.TotalEventCallbackDurationMs += durationMs;
 
         if (Metrics.MaxEventCallbackDurationMs == null || durationMs > Metrics.MaxEventCallbackDurationMs)
         {
@@ -674,6 +688,7 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
 
         Metrics.OnAfterRenderCallCount++;
         Metrics.OnAfterRenderDurationMs = _stopwatch.Elapsed.TotalMilliseconds;
+        Metrics.TotalOnAfterRenderDurationMs += _stopwatch.Elapsed.TotalMilliseconds;
         PushEvent(LifecycleEventType.AfterRender, Metrics.OnAfterRenderDurationMs.Value, new { firstRender });
 
         // Time OnAfterRenderAsync
@@ -684,6 +699,7 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
         {
             _stopwatch.Stop();
             Metrics.OnAfterRenderAsyncDurationMs = _stopwatch.Elapsed.TotalMilliseconds;
+            Metrics.TotalOnAfterRenderAsyncDurationMs += _stopwatch.Elapsed.TotalMilliseconds;
             PushEvent(LifecycleEventType.AfterRenderAsync, Metrics.OnAfterRenderAsyncDurationMs.Value, new { firstRender });
             return task;
         }
@@ -700,6 +716,7 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
         {
             _stopwatch.Stop();
             Metrics.OnAfterRenderAsyncDurationMs = _stopwatch.Elapsed.TotalMilliseconds;
+            Metrics.TotalOnAfterRenderAsyncDurationMs += _stopwatch.Elapsed.TotalMilliseconds;
             PushEvent(LifecycleEventType.AfterRenderAsync, Metrics.OnAfterRenderAsyncDurationMs.Value, new { firstRender });
         }
     }

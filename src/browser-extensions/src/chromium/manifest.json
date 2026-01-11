@@ -26,10 +26,10 @@
     "service_worker": "background.js"
   },
   
-  "web_accessible_resources": [
+ "web_accessible_resources": [
     {
-      "resources": ["injected.js"],
-      "matches": ["<all_urls>"]
+        "resources": ["bridge.js"],
+        "matches": ["<all_urls>"]
     }
   ],
   

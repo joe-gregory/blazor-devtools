@@ -24,6 +24,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         blazorTabs.add(senderTabId);
         updateIcon(senderTabId, true);
         console.log(`[BDT Background] Blazor detected in tab ${senderTabId}`);
+        // Re-broadcast to panel so it can refresh
+        chrome.runtime.sendMessage({ type: 'BLAZOR_DETECTED', tabId: senderTabId, circuitId: message.circuitId });
     }
     
     if (message.type === 'BLAZOR_DISCONNECTED' && senderTabId) {
@@ -68,6 +70,16 @@ function updateIcon(tabId: number, active: boolean): void {
 // Clean up when tabs close
 chrome.tabs.onRemoved.addListener((tabId) => {
     blazorTabs.delete(tabId);
+});
+
+// Detect navigation to reset Blazor state
+chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+    if (changeInfo.status === 'loading' && blazorTabs.has(tabId)) {
+        // Page is navigating - Blazor will need to re-initialize
+        blazorTabs.delete(tabId);
+        updateIcon(tabId, false);
+        console.log(`[BDT Background] Tab ${tabId} navigating, clearing Blazor state`);
+    }
 });
 
 console.log('[BDT Background] Service worker started');

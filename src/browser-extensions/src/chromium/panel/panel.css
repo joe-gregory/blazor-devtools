@@ -324,3 +324,79 @@ body {
 ::-webkit-scrollbar-thumb:hover {
     background: var(--text-muted);
 }
+.tree-toggle {
+    display: inline-block;
+    width: 16px;
+    font-size: 10px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.tree-spacer {
+    display: inline-block;
+    width: 16px;
+}
+
+.call-count {
+    color: var(--text-muted);
+    font-size: 10px;
+    margin-left: 4px;
+}
+
+.timing-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+    margin-top: 8px;
+}
+
+.timing-table th,
+.timing-table td {
+    padding: 4px 8px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.timing-table th {
+    color: var(--text-muted);
+    font-weight: 500;
+    font-size: 10px;
+    text-transform: uppercase;
+}
+
+.timing-table td:first-child {
+    color: var(--parameter-color);
+}
+
+.timing-table td:not(:first-child) {
+    font-family: monospace;
+    color: var(--value-color);
+}
+
+.timing-table tfoot td {
+    border-top: 2px solid var(--border-color);
+    border-bottom: none;
+}
+
+.timing-table tbody tr:hover {
+    background: var(--bg-hover);
+}
+
+.call-count {
+    color: var(--text-muted);
+    font-size: 10px;
+    margin-left: 4px;
+}
+
+.tree-toggle {
+    display: inline-block;
+    width: 16px;
+    font-size: 10px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.tree-spacer {
+    display: inline-block;
+    width: 16px;
+}

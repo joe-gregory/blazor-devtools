@@ -1,0 +1,97 @@
+@* ═══════════════════════════════════════════════════════════════════════════════
+   BLAZOR DEVELOPER TOOLS - ProductCardOptimized.razor
+   ═══════════════════════════════════════════════════════════════════════════════
+   The FIX: This component implements ShouldRender() to skip unnecessary renders.
+   It only re-renders when ITS data actually changes.
+   
+   Watch in DevTools: 
+   - BuildRenderTreeCallCount only increases when THIS card's quantity changes
+   - ShouldRenderFalseCount increases when parent re-renders but our data is same
+   ═══════════════════════════════════════════════════════════════════════════════ *@
+
+@inherits BlazorDevToolsComponentBase
+
+<div class="card h-100 product-card">
+    <div class="card-body text-center">
+        <div class="fs-1 mb-2">@Emoji</div>
+        <h6 class="card-title">@Name</h6>
+        <p class="text-muted small mb-2">@Price.ToString("C")/lb</p>
+
+        <div class="d-flex justify-content-center align-items-center gap-2 mb-2">
+            <button class="btn btn-sm btn-outline-secondary"
+                    @onclick="Decrement"
+                    disabled="@(Quantity <= 0)">
+                −
+            </button>
+            <span class="fw-bold" style="min-width: 2rem;">@Quantity</span>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="Increment">+</button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public int ProductId { get; set; }
+
+    [Parameter, EditorRequired]
+    public string Name { get; set; } = string.Empty;
+
+    [Parameter, EditorRequired]
+    public string Emoji { get; set; } = "📦";
+
+    [Parameter, EditorRequired]
+    public decimal Price { get; set; }
+
+    [Parameter]
+    public int Quantity { get; set; }
+
+    [Parameter]
+    public EventCallback<int> QuantityChanged { get; set; }
+
+    // Track previous values to detect actual changes
+    private int _lastQuantity = -1; // Start at -1 so first render always happens
+    private decimal _lastPrice;
+    private string _lastName = string.Empty;
+
+    // ═══════════════════════════════════════════════════════════════
+    // THE FIX: ShouldRender() checks if OUR data actually changed
+    //
+    // BlazorDevToolsComponentBase automatically tracks:
+    // - ShouldRenderTrueCount / ShouldRenderFalseCount
+    // - BuildRenderTreeCallCount (only when we return true)
+    // - All lifecycle metrics
+    // ═══════════════════════════════════════════════════════════════
+    protected override bool ShouldRender()
+    {
+        // Check if any of our meaningful parameters changed
+        bool hasChanges = Quantity != _lastQuantity
+                       || Price != _lastPrice
+                       || Name != _lastName;
+
+        if (!hasChanges)
+        {
+            // Nothing changed for us - skip the render!
+            return false;
+        }
+
+        // Update tracked values for next comparison
+        _lastQuantity = Quantity;
+        _lastPrice = Price;
+        _lastName = Name;
+
+        return true;
+    }
+
+    private async Task Increment()
+    {
+        await QuantityChanged.InvokeAsync(Quantity + 1);
+    }
+
+    private async Task Decrement()
+    {
+        if (Quantity > 0)
+        {
+            await QuantityChanged.InvokeAsync(Quantity - 1);
+        }
+    }
+}

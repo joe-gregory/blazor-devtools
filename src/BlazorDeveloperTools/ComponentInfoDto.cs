@@ -114,7 +114,7 @@ public class LifecycleMetricsDto
     public double? TimeToFirstRenderMs { get; set; }
 
     // ═══════════════════════════════════════════════════════════════
-    // LIFECYCLE METHOD TIMING
+    // LIFECYCLE METHOD TIMING (Last Call)
     // ═══════════════════════════════════════════════════════════════
     public double? OnInitializedDurationMs { get; set; }
     public double? OnInitializedAsyncDurationMs { get; set; }
@@ -123,6 +123,23 @@ public class LifecycleMetricsDto
     public double? OnAfterRenderDurationMs { get; set; }
     public double? OnAfterRenderAsyncDurationMs { get; set; }
     public double? SetParametersAsyncDurationMs { get; set; }
+
+    // ═══════════════════════════════════════════════════════════════
+    // LIFECYCLE METHOD TIMING (Cumulative Totals)
+    // ═══════════════════════════════════════════════════════════════
+    public double TotalOnInitializedDurationMs { get; set; }
+    public double TotalOnInitializedAsyncDurationMs { get; set; }
+    public double TotalOnParametersSetDurationMs { get; set; }
+    public double TotalOnParametersSetAsyncDurationMs { get; set; }
+    public double TotalOnAfterRenderDurationMs { get; set; }
+    public double TotalOnAfterRenderAsyncDurationMs { get; set; }
+    public double TotalSetParametersAsyncDurationMs { get; set; }
+
+    // ═══════════════════════════════════════════════════════════════
+    // LIFECYCLE METHOD TIMING (Averages)
+    // ═══════════════════════════════════════════════════════════════
+    public double? AverageOnParametersSetDurationMs { get; set; }
+    public double? AverageOnAfterRenderDurationMs { get; set; }
 
     // ═══════════════════════════════════════════════════════════════
     // RENDER TIMING
@@ -138,6 +155,8 @@ public class LifecycleMetricsDto
     // ═══════════════════════════════════════════════════════════════
     public double? LastEventCallbackDurationMs { get; set; }
     public double? MaxEventCallbackDurationMs { get; set; }
+    public double TotalEventCallbackDurationMs { get; set; }
+    public double? AverageEventCallbackDurationMs { get; set; }
 
     // ═══════════════════════════════════════════════════════════════
     // CALL COUNTS

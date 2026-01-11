@@ -16,17 +16,17 @@
 //   │ Circuit Lifecycle Flow                                                  │
 //   │                                                                         │
 //   │ 1. User connects to Blazor Server                                       │
-//   │    └─► New DI scope created (circuit scope)                            │
+//   │    └─► New DI scope created (circuit scope)                             │
 //   │                                                                         │
 //   │ 2. OnCircuitOpenedAsync(circuit)                                        │
-//   │    ├─► Registry.Circuit = circuit (store reference)                    │
-//   │    ├─► Try to capture Renderer via reflection                          │
-//   │    └─► Registry.InitializeJsAsync() (pass DotNetRef to JS)             │
+//   │    ├─► Registry.Circuit = circuit (store reference)                     │
+//   │    ├─► Try to capture Renderer via reflection                           │
+//   │    └─► Registry.InitializeJsAsync() (pass DotNetRef to JS)              │
 //   │                                                                         │
 //   │ 3. Components created and tracked...                                    │
 //   │                                                                         │
 //   │ 4. OnCircuitClosedAsync(circuit)                                        │
-//   │    └─► Registry.OnCircuitClosed() (cleanup DotNetRef)                  │
+//   │    └─► Registry.OnCircuitClosed() (cleanup DotNetRef)                   │
 //   │                                                                         │
 //   │ 5. DI scope disposed, all scoped services garbage collected             │
 //   └─────────────────────────────────────────────────────────────────────────┘
@@ -109,9 +109,9 @@ public class BlazorDevToolsCircuitHandler : CircuitHandler
                     if (field.FieldType.Name.Contains("CircuitHost"))
                     {
                         _circuitHostField = field;
-#if DEBUG
+                        #if DEBUG
                         Console.WriteLine($"[BDT CircuitHandler] Found CircuitHost field: {field.Name}");
-#endif
+                        #endif
                         break;
                     }
                 }
@@ -127,9 +127,9 @@ public class BlazorDevToolsCircuitHandler : CircuitHandler
                        field.FieldType.Name.Contains("Renderer"))
                     {
                         _rendererField = field;
-#if DEBUG
+                        #if DEBUG
                         Console.WriteLine($"[BDT CircuitHandler] Found Renderer field: {field.Name} ({field.FieldType.Name})");
-#endif
+                        #endif
                         break;
                     }
                 }
@@ -209,9 +209,9 @@ public class BlazorDevToolsCircuitHandler : CircuitHandler
         if (renderer != null)
         {
             _registry.SetRenderer(renderer);
-#if DEBUG
+            #if DEBUG
             Console.WriteLine($"[BDT CircuitHandler] Captured Renderer from Circuit: {circuit.Id}");
-#endif
+            #endif
         }
 
         await _registry.InitializeJsAsync();

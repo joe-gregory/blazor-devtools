@@ -78,6 +78,15 @@ export interface LifecycleMetrics {
     onAfterRenderDurationMs: number | null;
     onAfterRenderAsyncDurationMs: number | null;
     setParametersAsyncDurationMs: number | null;
+    totalOnInitializedDurationMs: number;
+    totalOnInitializedAsyncDurationMs: number;
+    totalOnParametersSetDurationMs: number;
+    totalOnParametersSetAsyncDurationMs: number;
+    totalOnAfterRenderDurationMs: number;
+    totalOnAfterRenderAsyncDurationMs: number;
+    totalSetParametersAsyncDurationMs: number;
+    averageOnParametersSetDurationMs: number | null;
+    averageOnAfterRenderDurationMs: number | null;
     totalBuildRenderTreeDurationMs: number;
     lastBuildRenderTreeDurationMs: number | null;
     maxBuildRenderTreeDurationMs: number | null;
@@ -85,6 +94,8 @@ export interface LifecycleMetrics {
     averageBuildRenderTreeDurationMs: number | null;
     lastEventCallbackDurationMs: number | null;
     maxEventCallbackDurationMs: number | null;
+    totalEventCallbackDurationMs: number;
+    averageEventCallbackDurationMs: number | null;
     onInitializedCallCount: number;
     onParametersSetCallCount: number;
     onAfterRenderCallCount: number;

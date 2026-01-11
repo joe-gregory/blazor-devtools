@@ -10,8 +10,8 @@ module.exports = {
         // Extension scripts
         'chromium/background': './src/chromium/background.ts',
         'chromium/content': './src/chromium/content.ts',
+        'chromium/bridge': './src/chromium/bridge.ts',
         'chromium/devtools': './src/chromium/devtools.ts',
-        'chromium/injected': './src/chromium/injected.ts',
         'chromium/panel/panel': './src/chromium/panel/panel.ts',
     },
     

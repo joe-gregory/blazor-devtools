@@ -71,9 +71,17 @@ public class LifecycleMetrics
     /// </summary>
     public double? OnInitializedDurationMs { get; set; }
     /// <summary>
+    /// Total accumulated OnInitialized() time (ms). Usually same as last since it's called once.
+    /// </summary>
+    public double TotalOnInitializedDurationMs { get; set; }
+    /// <summary>
     /// Most recent OnInitializedAsync() duration including async work (ms).
     /// </summary>
     public double? OnInitializedAsyncDurationMs { get; set; }
+    /// <summary>
+    /// Total accumulated OnInitializedAsync() time (ms). Usually same as last since it's called once.
+    /// </summary>
+    public double TotalOnInitializedAsyncDurationMs { get; set; }
 
     // ═══════════════════════════════════════════════════════════════
     // PARAMETER TIMING (every SetParametersAsync call)
@@ -83,14 +91,26 @@ public class LifecycleMetrics
     /// </summary>
     public double? OnParametersSetDurationMs { get; set; }
     /// <summary>
+    /// Total accumulated OnParametersSet() time across all calls (ms).
+    /// </summary>
+    public double TotalOnParametersSetDurationMs { get; set; }
+    /// <summary>
     /// Most recent OnParametersSetAsync() duration including async work (ms).
     /// </summary>
     public double? OnParametersSetAsyncDurationMs { get; set; }
+    /// <summary>
+    /// Total accumulated OnParametersSetAsync() time across all calls (ms).
+    /// </summary>
+    public double TotalOnParametersSetAsyncDurationMs { get; set; }
     /// <summary>
     /// Most recent SetParametersAsync() total duration (ms).
     /// Includes OnInitialized + OnParametersSet on first call.
     /// </summary>
     public double? SetParametersAsyncDurationMs { get; set; }
+    /// <summary>
+    /// Total accumulated SetParametersAsync() time across all calls (ms).
+    /// </summary>
+    public double TotalSetParametersAsyncDurationMs { get; set; }
 
     // ═══════════════════════════════════════════════════════════════
     // RENDER TIMING
@@ -131,9 +151,17 @@ public class LifecycleMetrics
     /// </summary>
     public double? OnAfterRenderDurationMs { get; set; }
     /// <summary>
+    /// Total accumulated OnAfterRender() time across all calls (ms).
+    /// </summary>
+    public double TotalOnAfterRenderDurationMs { get; set; }
+    /// <summary>
     /// Most recent OnAfterRenderAsync() duration including async work (ms).
     /// </summary>
     public double? OnAfterRenderAsyncDurationMs { get; set; }
+    /// <summary>
+    /// Total accumulated OnAfterRenderAsync() time across all calls (ms).
+    /// </summary>
+    public double TotalOnAfterRenderAsyncDurationMs { get; set; }
 
     // ═══════════════════════════════════════════════════════════════
     // EVENT CALLBACK TIMING
@@ -146,6 +174,10 @@ public class LifecycleMetrics
     /// Slowest EventCallback handler (ms).
     /// </summary>
     public double? MaxEventCallbackDurationMs { get; set; }
+    /// <summary>
+    /// Total accumulated EventCallback handler time across all invocations (ms).
+    /// </summary>
+    public double TotalEventCallbackDurationMs { get; set; }
 
     // ═══════════════════════════════════════════════════════════════
     // LIFECYCLE METHOD CALL COUNTS
@@ -224,14 +256,41 @@ public class LifecycleMetrics
     // COMPUTED STATISTICS
     // ═══════════════════════════════════════════════════════════════
     /// <summary>
-    /// Total lifecycle time (ms) = init + params + render + afterRender.
-    /// Only includes sync portions for accurate comparison.
+    /// Total lifecycle time (ms) = cumulative init + params + render + afterRender.
+    /// Represents total time spent in all lifecycle methods for this component.
     /// </summary>
     public double TotalLifecycleTimeMs =>
-        (OnInitializedDurationMs ?? 0) +
-        (OnParametersSetDurationMs ?? 0) +
+        TotalOnInitializedDurationMs +
+        TotalOnInitializedAsyncDurationMs +
+        TotalOnParametersSetDurationMs +
+        TotalOnParametersSetAsyncDurationMs +
         TotalBuildRenderTreeDurationMs +
-        (OnAfterRenderDurationMs ?? 0);
+        TotalOnAfterRenderDurationMs +
+        TotalOnAfterRenderAsyncDurationMs;
+
+    /// <summary>
+    /// Average OnParametersSet() duration (ms).
+    /// </summary>
+    public double? AverageOnParametersSetDurationMs =>
+        OnParametersSetCallCount > 0
+            ? TotalOnParametersSetDurationMs / OnParametersSetCallCount
+            : null;
+
+    /// <summary>
+    /// Average OnAfterRender() duration (ms).
+    /// </summary>
+    public double? AverageOnAfterRenderDurationMs =>
+        OnAfterRenderCallCount > 0
+            ? TotalOnAfterRenderDurationMs / OnAfterRenderCallCount
+            : null;
+
+    /// <summary>
+    /// Average EventCallback duration (ms).
+    /// </summary>
+    public double? AverageEventCallbackDurationMs =>
+        EventCallbackInvokedCount > 0
+            ? TotalEventCallbackDurationMs / EventCallbackInvokedCount
+            : null;
     /// <summary>
     /// Percentage of StateHasChanged calls that resulted in actual renders.
     /// 100% = every call rendered. Lower values indicate either:

@@ -118,9 +118,9 @@ public class BlazorDevToolsRegistry : IDisposable
         if (_renderer == null)
         {
             _renderer = renderer;
-            #if DEBUG
+#if DEBUG
             Console.WriteLine($"[BDT] Renderer set for circuit: {CircuitId}");
-            #endif
+#endif
         }
     }
 
@@ -288,6 +288,11 @@ public class BlazorDevToolsRegistry : IDisposable
             {
                 // Update parent relationship
                 kvp.Value.ParentComponentId = stateInfo.ParentComponentId;
+
+                // Note: We intentionally do NOT update LastRenderedAt here.
+                // For non-enhanced components, we don't have accurate render timestamps.
+                // The Renderer only tells us the component exists, not when it last rendered.
+                // For accurate render tracking, use BlazorDevToolsComponentBase (enhanced).
             }
         }
     }
@@ -418,9 +423,9 @@ public class BlazorDevToolsRegistry : IDisposable
             _dotNetRef = DotNetObjectReference.Create(this);
             await _js.InvokeVoidAsync("blazorDevTools.initialize", _dotNetRef);
             _jsInitialized = true;
-            #if DEBUG
+#if DEBUG
             Console.WriteLine($"[BDT] JS initialized for circuit: {CircuitId}");
-            #endif
+#endif
         }
         catch (JSDisconnectedException)
         {
@@ -428,9 +433,9 @@ public class BlazorDevToolsRegistry : IDisposable
         }
         catch (Exception ex)
         {
-            #if DEBUG
+#if DEBUG
             Console.WriteLine($"[BDT] JS initialization failed: {ex.Message}");
-            #endif
+#endif
         }
     }
 
@@ -920,6 +925,8 @@ public class BlazorDevToolsRegistry : IDisposable
             DisposedAt = metrics.DisposedAt,
             LifetimeMs = metrics.LifetimeMs,
             TimeToFirstRenderMs = metrics.TimeToFirstRenderMs,
+
+            // Last call durations
             OnInitializedDurationMs = metrics.OnInitializedDurationMs,
             OnInitializedAsyncDurationMs = metrics.OnInitializedAsyncDurationMs,
             OnParametersSetDurationMs = metrics.OnParametersSetDurationMs,
@@ -927,13 +934,34 @@ public class BlazorDevToolsRegistry : IDisposable
             OnAfterRenderDurationMs = metrics.OnAfterRenderDurationMs,
             OnAfterRenderAsyncDurationMs = metrics.OnAfterRenderAsyncDurationMs,
             SetParametersAsyncDurationMs = metrics.SetParametersAsyncDurationMs,
+
+            // Cumulative totals
+            TotalOnInitializedDurationMs = metrics.TotalOnInitializedDurationMs,
+            TotalOnInitializedAsyncDurationMs = metrics.TotalOnInitializedAsyncDurationMs,
+            TotalOnParametersSetDurationMs = metrics.TotalOnParametersSetDurationMs,
+            TotalOnParametersSetAsyncDurationMs = metrics.TotalOnParametersSetAsyncDurationMs,
+            TotalOnAfterRenderDurationMs = metrics.TotalOnAfterRenderDurationMs,
+            TotalOnAfterRenderAsyncDurationMs = metrics.TotalOnAfterRenderAsyncDurationMs,
+            TotalSetParametersAsyncDurationMs = metrics.TotalSetParametersAsyncDurationMs,
+
+            // Averages
+            AverageOnParametersSetDurationMs = metrics.AverageOnParametersSetDurationMs,
+            AverageOnAfterRenderDurationMs = metrics.AverageOnAfterRenderDurationMs,
+
+            // Render timing
             TotalBuildRenderTreeDurationMs = metrics.TotalBuildRenderTreeDurationMs,
             LastBuildRenderTreeDurationMs = metrics.LastBuildRenderTreeDurationMs,
             MaxBuildRenderTreeDurationMs = metrics.MaxBuildRenderTreeDurationMs,
             MinBuildRenderTreeDurationMs = metrics.MinBuildRenderTreeDurationMs,
             AverageBuildRenderTreeDurationMs = metrics.AverageBuildRenderTreeDurationMs,
+
+            // EventCallback timing
             LastEventCallbackDurationMs = metrics.LastEventCallbackDurationMs,
             MaxEventCallbackDurationMs = metrics.MaxEventCallbackDurationMs,
+            TotalEventCallbackDurationMs = metrics.TotalEventCallbackDurationMs,
+            AverageEventCallbackDurationMs = metrics.AverageEventCallbackDurationMs,
+
+            // Call counts
             OnInitializedCallCount = metrics.OnInitializedCallCount,
             OnParametersSetCallCount = metrics.OnParametersSetCallCount,
             OnAfterRenderCallCount = metrics.OnAfterRenderCallCount,
