@@ -37,6 +37,68 @@ body {
     overflow: hidden;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════════
+   TAB BAR
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+.tab-bar {
+    display: flex;
+    align-items: center;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
+    padding: 0 8px;
+    height: 32px;
+}
+
+.tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-secondary);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    margin-bottom: -1px;
+}
+
+.tab:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+}
+
+.tab.active {
+    color: var(--text-primary);
+    border-bottom-color: var(--accent-color);
+    background: var(--bg-primary);
+}
+
+.tab-icon {
+    font-size: 14px;
+}
+
+.tab-spacer {
+    flex: 1;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   TAB CONTENT
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+.tab-content {
+    display: none;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+}
+
+.tab-content.active {
+    display: flex;
+}
+
 /* Layout */
 .panel-container {
     display: flex;
@@ -84,6 +146,16 @@ body {
 }
 
 .toolbar .status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+/* Status in tab bar */
+.tab-bar .status {
     display: flex;
     align-items: center;
     gap: 6px;
@@ -166,6 +238,7 @@ body {
     display: flex;
     align-items: center;
     gap: 6px;
+    white-space: nowrap;
 }
 
 .component-node:hover {
@@ -178,6 +251,62 @@ body {
 
 .component-node.pending {
     opacity: 0.6;
+}
+
+/* Tree toggle (expand/collapse arrow) */
+.tree-toggle {
+    width: 16px;
+    height: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: var(--text-muted);
+    cursor: pointer;
+    user-select: none;
+    flex-shrink: 0;
+    border-radius: 3px;
+}
+
+.tree-toggle:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.tree-toggle-placeholder {
+    width: 16px;
+    height: 16px;
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+/* Tree children container */
+.tree-children {
+    /* Children are indented via inline padding-left on nodes */
+}
+
+/* Child count badge */
+.child-count {
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-left: auto;
+    padding-right: 8px;
+}
+
+/* Pending section at bottom */
+.pending-section {
+    margin-top: 16px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border-color);
+}
+
+.pending-header {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    padding: 4px 8px;
+    margin-bottom: 4px;
 }
 
 .component-name {
@@ -323,80 +452,4 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
     background: var(--text-muted);
-}
-.tree-toggle {
-    display: inline-block;
-    width: 16px;
-    font-size: 10px;
-    cursor: pointer;
-    user-select: none;
-}
-
-.tree-spacer {
-    display: inline-block;
-    width: 16px;
-}
-
-.call-count {
-    color: var(--text-muted);
-    font-size: 10px;
-    margin-left: 4px;
-}
-
-.timing-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 11px;
-    margin-top: 8px;
-}
-
-.timing-table th,
-.timing-table td {
-    padding: 4px 8px;
-    text-align: left;
-    border-bottom: 1px solid var(--border-color);
-}
-
-.timing-table th {
-    color: var(--text-muted);
-    font-weight: 500;
-    font-size: 10px;
-    text-transform: uppercase;
-}
-
-.timing-table td:first-child {
-    color: var(--parameter-color);
-}
-
-.timing-table td:not(:first-child) {
-    font-family: monospace;
-    color: var(--value-color);
-}
-
-.timing-table tfoot td {
-    border-top: 2px solid var(--border-color);
-    border-bottom: none;
-}
-
-.timing-table tbody tr:hover {
-    background: var(--bg-hover);
-}
-
-.call-count {
-    color: var(--text-muted);
-    font-size: 10px;
-    margin-left: 4px;
-}
-
-.tree-toggle {
-    display: inline-block;
-    width: 16px;
-    font-size: 10px;
-    cursor: pointer;
-    user-select: none;
-}
-
-.tree-spacer {
-    display: inline-block;
-    width: 16px;
 }

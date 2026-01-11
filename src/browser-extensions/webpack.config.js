@@ -13,6 +13,7 @@ module.exports = {
         'chromium/bridge': './src/chromium/bridge.ts',
         'chromium/devtools': './src/chromium/devtools.ts',
         'chromium/panel/panel': './src/chromium/panel/panel.ts',
+        'chromium/panel/timeline-panel': './src/chromium/panel/timeline-panel.ts',
     },
     
     output: {
@@ -54,6 +55,7 @@ module.exports = {
                 { from: 'src/chromium/devtools.html', to: 'chromium/' },
                 { from: 'src/chromium/panel/panel.html', to: 'chromium/panel/' },
                 { from: 'src/chromium/panel/panel.css', to: 'chromium/panel/' },  // Added CSS copy
+                { from: 'src/chromium/panel/timeline-panel.css', to: 'chromium/panel/' },  // ADD THIS LINE
                 { from: 'src/chromium/assets', to: 'chromium/assets', noErrorOnMissing: true },
             ],
         }),

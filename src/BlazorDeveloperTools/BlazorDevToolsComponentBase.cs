@@ -29,13 +29,15 @@
 //   4. TryResolveWithRegistry() → Registry.ResolveComponentId(this, componentId)
 //   5. Lifecycle methods run with timing instrumentation
 //   6. Events pushed to JS via IJSRuntime
+//   7. TimelineRecorder captures events for profiler timeline (when recording active)
 //
 // DATA FLOW:
 //   1. Component lifecycle method called (e.g., OnInitialized)
 //   2. Stopwatch measures duration
 //   3. Metrics object updated
 //   4. Event pushed to JS via IJSRuntime (if enabled)
-//   5. Browser extension receives event, can record/display
+//   5. TimelineRecorder stores event (if recording active)
+//   6. Browser extension receives event, can record/display
 //
 // COMPARISON WITH ComponentBase:
 //   ┌─────────────────────────┬─────────────────────┬──────────────────────────────┐
@@ -49,6 +51,7 @@
 //   │ EventCallback Timing    │ ✗                   │ ✓                            │
 //   │ Real-time JS Events     │ ✗                   │ ✓                            │
 //   │ Registry Integration    │ ✗                   │ ✓ (self-registers)           │
+//   │ Timeline Recording      │ ✗                   │ ✓ (via TimelineRecorder)     │
 //   └─────────────────────────┴─────────────────────┴──────────────────────────────┘
 //
 // USAGE:
@@ -232,7 +235,13 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
                     Metrics.TimeToFirstRenderMs = (DateTime.UtcNow - Metrics.CreatedAt).TotalMilliseconds;
                 }
 
-                PushEvent(LifecycleEventType.BuildRenderTree, durationMs, new { isFirstRender = wasFirstRender });
+                RecordAndPushEvent(
+                    TimelineEventType.BuildRenderTree,
+                    LifecycleEventType.BuildRenderTree,
+                    durationMs: durationMs,
+                    isFirstRender: wasFirstRender,
+                    jsData: new { isFirstRender = wasFirstRender }
+                );
             }
             else
             {
@@ -310,6 +319,33 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
         => Task.CompletedTask;
 
     // ═══════════════════════════════════════════════════════════════
+    // TIMELINE HELPER FOR EVENTCALLBACKS
+    // ═══════════════════════════════════════════════════════════════
+    /// <summary>
+    /// Records an EventCallback invocation for timeline tracking.
+    /// Call this at the start of your EventCallback handlers for full timeline visibility.
+    /// </summary>
+    /// <example>
+    /// <code>
+    /// private void HandleButtonClick()
+    /// {
+    ///     RecordEventCallbackStart("HandleButtonClick");
+    ///     // ... your code
+    /// }
+    /// </code>
+    /// </example>
+    protected void RecordEventCallbackStart(string? callbackName = null)
+    {
+        TimelineRecorder.Instance.RecordEvent(
+            componentId: _componentId,
+            componentName: GetType().Name,
+            eventType: TimelineEventType.EventCallbackInvoked,
+            isEnhanced: true,
+            triggerDetails: callbackName ?? "EventCallback"
+        );
+    }
+
+    // ═══════════════════════════════════════════════════════════════
     // STATEHASCHANGED (with instrumentation)
     // ═══════════════════════════════════════════════════════════════
     // This is where we track how often StateHasChanged is called,
@@ -325,7 +361,12 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
         if (_hasPendingQueuedRender)
         {
             Metrics.StateHasChangedPendingIgnoredCount++;
-            PushEvent(LifecycleEventType.StateHasChangedIgnored, data: new { reason = "pendingRender" });
+            RecordAndPushEvent(
+                TimelineEventType.StateHasChangedIgnored,
+                LifecycleEventType.StateHasChangedIgnored,
+                triggerDetails: "Pending render already queued",
+                jsData: new { reason = "pendingRender" }
+            );
             return;
         }
 
@@ -341,7 +382,10 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
             try
             {
                 _renderHandle.Render(_renderFragment);
-                PushEvent(LifecycleEventType.StateHasChanged);
+                RecordAndPushEvent(
+                    TimelineEventType.StateHasChanged,
+                    LifecycleEventType.StateHasChanged
+                );
             }
             catch
             {
@@ -352,7 +396,12 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
         else
         {
             Metrics.StateHasChangedShouldRenderIgnoredCount++;
-            PushEvent(LifecycleEventType.StateHasChangedIgnored, data: new { reason = "shouldRenderFalse" });
+            RecordAndPushEvent(
+                TimelineEventType.StateHasChangedIgnored,
+                LifecycleEventType.StateHasChangedIgnored,
+                triggerDetails: "ShouldRender returned false",
+                jsData: new { reason = "shouldRenderFalse" }
+            );
         }
     }
     /// <summary>
@@ -373,8 +422,12 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
             Metrics.ShouldRenderFalseCount++;
         }
 
-        PushEvent(LifecycleEventType.ShouldRender, data: new { result });
-
+        RecordAndPushEvent(
+            result ? TimelineEventType.ShouldRenderTrue : TimelineEventType.ShouldRenderFalse,
+            LifecycleEventType.ShouldRender,
+            wasSkipped: !result,
+            jsData: new { result }
+        );
         return result;
     }
 
@@ -502,7 +555,12 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
         Metrics.OnInitializedCallCount++;
         Metrics.OnInitializedDurationMs = _stopwatch.Elapsed.TotalMilliseconds;
         Metrics.TotalOnInitializedDurationMs += _stopwatch.Elapsed.TotalMilliseconds;
-        PushEvent(LifecycleEventType.Initialized, Metrics.OnInitializedDurationMs.Value);
+        RecordAndPushEvent(
+            TimelineEventType.OnInitialized,
+            LifecycleEventType.Initialized,
+            durationMs: Metrics.OnInitializedDurationMs.Value,
+            isFirstRender: true
+        );
 
         // Time OnInitializedAsync
         _stopwatch.Restart();
@@ -531,7 +589,13 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
         _stopwatch.Stop();
         Metrics.OnInitializedAsyncDurationMs = _stopwatch.Elapsed.TotalMilliseconds;
         Metrics.TotalOnInitializedAsyncDurationMs += _stopwatch.Elapsed.TotalMilliseconds;
-        PushEvent(LifecycleEventType.InitializedAsync, Metrics.OnInitializedAsyncDurationMs.Value);
+        RecordAndPushEvent(
+            TimelineEventType.OnInitializedAsync,
+            LifecycleEventType.InitializedAsync,
+            durationMs: Metrics.OnInitializedAsyncDurationMs.Value,
+            isAsync: true,
+            isFirstRender: true
+        );
 
         await CallOnParametersSetAsync();
     }
@@ -549,7 +613,11 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
         Metrics.OnParametersSetCallCount++;
         Metrics.OnParametersSetDurationMs = _stopwatch.Elapsed.TotalMilliseconds;
         Metrics.TotalOnParametersSetDurationMs += _stopwatch.Elapsed.TotalMilliseconds;
-        PushEvent(LifecycleEventType.ParametersSet, Metrics.OnParametersSetDurationMs.Value);
+        RecordAndPushEvent(
+            TimelineEventType.OnParametersSet,
+            LifecycleEventType.ParametersSet,
+            durationMs: Metrics.OnParametersSetDurationMs.Value
+        );
 
         // Time OnParametersSetAsync
         _stopwatch.Restart();
@@ -572,7 +640,12 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
             _stopwatch.Stop();
             Metrics.OnParametersSetAsyncDurationMs = _stopwatch.Elapsed.TotalMilliseconds;
             Metrics.TotalOnParametersSetAsyncDurationMs += _stopwatch.Elapsed.TotalMilliseconds;
-            PushEvent(LifecycleEventType.ParametersSetAsync, Metrics.OnParametersSetAsyncDurationMs.Value);
+            RecordAndPushEvent(
+                TimelineEventType.OnParametersSetAsync,
+                LifecycleEventType.ParametersSetAsync,
+                durationMs: Metrics.OnParametersSetAsyncDurationMs.Value,
+                isAsync: true
+            );
 
             _setParametersAsyncStopwatch.Stop();
             Metrics.SetParametersAsyncDurationMs = _setParametersAsyncStopwatch.Elapsed.TotalMilliseconds;
@@ -601,7 +674,12 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
             _stopwatch.Stop();
             Metrics.OnParametersSetAsyncDurationMs = _stopwatch.Elapsed.TotalMilliseconds;
             Metrics.TotalOnParametersSetAsyncDurationMs += _stopwatch.Elapsed.TotalMilliseconds;
-            PushEvent(LifecycleEventType.ParametersSetAsync, Metrics.OnParametersSetAsyncDurationMs.Value);
+            RecordAndPushEvent(
+                TimelineEventType.OnParametersSetAsync,
+                LifecycleEventType.ParametersSetAsync,
+                durationMs: Metrics.OnParametersSetAsyncDurationMs.Value,
+                isAsync: true
+            );
 
             _setParametersAsyncStopwatch.Stop();
             Metrics.SetParametersAsyncDurationMs = _setParametersAsyncStopwatch.Elapsed.TotalMilliseconds;
@@ -670,7 +748,11 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
             Metrics.MaxEventCallbackDurationMs = durationMs;
         }
 
-        PushEvent(LifecycleEventType.EventCallback, durationMs);
+        RecordAndPushEvent(
+            TimelineEventType.EventCallbackInvoked,
+            LifecycleEventType.EventCallback,
+            durationMs: durationMs
+        );
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -689,7 +771,13 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
         Metrics.OnAfterRenderCallCount++;
         Metrics.OnAfterRenderDurationMs = _stopwatch.Elapsed.TotalMilliseconds;
         Metrics.TotalOnAfterRenderDurationMs += _stopwatch.Elapsed.TotalMilliseconds;
-        PushEvent(LifecycleEventType.AfterRender, Metrics.OnAfterRenderDurationMs.Value, new { firstRender });
+        RecordAndPushEvent(
+            TimelineEventType.OnAfterRender,
+            LifecycleEventType.AfterRender,
+            durationMs: Metrics.OnAfterRenderDurationMs.Value,
+            isFirstRender: firstRender,
+            jsData: new { firstRender }
+        );
 
         // Time OnAfterRenderAsync
         _stopwatch.Restart();
@@ -700,7 +788,14 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
             _stopwatch.Stop();
             Metrics.OnAfterRenderAsyncDurationMs = _stopwatch.Elapsed.TotalMilliseconds;
             Metrics.TotalOnAfterRenderAsyncDurationMs += _stopwatch.Elapsed.TotalMilliseconds;
-            PushEvent(LifecycleEventType.AfterRenderAsync, Metrics.OnAfterRenderAsyncDurationMs.Value, new { firstRender });
+            RecordAndPushEvent(
+                TimelineEventType.OnAfterRenderAsync,
+                LifecycleEventType.AfterRenderAsync,
+                durationMs: Metrics.OnAfterRenderAsyncDurationMs.Value,
+                isAsync: true,
+                isFirstRender: firstRender,
+                jsData: new { firstRender }
+            );
             return task;
         }
 
@@ -717,7 +812,14 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
             _stopwatch.Stop();
             Metrics.OnAfterRenderAsyncDurationMs = _stopwatch.Elapsed.TotalMilliseconds;
             Metrics.TotalOnAfterRenderAsyncDurationMs += _stopwatch.Elapsed.TotalMilliseconds;
-            PushEvent(LifecycleEventType.AfterRenderAsync, Metrics.OnAfterRenderAsyncDurationMs.Value, new { firstRender });
+            RecordAndPushEvent(
+                TimelineEventType.OnAfterRenderAsync,
+                LifecycleEventType.AfterRenderAsync,
+                durationMs: Metrics.OnAfterRenderAsyncDurationMs.Value,
+                isAsync: true,
+                isFirstRender: firstRender,
+                jsData: new { firstRender }
+            );
         }
     }
 
@@ -771,6 +873,38 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
 
         _ = PushEventAsync(evt);
     }
+
+    /// <summary>
+    /// Records a timeline event and pushes to JS.
+    /// Combines both recording mechanisms.
+    /// </summary>
+    private void RecordAndPushEvent(
+        TimelineEventType timelineEventType,
+        LifecycleEventType jsEventType,
+        double? durationMs = null,
+        bool isAsync = false,
+        bool isFirstRender = false,
+        bool wasSkipped = false,
+        string? triggerDetails = null,
+        object? jsData = null)
+    {
+        // Record to timeline (if recording)
+        TimelineRecorder.Instance.RecordEvent(
+            componentId: _componentId,
+            componentName: GetType().Name,
+            eventType: timelineEventType,
+            durationMs: durationMs,
+            isAsync: isAsync,
+            isFirstRender: isFirstRender,
+            wasSkipped: wasSkipped,
+            isEnhanced: true,
+            triggerDetails: triggerDetails
+        );
+
+        // Push to JS (existing mechanism)
+        PushEvent(jsEventType, durationMs ?? 0, jsData);
+    }
+
     private void BufferEvent(LifecycleEvent evt)
     {
         if (BlazorDevToolsConfig.MaxBufferedEvents <= 0)
@@ -864,7 +998,10 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
         if (disposing)
         {
             Metrics.DisposedAt = DateTime.UtcNow;
-            PushEvent(LifecycleEventType.Disposed);
+            RecordAndPushEvent(
+                TimelineEventType.Disposed,
+                LifecycleEventType.Disposed
+            );
             // Unregister from the scoped registry so disposed components don't appear
             Registry?.UnregisterComponent(this);
             _bufferedEvents?.Clear();

@@ -815,6 +815,109 @@ public class BlazorDevToolsRegistry : IDisposable
         return CircuitId;
     }
 
+    // ═══════════════════════════════════════════════════════════════
+    // TIMELINE RECORDING API (exposed to JavaScript)
+    // ═══════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Start recording timeline events.
+    /// </summary>
+    [JSInvokable]
+    public void StartTimelineRecording()
+    {
+        TimelineRecorder.Instance.StartRecording();
+    }
+
+    /// <summary>
+    /// Stop recording timeline events.
+    /// </summary>
+    [JSInvokable]
+    public void StopTimelineRecording()
+    {
+        TimelineRecorder.Instance.StopRecording();
+    }
+
+    /// <summary>
+    /// Clear all recorded timeline events.
+    /// </summary>
+    [JSInvokable]
+    public void ClearTimelineEvents()
+    {
+        TimelineRecorder.Instance.ClearEvents();
+    }
+
+    /// <summary>
+    /// Get current recording state.
+    /// </summary>
+    [JSInvokable]
+    public RecordingState GetTimelineState()
+    {
+        return TimelineRecorder.Instance.GetState();
+    }
+
+    /// <summary>
+    /// Get all recorded timeline events.
+    /// </summary>
+    [JSInvokable]
+    public List<TimelineEventDto> GetTimelineEvents()
+    {
+        return TimelineRecorder.Instance.GetEvents();
+    }
+
+    /// <summary>
+    /// Get timeline events recorded after a specific event ID (for incremental updates).
+    /// </summary>
+    [JSInvokable]
+    public List<TimelineEventDto> GetTimelineEventsSince(long afterEventId)
+    {
+        return TimelineRecorder.Instance.GetEventsSince(afterEventId);
+    }
+
+    /// <summary>
+    /// Get timeline events within a time range.
+    /// </summary>
+    [JSInvokable]
+    public List<TimelineEventDto> GetTimelineEventsInRange(double startMs, double endMs)
+    {
+        return TimelineRecorder.Instance.GetEventsInRange(startMs, endMs);
+    }
+
+    /// <summary>
+    /// Get timeline events for a specific component.
+    /// </summary>
+    [JSInvokable]
+    public List<TimelineEventDto> GetTimelineEventsForComponent(int componentId)
+    {
+        return TimelineRecorder.Instance.GetEventsForComponent(componentId);
+    }
+
+    /// <summary>
+    /// Get all render batches.
+    /// </summary>
+    [JSInvokable]
+    public List<RenderBatchDto> GetTimelineBatches()
+    {
+        return TimelineRecorder.Instance.GetBatches();
+    }
+
+    /// <summary>
+    /// Get components ranked by total render time (for Ranked view).
+    /// </summary>
+    [JSInvokable]
+    public List<ComponentRankingDto> GetRankedComponents()
+    {
+        return TimelineRecorder.Instance.GetRankedComponents();
+    }
+
+    /// <summary>
+    /// Set maximum events to retain in the ring buffer.
+    /// </summary>
+    [JSInvokable]
+    public void SetTimelineMaxEvents(int maxEvents)
+    {
+        TimelineRecorder.Instance.SetMaxEvents(maxEvents);
+    }
+
     /// <summary>
     /// Gets all tracked components for internal .NET use.
     /// Not exposed to JS - use GetAllComponentsDto() for that.

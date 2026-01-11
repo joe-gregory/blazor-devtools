@@ -8,11 +8,12 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import type { ComponentInfo, LifecycleMetrics } from '../../core/types';
+import { initializeTimelinePanel } from './timeline-panel';
 
 // The tab ID we're inspecting
 const inspectedTabId = chrome.devtools.inspectedWindow.tabId;
 
-// DOM elements
+// DOM elements - Components tab
 const refreshBtn = document.getElementById('refresh-btn')!;
 const pickerBtn = document.getElementById('picker-btn')!;
 const statusDot = document.querySelector('.status-dot')!;
@@ -24,13 +25,37 @@ const componentDetails = document.getElementById('component-details')!;
 // State
 let selectedComponentId: number | null = null;
 let components: ComponentInfo[] = [];
-let connectionState: 'connected' | 'connecting' | 'disconnected' = 'connecting';
-let consecutiveFailures = 0;
-const MAX_FAILURES_BEFORE_DISCONNECT = 3;
+let currentTab: string = 'components';
 
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════════
+// TAB SWITCHING
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function initializeTabs(): void {
+    const tabs = document.querySelectorAll('.tab');
+    const tabContents = document.querySelectorAll('.tab-content');
+    
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const tabName = tab.getAttribute('data-tab')!;
+            
+            // Update tab buttons
+            tabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            
+            // Update tab contents
+            tabContents.forEach(content => {
+                content.classList.toggle('active', content.getAttribute('data-tab') === tabName);
+            });
+            
+            currentTab = tabName;
+        });
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // API COMMUNICATION
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════════
 
 async function callApi<T>(method: string, ...args: unknown[]): Promise<T> {
     return new Promise((resolve, reject) => {
@@ -55,9 +80,12 @@ async function callApi<T>(method: string, ...args: unknown[]): Promise<T> {
     });
 }
 
-// ═══════════════════════════════════════════════════════════════
+// Export for timeline-panel.ts to use
+(window as any).blazorDevToolsCallApi = callApi;
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // UI UPDATES
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════════
 
 function setStatus(connected: boolean, text: string): void {
     statusDot.classList.toggle('connected', connected);
@@ -67,47 +95,20 @@ function setStatus(connected: boolean, text: string): void {
 
 async function refreshComponents(): Promise<void> {
     try {
-        if (connectionState === 'disconnected') {
-            setStatus(false, 'Reconnecting...');
-        } else if (connectionState === 'connecting') {
-            setStatus(false, 'Connecting...');
-        } else {
-            setStatus(true, 'Refreshing...');
-        }
-        
-        components = await callApi<ComponentInfo[]>('GetAllComponentsDto');
-        
-        // Success - reset failure count and mark connected
-        consecutiveFailures = 0;
-        connectionState = 'connected';
-        
-        renderTree();
+        setStatus(true, 'Refreshing...');
+        components = await callApi<ComponentInfo[]>('GetAllComponentsDto');        renderTree();
         componentCount.textContent = `(${components.length})`;
         setStatus(true, 'Connected');
-        
-        // Also refresh details panel if a component is selected
-        if (selectedComponentId !== null) {
-            const selectedComponent = components.find(c => c.componentId === selectedComponentId);
-            if (selectedComponent) {
-                renderDetails(selectedComponent);
-            }
-        }
     } catch (err) {
-        consecutiveFailures++;
-        console.error('[BDT Panel] Refresh failed:', err, `(attempt ${consecutiveFailures})`);
-        
-        // Only show disconnected after multiple failures
-        if (consecutiveFailures >= MAX_FAILURES_BEFORE_DISCONNECT) {
-            connectionState = 'disconnected';
-            setStatus(false, 'Disconnected');
-            componentTree.innerHTML = '<div class="loading">Waiting for Blazor DevTools...</div>';
-        } else {
-            // Still trying to connect
-            connectionState = 'connecting';
-            setStatus(false, `Connecting... (attempt ${consecutiveFailures})`);
-        }
+        console.error('[BDT Panel] Refresh failed:', err);
+        setStatus(false, 'Disconnected');
+        componentTree.innerHTML = '<div class="loading">Failed to connect to Blazor DevTools</div>';
     }
 }
+
+// Track expanded nodes across renders
+let expandedNodes = new Set<number>();
+let treeInitialized = false;
 
 function renderTree(): void {
     if (components.length === 0) {
@@ -115,88 +116,142 @@ function renderTree(): void {
         return;
     }
 
-    // Build parent-child map
-    const childrenMap = new Map<number | null, ComponentInfo[]>();
-    
-    // Initialize with empty arrays
-    childrenMap.set(null, []); // Root components (no parent)
-    
-    for (const c of components) {
-        // Add to parent's children list
-        const parentId = c.parentComponentId ?? null;
-        if (!childrenMap.has(parentId)) {
-            childrenMap.set(parentId, []);
+    // Build a map for quick lookup
+    const componentMap = new Map<number, ComponentInfo>();
+    components.forEach(c => {
+        if (c.componentId !== undefined && c.componentId !== null) {
+            componentMap.set(c.componentId, c);
         }
-        childrenMap.get(parentId)!.push(c);
-        
-        // Ensure this component has an entry for its children
-        if (!childrenMap.has(c.componentId)) {
-            childrenMap.set(c.componentId, []);
-        }
-    }
+    });
 
-    // Sort children at each level by type name
-    for (const children of childrenMap.values()) {
-        children.sort((a, b) => {
-            // Pending last
-            if (a.isPending !== b.isPending) return a.isPending ? 1 : -1;
-            return a.typeName.localeCompare(b.typeName);
+    // Find root components (no parent or parent not in our list)
+    const roots: ComponentInfo[] = [];
+    const childrenMap = new Map<number, ComponentInfo[]>();
+
+    components.forEach(c => {
+        const parentId = c.parentComponentId;
+        if (parentId === null || parentId === undefined || !componentMap.has(parentId)) {
+            roots.push(c);
+        } else {
+            if (!childrenMap.has(parentId)) {
+                childrenMap.set(parentId, []);
+            }
+            childrenMap.get(parentId)!.push(c);
+        }
+    });
+
+    // Sort roots and children by type name
+    const sortByName = (a: ComponentInfo, b: ComponentInfo) => a.typeName.localeCompare(b.typeName);
+    roots.sort(sortByName);
+    childrenMap.forEach(children => children.sort(sortByName));
+
+    // Auto-expand roots and their immediate children on first load
+    if (!treeInitialized) {
+        treeInitialized = true;
+        roots.forEach(root => {
+            if (root.componentId !== undefined) {
+                expandedNodes.add(root.componentId);
+                const children = childrenMap.get(root.componentId) || [];
+                children.forEach(child => {
+                    if (child.componentId !== undefined) {
+                        expandedNodes.add(child.componentId);
+                    }
+                });
+            }
         });
     }
 
-    // Recursive function to render a node and its children
-    function renderNode(c: ComponentInfo, depth: number): string {
-        const children = childrenMap.get(c.componentId) || [];
+    // Recursive function to render a component and its children
+    function renderNode(component: ComponentInfo, depth: number): string {
+        const children = childrenMap.get(component.componentId) || [];
         const hasChildren = children.length > 0;
+        const isExpanded = expandedNodes.has(component.componentId);
         const indent = depth * 16; // 16px per level
         
         let html = `
-            <div class="component-node ${c.isPending ? 'pending' : ''} ${c.componentId === selectedComponentId ? 'selected' : ''}"
-                 data-id="${c.componentId}"
-                 data-index="${components.indexOf(c)}"
-                 style="padding-left: ${indent}px;">
-                ${hasChildren ? '<span class="tree-toggle">▼</span>' : '<span class="tree-spacer"></span>'}
-                <span class="component-name">${escapeHtml(c.typeName)}</span>
-                ${c.hasEnhancedMetrics ? '<span class="component-badge">Enhanced</span>' : ''}
-                ${c.isPending ? '<span class="component-badge pending">Pending</span>' : ''}
-                <span class="component-id">#${c.componentId}</span>
-            </div>`;
-        
-        // Render children
-        for (const child of children) {
-            html += renderNode(child, depth + 1);
+            <div class="component-node ${component.isPending ? 'pending' : ''} ${component.componentId === selectedComponentId ? 'selected' : ''}"
+                 data-id="${component.componentId}"
+                 data-index="${components.indexOf(component)}"
+                 style="padding-left: ${indent + 8}px;">
+                ${hasChildren ? `
+                    <span class="tree-toggle ${isExpanded ? 'expanded' : ''}" data-id="${component.componentId}">
+                        ${isExpanded ? '▼' : '▶'}
+                    </span>
+                ` : `
+                    <span class="tree-toggle-placeholder"></span>
+                `}
+                <span class="component-name">${escapeHtml(component.typeName)}</span>
+                ${component.hasEnhancedMetrics ? '<span class="component-badge">Enhanced</span>' : ''}
+                ${component.isPending ? '<span class="component-badge pending">Pending</span>' : ''}
+                <span class="component-id">#${component.componentId}</span>
+                ${hasChildren ? `<span class="child-count">(${children.length})</span>` : ''}
+            </div>
+        `;
+
+        // Render children if expanded
+        if (hasChildren && isExpanded) {
+            html += `<div class="tree-children" data-parent="${component.componentId}">`;
+            children.forEach(child => {
+                html += renderNode(child, depth + 1);
+            });
+            html += `</div>`;
         }
-        
+
         return html;
     }
 
-    // Find root components (those whose parent is not in our list, or parent is null)
-    const knownIds = new Set(components.map(c => c.componentId));
-    const rootComponents = components.filter(c => 
-        c.parentComponentId === null || 
-        c.parentComponentId === undefined ||
-        !knownIds.has(c.parentComponentId)
-    );
-    
-    // Sort root components
-    rootComponents.sort((a, b) => {
-        if (a.isPending !== b.isPending) return a.isPending ? 1 : -1;
-        return a.typeName.localeCompare(b.typeName);
+    // Render the tree
+    let treeHtml = '';
+    roots.forEach(root => {
+        treeHtml += renderNode(root, 0);
     });
 
-    // Render tree starting from roots
-    let html = '';
-    for (const root of rootComponents) {
-        html += renderNode(root, 0);
+    // Add pending components that don't have IDs yet (at the bottom)
+    const pendingWithoutId = components.filter(c => c.isPending && (c.componentId === undefined || c.componentId === null || c.componentId < 0));
+    if (pendingWithoutId.length > 0) {
+        treeHtml += `<div class="pending-section">
+            <div class="pending-header">Pending (${pendingWithoutId.length})</div>
+            ${pendingWithoutId.map(c => `
+                <div class="component-node pending"
+                     data-index="${components.indexOf(c)}"
+                     style="padding-left: 8px;">
+                    <span class="tree-toggle-placeholder"></span>
+                    <span class="component-name">${escapeHtml(c.typeName)}</span>
+                    <span class="component-badge pending">Pending</span>
+                </div>
+            `).join('')}
+        </div>`;
     }
 
-    componentTree.innerHTML = html;
+    componentTree.innerHTML = treeHtml;
 
-    // Add click handlers
+    // Add click handlers for component selection
     componentTree.querySelectorAll('.component-node').forEach(node => {
-        node.addEventListener('click', () => {
+        node.addEventListener('click', (e) => {
+            // Don't select if clicking on toggle
+            if ((e.target as HTMLElement).classList.contains('tree-toggle')) return;
+            
             const index = parseInt(node.getAttribute('data-index')!, 10);
-            selectComponent(components[index]);
+            if (!isNaN(index) && components[index]) {
+                selectComponent(components[index]);
+            }
+        });
+    });
+
+    // Add click handlers for expand/collapse toggles
+    componentTree.querySelectorAll('.tree-toggle').forEach(toggle => {
+        toggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const id = parseInt(toggle.getAttribute('data-id')!, 10);
+            
+            if (expandedNodes.has(id)) {
+                expandedNodes.delete(id);
+            } else {
+                expandedNodes.add(id);
+            }
+            
+            // Re-render the tree
+            renderTree();
         });
     });
 }
@@ -340,114 +395,34 @@ function renderMetrics(m: LifecycleMetrics): string {
         </div>
         
         <div class="detail-section">
-            <div class="detail-section-title">Render Timing</div>
+            <div class="detail-section-title">Timing Details</div>
             <div class="detail-row">
-                <span class="detail-label">Last Render</span>
-                <span class="detail-value">${formatMs(m.lastBuildRenderTreeDurationMs)}</span>
+                <span class="detail-label">OnInitialized</span>
+                <span class="detail-value">${formatMs(m.onInitializedDurationMs)}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">OnInitializedAsync</span>
+                <span class="detail-value">${formatMs(m.onInitializedAsyncDurationMs)}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">OnParametersSet</span>
+                <span class="detail-value">${formatMs(m.onParametersSetDurationMs)}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">OnAfterRender</span>
+                <span class="detail-value">${formatMs(m.onAfterRenderDurationMs)}</span>
             </div>
             <div class="detail-row">
                 <span class="detail-label">Total Render Time</span>
                 <span class="detail-value">${formatMs(m.totalBuildRenderTreeDurationMs)}</span>
             </div>
-            <div class="detail-row">
-                <span class="detail-label">Min / Max</span>
-                <span class="detail-value">${formatMs(m.minBuildRenderTreeDurationMs)} / ${formatMs(m.maxBuildRenderTreeDurationMs)}</span>
-            </div>
-        </div>
-        
-        <div class="detail-section">
-            <div class="detail-section-title">Lifecycle Timing</div>
-            <table class="timing-table">
-                <thead>
-                    <tr>
-                        <th>Method</th>
-                        <th>Last</th>
-                        <th>Total</th>
-                        <th>Calls</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>OnInitialized</td>
-                        <td>${formatMs(m.onInitializedDurationMs)}</td>
-                        <td>${formatMs(m.totalOnInitializedDurationMs)}</td>
-                        <td>${m.onInitializedCallCount}</td>
-                    </tr>
-                    <tr>
-                        <td>OnInitializedAsync</td>
-                        <td>${formatMs(m.onInitializedAsyncDurationMs)}</td>
-                        <td>${formatMs(m.totalOnInitializedAsyncDurationMs)}</td>
-                        <td>-</td>
-                    </tr>
-                    <tr>
-                        <td>OnParametersSet</td>
-                        <td>${formatMs(m.onParametersSetDurationMs)}</td>
-                        <td>${formatMs(m.totalOnParametersSetDurationMs)}</td>
-                        <td>${m.onParametersSetCallCount}</td>
-                    </tr>
-                    <tr>
-                        <td>OnParametersSetAsync</td>
-                        <td>${formatMs(m.onParametersSetAsyncDurationMs)}</td>
-                        <td>${formatMs(m.totalOnParametersSetAsyncDurationMs)}</td>
-                        <td>-</td>
-                    </tr>
-                    <tr>
-                        <td>BuildRenderTree</td>
-                        <td>${formatMs(m.lastBuildRenderTreeDurationMs)}</td>
-                        <td>${formatMs(m.totalBuildRenderTreeDurationMs)}</td>
-                        <td>${m.buildRenderTreeCallCount}</td>
-                    </tr>
-                    <tr>
-                        <td>OnAfterRender</td>
-                        <td>${formatMs(m.onAfterRenderDurationMs)}</td>
-                        <td>${formatMs(m.totalOnAfterRenderDurationMs)}</td>
-                        <td>${m.onAfterRenderCallCount}</td>
-                    </tr>
-                    <tr>
-                        <td>OnAfterRenderAsync</td>
-                        <td>${formatMs(m.onAfterRenderAsyncDurationMs)}</td>
-                        <td>${formatMs(m.totalOnAfterRenderAsyncDurationMs)}</td>
-                        <td>-</td>
-                    </tr>
-                    <tr>
-                        <td>EventCallbacks</td>
-                        <td>${formatMs(m.lastEventCallbackDurationMs)}</td>
-                        <td>${formatMs(m.totalEventCallbackDurationMs)}</td>
-                        <td>${m.eventCallbackInvokedCount}</td>
-                    </tr>
-                </tbody>
-                <tfoot>
-                    <tr>
-                        <td><strong>Total</strong></td>
-                        <td>-</td>
-                        <td><strong>${formatMs(m.totalLifecycleTimeMs)}</strong></td>
-                        <td>-</td>
-                    </tr>
-                </tfoot>
-            </table>
-        </div>
-        
-        <div class="detail-section">
-            <div class="detail-section-title">ShouldRender Stats</div>
-            <div class="detail-row">
-                <span class="detail-label">True / False</span>
-                <span class="detail-value">${m.shouldRenderTrueCount} / ${m.shouldRenderFalseCount}</span>
-            </div>
-            <div class="detail-row">
-                <span class="detail-label">Block Rate</span>
-                <span class="detail-value">${m.shouldRenderBlockRatePercent !== null ? m.shouldRenderBlockRatePercent.toFixed(1) + '%' : 'N/A'}</span>
-            </div>
-            <div class="detail-row">
-                <span class="detail-label">Ignored (Pending)</span>
-                <span class="detail-value">${m.stateHasChangedPendingIgnoredCount}</span>
-            </div>
         </div>
     `;
 }
 
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════════
 // HELPERS
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════════
 
 function escapeHtml(str: string): string {
     const div = document.createElement('div');
@@ -478,9 +453,9 @@ function getMetricClass(value: number | null | undefined, goodThreshold: number,
     return 'bad';
 }
 
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════════
 // EVENT HANDLERS
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════════
 
 refreshBtn.addEventListener('click', () => {
     refreshComponents();
@@ -491,36 +466,24 @@ pickerBtn.addEventListener('click', () => {
     pickerBtn.classList.toggle('active');
 });
 
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════════
 // INITIALIZATION
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════════
 
-// Listen for tab updates (navigation, refresh)
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-    if (tabId === inspectedTabId && changeInfo.status === 'loading') {
-        console.log('[BDT Panel] Page navigating, resetting connection state');
-        connectionState = 'connecting';
-        consecutiveFailures = 0;
-        components = [];
-        componentTree.innerHTML = '<div class="loading">Waiting for Blazor to load...</div>';
-        setStatus(false, 'Page loading...');
-    }
-});
+// Initialize tabs
+initializeTabs();
 
-// Listen for messages from background (e.g., Blazor detected)
-chrome.runtime.onMessage.addListener((message) => {
-    if (message.type === 'BLAZOR_DETECTED') {
-        console.log('[BDT Panel] Blazor detected, refreshing...');
-        consecutiveFailures = 0;
-        connectionState = 'connecting';
-        refreshComponents();
-    }
-});
+// Initialize timeline panel
+initializeTimelinePanel();
 
 // Initial load
 refreshComponents();
 
-// Auto-refresh every X seconds
-setInterval(refreshComponents, 1000);
+// Auto-refresh every X seconds (only for components tab)
+setInterval(() => {
+    if (currentTab === 'components') {
+        refreshComponents();
+    }
+}, 1000);
 
 console.log('[BDT Panel] Panel initialized, inspecting tab:', inspectedTabId);

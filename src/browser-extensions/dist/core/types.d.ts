@@ -145,4 +145,129 @@ export interface ComponentCounts {
     /** Pending components (awaiting Pillar 3 resolution) */
     pending: number;
 }
+/**
+ * Types of events that can be recorded in the timeline.
+ * Mirrors TimelineEventType enum in C#.
+ */
+export type TimelineEventType = 'OnInitialized' | 'OnInitializedAsync' | 'OnParametersSet' | 'OnParametersSetAsync' | 'SetParametersAsync' | 'BuildRenderTree' | 'OnAfterRender' | 'OnAfterRenderAsync' | 'Disposed' | 'ShouldRenderTrue' | 'ShouldRenderFalse' | 'StateHasChanged' | 'StateHasChangedIgnored' | 'EventCallbackInvoked' | 'RenderBatchStarted' | 'RenderBatchCompleted' | 'ComponentRendered' | 'CircuitOpened' | 'CircuitClosed' | 'NavigationStart' | 'NavigationEnd' | 'FirstRender';
+/**
+ * Reasons why a component rendered.
+ * Mirrors RenderTriggerReason enum in C#.
+ */
+export type RenderTriggerReason = 'Unknown' | 'FirstRender' | 'ParameterChanged' | 'StateHasChangedCalled' | 'ParentRerendered' | 'EventCallbackInvoked' | 'CascadingValueChanged' | 'ExternalTrigger';
+/**
+ * A single event in the render timeline.
+ * Mirrors TimelineEventDto in C#.
+ */
+export interface TimelineEvent {
+    /** Sequential event ID (unique within recording session) */
+    eventId: number;
+    /** Milliseconds since recording started */
+    relativeTimestampMs: number;
+    /** Component ID (-1 for app-level events) */
+    componentId: number;
+    /** Component type name */
+    componentName: string;
+    /** Type of event */
+    eventType: TimelineEventType;
+    /** Duration in milliseconds (for events with duration) */
+    durationMs: number | null;
+    /** End timestamp relative to recording start */
+    endRelativeTimestampMs: number | null;
+    /** Parent event ID (e.g., the render batch this event belongs to) */
+    parentEventId: number | null;
+    /** Event ID that triggered this event */
+    triggeringEventId: number | null;
+    /** Human-readable reason for this event */
+    triggerReason: RenderTriggerReason;
+    /** Additional trigger details */
+    triggerDetails: string | null;
+    /** Whether this was an async operation */
+    isAsync: boolean;
+    /** Whether this is the component's first render */
+    isFirstRender: boolean;
+    /** Whether this event represents a skipped render */
+    wasSkipped: boolean;
+    /** Whether this component inherits from BlazorDevToolsComponentBase */
+    isEnhanced: boolean;
+    /** Render batch ID this event belongs to */
+    batchId: number | null;
+    /** Additional metadata */
+    metadata: Record<string, string> | null;
+}
+/**
+ * A render batch containing multiple component renders.
+ * Mirrors RenderBatchDto in C#.
+ */
+export interface RenderBatch {
+    /** Batch ID */
+    batchId: number;
+    /** Start time relative to recording start (ms) */
+    startRelativeMs: number;
+    /** End time relative to recording start (ms) */
+    endRelativeMs: number | null;
+    /** Duration of the batch (ms) */
+    durationMs: number | null;
+    /** Number of components in this batch */
+    componentCount: number;
+    /** Component IDs that rendered in this batch */
+    componentIds: number[];
+    /** What triggered this batch */
+    triggerSource: string | null;
+}
+/**
+ * Component ranking by render time.
+ * Mirrors ComponentRankingDto in C#.
+ */
+export interface ComponentRanking {
+    /** Component ID */
+    componentId: number;
+    /** Component type name */
+    componentName: string;
+    /** Total time spent rendering this component (ms) */
+    totalRenderTimeMs: number;
+    /** Number of times this component rendered */
+    renderCount: number;
+    /** Average render time (ms) */
+    averageRenderTimeMs: number;
+    /** Maximum render time (ms) */
+    maxRenderTimeMs: number;
+    /** Minimum render time (ms) */
+    minRenderTimeMs: number;
+}
+/**
+ * Current state of the timeline recorder.
+ * Mirrors RecordingState in C#.
+ */
+export interface RecordingState {
+    /** Whether recording is active */
+    isRecording: boolean;
+    /** When recording started (ISO string) */
+    recordingStartedAt: string | null;
+    /** Total recording duration (ms) */
+    recordingDurationMs: number;
+    /** Number of events recorded */
+    eventCount: number;
+    /** Number of batches recorded */
+    batchCount: number;
+    /** Maximum events to retain */
+    maxEvents: number;
+}
+/**
+ * Event type metadata for UI rendering.
+ */
+export interface EventTypeConfig {
+    /** Display name */
+    label: string;
+    /** CSS color class or hex color */
+    color: string;
+    /** Icon or symbol */
+    icon: string;
+    /** Category for grouping */
+    category: 'lifecycle' | 'render' | 'state' | 'batch' | 'app';
+}
+/**
+ * Configuration for event type display.
+ */
+export declare const EVENT_TYPE_CONFIG: Record<TimelineEventType, EventTypeConfig>;
 //# sourceMappingURL=types.d.ts.map
