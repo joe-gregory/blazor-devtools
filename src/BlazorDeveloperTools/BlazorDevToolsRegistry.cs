@@ -467,12 +467,30 @@ public class BlazorDevToolsRegistry : IDisposable
 
     /// <summary>
     /// Resolves a pending component to its componentId after IComponent.Attach().
-    /// For BlazorDevToolsComponentBase, this is called automatically from Attach().
-    /// For regular ComponentBase, this would be called via JS render batch interception.
-    /// Moves the component from pending storage to full ID-based tracking.
+    /// For BlazorDevToolsComponentBase, this is called automatically from SetParametersAsync.
+    /// The actual componentId is determined by SynchronizeWithRenderer() which matches
+    /// component instances to their IDs in the Renderer's internal state.
     /// </summary>
     /// <param name="component">The component instance.</param>
-    /// <param name="componentId">The Blazor-assigned component ID from RenderHandle.</param>
+    public void ResolveComponentId(IComponent component)
+    {
+        // The component is registered as pending by the Activator.
+        // The actual componentId will be resolved when SynchronizeWithRenderer() runs,
+        // which matches component instances to their IDs in the Renderer.
+        // Force a sync now to resolve the ID immediately if possible.
+        SyncWithRenderer();
+#if DEBUG
+        int resolvedId = GetComponentId(component);
+        Console.WriteLine($"[BDT] ResolveComponentId called for {component.GetType().Name}, resolved ID: {resolvedId}");
+#endif
+    }
+
+    /// <summary>
+    /// Legacy overload - resolves a pending component with a known componentId.
+    /// Kept for backward compatibility. Prefer the parameterless overload.
+    /// </summary>
+    /// <param name="component">The component instance.</param>
+    /// <param name="componentId">The Blazor-assigned component ID (may be 0 if unknown).</param>
     public void ResolveComponentId(IComponent component, int componentId)
     {
         if (!_pendingComponents.TryGetValue(component, out PendingComponent? pending)) return;
@@ -661,6 +679,23 @@ public class BlazorDevToolsRegistry : IDisposable
             count++;
         }
         return count;
+    }
+
+    /// <summary>
+    /// Gets the componentId for a component instance.
+    /// Returns 0 if the component is not yet resolved or not tracked.
+    /// This is the SINGLE SOURCE OF TRUTH for componentIds.
+    /// Called by BlazorDevToolsComponentBase.ComponentId property.
+    /// </summary>
+    /// <param name="component">The component instance.</param>
+    /// <returns>The Blazor-assigned componentId, or 0 if not resolved.</returns>
+    public int GetComponentId(IComponent component)
+    {
+        if (_componentsByInstance.TryGetValue(component, out TrackedComponent? tracked))
+        {
+            return tracked.ComponentId;
+        }
+        return 0;
     }
 
     // ═══════════════════════════════════════════════════════════════

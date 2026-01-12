@@ -97,6 +97,12 @@ let currentView: 'events' | 'ranked' | 'flamegraph' = 'events';
 let refreshInterval: number | null = null;
 let lastEventId = -1;
 
+// Zoom state for flamegraph
+let zoomLevel = 1; // 1 = fit all, higher = zoomed in
+let panOffset = 0; // Horizontal pan offset (0-1 range, percentage of total)
+const MIN_ZOOM = 1;
+const MAX_ZOOM = 20;
+
 // Tab ID we're inspecting
 const inspectedTabId = chrome.devtools.inspectedWindow.tabId;
 
@@ -345,13 +351,14 @@ function renderRankedView(): void {
     container.innerHTML = `
         <div class="ranked-list">
             <div class="ranked-header">
+                <span class="ranked-col-pos">#</span>
                 <span class="ranked-col-component">Component</span>
                 <span class="ranked-col-time">Total Time</span>
                 <span class="ranked-col-count">Renders</span>
                 <span class="ranked-col-avg">Avg</span>
             </div>
             ${rankedComponents.map((r, i) => `
-                <div class="ranked-row">
+                <div class="ranked-row" data-component="${escapeHtml(r.componentName)}" title="Click to see events for ${escapeHtml(r.componentName)}">
                     <span class="ranked-position">${i + 1}</span>
                     <span class="ranked-component">${escapeHtml(r.componentName)}</span>
                     <div class="ranked-bar-container">
@@ -364,13 +371,63 @@ function renderRankedView(): void {
             `).join('')}
         </div>
     `;
+    
+    // Add click handlers to show component's events in details
+    container.querySelectorAll('.ranked-row').forEach(row => {
+        row.addEventListener('click', () => {
+            const componentName = row.getAttribute('data-component')!;
+            // Find the first render event for this component
+            const componentEvent = events.find(e => 
+                e.componentName === componentName && e.eventType === 'BuildRenderTree'
+            );
+            if (componentEvent) {
+                selectedEvent = componentEvent;
+                
+                // Update selection visual
+                container.querySelectorAll('.ranked-row').forEach(r => r.classList.remove('selected'));
+                row.classList.add('selected');
+                
+                renderEventDetails();
+            }
+        });
+    });
 }
 
 function renderFlamegraph(): void {
     const container = document.getElementById('timeline-content')!;
     
-    // Group renders by batch/time window for flamegraph
-    const renderEvents = events.filter(e => e.eventType === 'BuildRenderTree' && e.durationMs);
+    // Debug: Log all events to console
+    console.log('[BDT Timeline] All events:', events);
+    console.log('[BDT Timeline] Event types:', [...new Set(events.map(e => e.eventType))]);
+    console.log('[BDT Timeline] Component IDs:', [...new Set(events.map(e => e.componentId))]);
+    console.log('[BDT Timeline] Component names:', [...new Set(events.map(e => e.componentName))]);
+    
+    // Debug: Show what event types we have
+    const allEventTypes = [...new Set(events.map(e => e.eventType))];
+    console.log('[BDT Timeline] All event types in data:', allEventTypes);
+    
+    // For debugging, let's be more inclusive - show any event that has a componentId
+    // This helps us see ALL component activity
+    const renderEvents = events.filter(e => 
+        e.componentId >= 0 && (
+            e.eventType === 'BuildRenderTree' || 
+            e.eventType === 'OnParametersSet' ||
+            e.eventType === 'OnParametersSetAsync' ||
+            e.eventType === 'OnAfterRender' ||
+            e.eventType === 'OnAfterRenderAsync' ||
+            e.eventType === 'StateHasChanged' ||
+            e.eventType === 'StateHasChangedIgnored' ||
+            e.eventType === 'EventCallbackInvoked' ||
+            e.eventType === 'ShouldRenderTrue' ||
+            e.eventType === 'ShouldRenderFalse' ||
+            e.eventType === 'SetParametersAsync' ||
+            e.eventType === 'OnInitialized' ||
+            e.eventType === 'OnInitializedAsync'
+        )
+    );
+    
+    console.log('[BDT Timeline] Filtered render events:', renderEvents.length);
+    console.log('[BDT Timeline] Filtered event types:', [...new Set(renderEvents.map(e => e.eventType))]);
     
     if (renderEvents.length === 0) {
         container.innerHTML = `
@@ -383,51 +440,222 @@ function renderFlamegraph(): void {
         return;
     }
     
-    // Simple swimlane visualization
-    const componentNames = [...new Set(events.map(e => e.componentName))];
-    const maxTime = Math.max(...events.map(e => e.relativeTimestampMs + (e.durationMs || 0)));
+    // Get unique component INSTANCES (by componentId)
+    // Registry is now single source of truth, so IDs should be correct
+    const componentInstances = new Map<number, { id: number; name: string }>();
+    renderEvents.forEach(e => {
+        if (!componentInstances.has(e.componentId)) {
+            componentInstances.set(e.componentId, { 
+                id: e.componentId, 
+                name: e.componentName 
+            });
+        }
+    });
+    
+    console.log('[BDT Timeline] Component instances found:', [...componentInstances.values()]);
+    
+    // Sort by component name, then by ID for consistent ordering
+    const sortedInstances = [...componentInstances.values()].sort((a, b) => {
+        const nameCompare = a.name.localeCompare(b.name);
+        return nameCompare !== 0 ? nameCompare : a.id - b.id;
+    });
+    
+    console.log('[BDT Timeline] Sorted instances:', sortedInstances);
+    
+    // Calculate time range from render events only (not circuit events at time 0)
+    const eventTimes = renderEvents.map(e => e.relativeTimestampMs);
+    const eventEndTimes = renderEvents.map(e => e.relativeTimestampMs + (e.durationMs || 0));
+    const maxTime = Math.max(...eventEndTimes);
+    const minTime = Math.min(...eventTimes);
+    
+    // Add some padding (5% on each side) so events aren't at the very edge
+    const rawRange = maxTime - minTime || 1;
+    const padding = rawRange * 0.05;
+    const paddedMinTime = Math.max(0, minTime - padding);
+    const paddedMaxTime = maxTime + padding;
+    const timeRange = paddedMaxTime - paddedMinTime;
+    
+    // Calculate visible time window based on zoom and pan
+    const visibleRange = timeRange / zoomLevel;
+    const visibleStart = paddedMinTime + (panOffset * (timeRange - visibleRange));
+    const visibleEnd = visibleStart + visibleRange;
     
     container.innerHTML = `
         <div class="swimlane-container">
+            <div class="swimlane-toolbar">
+                <div class="zoom-controls">
+                    <button class="zoom-btn" id="zoom-out-btn" title="Zoom out (or scroll down)">−</button>
+                    <span class="zoom-level" id="zoom-level">${zoomLevel.toFixed(1)}x</span>
+                    <button class="zoom-btn" id="zoom-in-btn" title="Zoom in (or scroll up)">+</button>
+                    <button class="zoom-btn" id="zoom-reset-btn" title="Reset zoom to fit all">⟲</button>
+                </div>
+                <span class="zoom-hint">Scroll to zoom • Drag to pan when zoomed • Time: ${formatDuration(minTime)} - ${formatDuration(maxTime)}</span>
+            </div>
             <div class="swimlane-header">
+                <div class="swimlane-label-header">Component Instance</div>
                 <div class="swimlane-time-axis">
-                    ${generateTimeAxis(maxTime)}
+                    ${generateTimeAxis(visibleStart, visibleEnd)}
                 </div>
             </div>
-            <div class="swimlane-body">
-                ${componentNames.slice(0, 20).map(name => renderSwimlane(name, maxTime)).join('')}
+            <div class="swimlane-body" id="swimlane-body">
+                ${sortedInstances.slice(0, 50).map(inst => renderSwimlaneInstance(inst.id, inst.name, visibleStart, visibleRange, renderEvents)).join('')}
+            </div>
+            <div class="swimlane-footer">
+                <span class="swimlane-stats">
+                    ${sortedInstances.length} instances • ${renderEvents.length} events • ${formatDuration(rawRange)} span
+                    ${zoomLevel > 1 ? ` • Viewing ${formatDuration(visibleRange)}` : ''}
+                </span>
             </div>
         </div>
     `;
+    
+    // Add click handlers to swimlane events
+    container.querySelectorAll('.swimlane-event').forEach(el => {
+        el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const eventId = parseInt(el.getAttribute('data-event-id')!, 10);
+            selectedEvent = events.find(ev => ev.eventId === eventId) || null;
+            
+            // Update selection visual
+            container.querySelectorAll('.swimlane-event').forEach(ev => ev.classList.remove('selected'));
+            el.classList.add('selected');
+            
+            renderEventDetails();
+        });
+    });
+    
+    // Zoom button handlers
+    document.getElementById('zoom-in-btn')?.addEventListener('click', () => zoomIn());
+    document.getElementById('zoom-out-btn')?.addEventListener('click', () => zoomOut());
+    document.getElementById('zoom-reset-btn')?.addEventListener('click', () => resetZoom());
+    
+    // Mouse wheel zoom on swimlane body
+    const swimlaneBody = document.getElementById('swimlane-body');
+    swimlaneBody?.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        if (e.deltaY < 0) {
+            zoomIn(0.3);
+        } else {
+            zoomOut(0.3);
+        }
+    }, { passive: false });
+    
+    // Drag to pan when zoomed
+    let isDragging = false;
+    let dragStartX = 0;
+    let dragStartPan = 0;
+    
+    swimlaneBody?.addEventListener('mousedown', (e) => {
+        if (zoomLevel > 1) {
+            isDragging = true;
+            dragStartX = e.clientX;
+            dragStartPan = panOffset;
+            swimlaneBody.style.cursor = 'grabbing';
+            e.preventDefault();
+        }
+    });
+    
+    const handleMouseMove = (e: MouseEvent) => {
+        if (isDragging && swimlaneBody) {
+            const dx = e.clientX - dragStartX;
+            const trackWidth = swimlaneBody.querySelector('.swimlane-track')?.clientWidth || 500;
+            const panDelta = -dx / trackWidth;
+            panOffset = Math.max(0, Math.min(1 - 1/zoomLevel, dragStartPan + panDelta));
+            renderFlamegraph();
+        }
+    };
+    
+    const handleMouseUp = () => {
+        if (isDragging) {
+            isDragging = false;
+            if (swimlaneBody) {
+                swimlaneBody.style.cursor = zoomLevel > 1 ? 'grab' : 'default';
+            }
+        }
+    };
+    
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    
+    // Set cursor based on zoom level
+    if (swimlaneBody && zoomLevel > 1) {
+        swimlaneBody.style.cursor = 'grab';
+    }
 }
 
-function renderSwimlane(componentName: string, maxTime: number): string {
-    const componentEvents = events.filter(e => e.componentName === componentName);
+function zoomIn(amount: number = 0.5): void {
+    zoomLevel = Math.min(MAX_ZOOM, zoomLevel + amount);
+    panOffset = Math.min(panOffset, Math.max(0, 1 - 1/zoomLevel));
+    renderFlamegraph();
+}
+
+function zoomOut(amount: number = 0.5): void {
+    zoomLevel = Math.max(MIN_ZOOM, zoomLevel - amount);
+    if (zoomLevel <= 1) {
+        zoomLevel = 1;
+        panOffset = 0;
+    } else {
+        panOffset = Math.min(panOffset, 1 - 1/zoomLevel);
+    }
+    renderFlamegraph();
+}
+
+function resetZoom(): void {
+    zoomLevel = 1;
+    panOffset = 0;
+    renderFlamegraph();
+}
+
+function renderSwimlaneInstance(componentId: number, componentName: string, visibleStart: number, visibleRange: number, renderEvents: TimelineEvent[]): string {
+    // Get events for this specific component INSTANCE
+    const instanceEvents = renderEvents.filter(e => e.componentId === componentId);
+    
+    // Create label with instance ID
+    const label = `${componentName} #${componentId}`;
     
     return `
         <div class="swimlane-row">
-            <div class="swimlane-label">${escapeHtml(componentName)}</div>
+            <div class="swimlane-label" title="${escapeHtml(label)}">${escapeHtml(componentName)} <span class="swimlane-id">#${componentId}</span></div>
             <div class="swimlane-track">
-                ${componentEvents.map(e => {
-                    const left = (e.relativeTimestampMs / maxTime) * 100;
-                    const width = e.durationMs ? Math.max((e.durationMs / maxTime) * 100, 0.5) : 0.5;
+                ${instanceEvents.map(e => {
+                    // Calculate position relative to visible window
+                    const eventStart = e.relativeTimestampMs;
+                    const eventEnd = eventStart + (e.durationMs || 0);
+                    
+                    // Skip events completely outside visible range
+                    if (eventEnd < visibleStart || eventStart > visibleStart + visibleRange) {
+                        return '';
+                    }
+                    
+                    const left = ((eventStart - visibleStart) / visibleRange) * 100;
+                    const width = e.durationMs ? Math.max((e.durationMs / visibleRange) * 100, 1) : 1;
                     const color = EVENT_COLORS[e.eventType] || '#888';
-                    return `<div class="swimlane-event" 
-                                 style="left: ${left}%; width: ${width}%; background: ${color}"
-                                 title="${e.eventType}: ${formatDuration(e.durationMs || 0)}"></div>`;
+                    const icon = EVENT_ICONS[e.eventType] || '•';
+                    const isSelected = selectedEvent?.eventId === e.eventId;
+                    
+                    // Larger minimum width when zoomed in for easier clicking
+                    const minWidth = zoomLevel > 2 ? 3 : 2;
+                    
+                    return `<div class="swimlane-event ${isSelected ? 'selected' : ''}" 
+                                 data-event-id="${e.eventId}"
+                                 style="left: ${Math.max(0, left)}%; width: ${Math.max(width, minWidth)}%; background: ${color}"
+                                 title="${formatEventType(e.eventType)}: ${formatDuration(e.durationMs || 0)}">
+                                 <span class="swimlane-event-icon">${icon}</span>
+                            </div>`;
                 }).join('')}
             </div>
         </div>
     `;
 }
 
-function generateTimeAxis(maxTime: number): string {
+function generateTimeAxis(minTime: number, maxTime: number): string {
+    const timeRange = maxTime - minTime || 1;
     const ticks = 5;
-    const tickInterval = maxTime / ticks;
+    const tickInterval = timeRange / ticks;
     
     return Array.from({ length: ticks + 1 }, (_, i) => {
-        const time = i * tickInterval;
-        const left = (time / maxTime) * 100;
+        const time = minTime + (i * tickInterval);
+        const left = (i / ticks) * 100;
         return `<span class="time-tick" style="left: ${left}%">${formatDuration(time)}</span>`;
     }).join('');
 }

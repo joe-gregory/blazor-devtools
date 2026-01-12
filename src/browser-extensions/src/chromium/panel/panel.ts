@@ -145,18 +145,13 @@ function renderTree(): void {
     roots.sort(sortByName);
     childrenMap.forEach(children => children.sort(sortByName));
 
-    // Auto-expand roots and their immediate children on first load
+    // Auto-expand ALL nodes on first load (fully expanded tree)
     if (!treeInitialized) {
         treeInitialized = true;
-        roots.forEach(root => {
-            if (root.componentId !== undefined) {
-                expandedNodes.add(root.componentId);
-                const children = childrenMap.get(root.componentId) || [];
-                children.forEach(child => {
-                    if (child.componentId !== undefined) {
-                        expandedNodes.add(child.componentId);
-                    }
-                });
+        // Add all components with valid IDs to expanded set
+        components.forEach(c => {
+            if (c.componentId !== undefined && c.componentId !== null) {
+                expandedNodes.add(c.componentId);
             }
         });
     }

@@ -29,15 +29,13 @@
 //   4. TryResolveWithRegistry() → Registry.ResolveComponentId(this, componentId)
 //   5. Lifecycle methods run with timing instrumentation
 //   6. Events pushed to JS via IJSRuntime
-//   7. TimelineRecorder captures events for profiler timeline (when recording active)
 //
 // DATA FLOW:
 //   1. Component lifecycle method called (e.g., OnInitialized)
 //   2. Stopwatch measures duration
 //   3. Metrics object updated
 //   4. Event pushed to JS via IJSRuntime (if enabled)
-//   5. TimelineRecorder stores event (if recording active)
-//   6. Browser extension receives event, can record/display
+//   5. Browser extension receives event, can record/display
 //
 // COMPARISON WITH ComponentBase:
 //   ┌─────────────────────────┬─────────────────────┬──────────────────────────────┐
@@ -51,7 +49,6 @@
 //   │ EventCallback Timing    │ ✗                   │ ✓                            │
 //   │ Real-time JS Events     │ ✗                   │ ✓                            │
 //   │ Registry Integration    │ ✗                   │ ✓ (self-registers)           │
-//   │ Timeline Recording      │ ✗                   │ ✓ (via TimelineRecorder)     │
 //   └─────────────────────────┴─────────────────────┴──────────────────────────────┘
 //
 // USAGE:
@@ -74,7 +71,6 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 using System.Diagnostics;
-using System.Reflection;
 
 namespace BlazorDeveloperTools;
 
@@ -89,21 +85,6 @@ namespace BlazorDeveloperTools;
 /// </summary>
 public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IHandleAfterRender, IDisposable, IAsyncDisposable
 {
-    // ═══════════════════════════════════════════════════════════════
-    // STATIC REFLECTION CACHE
-    // ═══════════════════════════════════════════════════════════════
-    // RenderHandle.ComponentId is internal, so we cache the PropertyInfo
-    // once and reuse it for all component instances. This is type metadata,
-    // not instance data, so static is correct and efficient.
-    private static readonly PropertyInfo? ComponentIdProperty;
-    static BlazorDevToolsComponentBase()
-    {
-        ComponentIdProperty = typeof(RenderHandle).GetProperty(
-            "ComponentId",
-            BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public
-        );
-    }
-
     // ═══════════════════════════════════════════════════════════════
     // BLAZOR COMPONENT STATE (mirrors ComponentBase exactly)
     // ═══════════════════════════════════════════════════════════════
@@ -139,8 +120,24 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
     public bool IsInitialized => _initialized;
     /// <summary>
     /// The Blazor-assigned component ID. Unique within a circuit/session.
+    /// Cached locally but sourced from Registry (single source of truth).
+    /// Returns 0 if component not yet resolved.
     /// </summary>
-    public int ComponentId => _componentId;
+    public int ComponentId
+    {
+        get
+        {
+            // If we have a cached value, use it
+            if (_componentId != 0) return _componentId;
+
+            // Try to get from Registry (single source of truth)
+            if (Registry != null)
+            {
+                _componentId = Registry.GetComponentId(this);
+            }
+            return _componentId;
+        }
+    }
 
     // ═══════════════════════════════════════════════════════════════
     // BLAZOR DEVTOOLS: METRICS
@@ -181,6 +178,7 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
     // ═══════════════════════════════════════════════════════════════
     // BLAZOR DEVTOOLS: COMPONENT IDENTITY
     // ═══════════════════════════════════════════════════════════════
+    // ComponentId is cached locally but sourced from Registry (single source of truth)
     private int _componentId;
     private bool _registryResolved;
 
@@ -319,33 +317,6 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
         => Task.CompletedTask;
 
     // ═══════════════════════════════════════════════════════════════
-    // TIMELINE HELPER FOR EVENTCALLBACKS
-    // ═══════════════════════════════════════════════════════════════
-    /// <summary>
-    /// Records an EventCallback invocation for timeline tracking.
-    /// Call this at the start of your EventCallback handlers for full timeline visibility.
-    /// </summary>
-    /// <example>
-    /// <code>
-    /// private void HandleButtonClick()
-    /// {
-    ///     RecordEventCallbackStart("HandleButtonClick");
-    ///     // ... your code
-    /// }
-    /// </code>
-    /// </example>
-    protected void RecordEventCallbackStart(string? callbackName = null)
-    {
-        TimelineRecorder.Instance.RecordEvent(
-            componentId: _componentId,
-            componentName: GetType().Name,
-            eventType: TimelineEventType.EventCallbackInvoked,
-            isEnhanced: true,
-            triggerDetails: callbackName ?? "EventCallback"
-        );
-    }
-
-    // ═══════════════════════════════════════════════════════════════
     // STATEHASCHANGED (with instrumentation)
     // ═══════════════════════════════════════════════════════════════
     // This is where we track how often StateHasChanged is called,
@@ -361,12 +332,7 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
         if (_hasPendingQueuedRender)
         {
             Metrics.StateHasChangedPendingIgnoredCount++;
-            RecordAndPushEvent(
-                TimelineEventType.StateHasChangedIgnored,
-                LifecycleEventType.StateHasChangedIgnored,
-                triggerDetails: "Pending render already queued",
-                jsData: new { reason = "pendingRender" }
-            );
+            PushEvent(LifecycleEventType.StateHasChangedIgnored, data: new { reason = "pendingRender" });
             return;
         }
 
@@ -399,8 +365,8 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
             RecordAndPushEvent(
                 TimelineEventType.StateHasChangedIgnored,
                 LifecycleEventType.StateHasChangedIgnored,
-                triggerDetails: "ShouldRender returned false",
-                jsData: new { reason = "shouldRenderFalse" }
+                triggerDetails: "Pending render already queued",
+                jsData: new { reason = "pendingRender" }
             );
         }
     }
@@ -454,7 +420,7 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
     // IComponent.Attach
     // ═══════════════════════════════════════════════════════════════
     // Called by Blazor when the component is added to the render tree.
-    // This is where we extract the componentId and push the "created" event.
+    // ComponentId is now resolved via Registry (single source of truth).
     void IComponent.Attach(RenderHandle renderHandle)
     {
         if (_renderHandle.IsInitialized)
@@ -464,31 +430,9 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
         }
 
         _renderHandle = renderHandle;
-        ExtractComponentId();
+        // Note: ComponentId is now retrieved from Registry on-demand
+        // No need to extract here - Registry resolves IDs via Renderer sync
         PushEvent(LifecycleEventType.Created);
-    }
-    /// <summary>
-    /// Extracts the componentId from the RenderHandle using cached reflection.
-    /// </summary>
-    private void ExtractComponentId()
-    {
-        if (ComponentIdProperty == null)
-        {
-            return;
-        }
-
-        try
-        {
-            var id = ComponentIdProperty.GetValue(_renderHandle);
-            if (id is int componentId)
-            {
-                _componentId = componentId;
-            }
-        }
-        catch
-        {
-            // Reflection failed - leave _componentId as 0
-        }
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -525,20 +469,20 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
     /// <summary>
     /// Attempts to resolve this component with the scoped registry.
     /// Called once after DI injection populates the Registry property.
-    /// Moves the component from pending (no ID) to tracked (with ID).
+    /// The Registry will resolve the componentId via Renderer sync.
     /// </summary>
     private void TryResolveWithRegistry()
     {
         if (_registryResolved) return;
 #if DEBUG
-        Console.WriteLine($"[BDT] TryResolveWithRegistry: {GetType().Name} - Registry={Registry != null}, ComponentId={_componentId}");
+        Console.WriteLine($"[BDT] TryResolveWithRegistry: {GetType().Name} - Registry={Registry != null}");
 #endif
         if (Registry == null) return;
-        // Note: componentId CAN be 0 for the first component, so we don't check <= 0
         _registryResolved = true;
-        Registry.ResolveComponentId(this, _componentId);
+        // Registry resolves componentId via SynchronizeWithRenderer()
+        Registry.ResolveComponentId(this);
 #if DEBUG
-        Console.WriteLine($"[BDT] Component resolved with registry: {GetType().Name} (ID: {_componentId})");
+        Console.WriteLine($"[BDT] Component resolved with registry: {GetType().Name} (ID: {ComponentId})");
 #endif
     }
 
@@ -561,7 +505,6 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
             durationMs: Metrics.OnInitializedDurationMs.Value,
             isFirstRender: true
         );
-
         // Time OnInitializedAsync
         _stopwatch.Restart();
         var task = OnInitializedAsync();
@@ -596,7 +539,6 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
             isAsync: true,
             isFirstRender: true
         );
-
         await CallOnParametersSetAsync();
     }
 
@@ -618,7 +560,6 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
             LifecycleEventType.ParametersSet,
             durationMs: Metrics.OnParametersSetDurationMs.Value
         );
-
         // Time OnParametersSetAsync
         _stopwatch.Restart();
         var task = OnParametersSetAsync();
@@ -646,7 +587,6 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
                 durationMs: Metrics.OnParametersSetAsyncDurationMs.Value,
                 isAsync: true
             );
-
             _setParametersAsyncStopwatch.Stop();
             Metrics.SetParametersAsyncDurationMs = _setParametersAsyncStopwatch.Elapsed.TotalMilliseconds;
             Metrics.TotalSetParametersAsyncDurationMs += _setParametersAsyncStopwatch.Elapsed.TotalMilliseconds;
@@ -674,12 +614,7 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
             _stopwatch.Stop();
             Metrics.OnParametersSetAsyncDurationMs = _stopwatch.Elapsed.TotalMilliseconds;
             Metrics.TotalOnParametersSetAsyncDurationMs += _stopwatch.Elapsed.TotalMilliseconds;
-            RecordAndPushEvent(
-                TimelineEventType.OnParametersSetAsync,
-                LifecycleEventType.ParametersSetAsync,
-                durationMs: Metrics.OnParametersSetAsyncDurationMs.Value,
-                isAsync: true
-            );
+            PushEvent(LifecycleEventType.ParametersSetAsync, Metrics.OnParametersSetAsyncDurationMs.Value);
 
             _setParametersAsyncStopwatch.Stop();
             Metrics.SetParametersAsyncDurationMs = _setParametersAsyncStopwatch.Elapsed.TotalMilliseconds;
@@ -748,11 +683,7 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
             Metrics.MaxEventCallbackDurationMs = durationMs;
         }
 
-        RecordAndPushEvent(
-            TimelineEventType.EventCallbackInvoked,
-            LifecycleEventType.EventCallback,
-            durationMs: durationMs
-        );
+        PushEvent(LifecycleEventType.EventCallback, durationMs);
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -778,7 +709,6 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
             isFirstRender: firstRender,
             jsData: new { firstRender }
         );
-
         // Time OnAfterRenderAsync
         _stopwatch.Restart();
         var task = OnAfterRenderAsync(firstRender);
@@ -812,14 +742,7 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
             _stopwatch.Stop();
             Metrics.OnAfterRenderAsyncDurationMs = _stopwatch.Elapsed.TotalMilliseconds;
             Metrics.TotalOnAfterRenderAsyncDurationMs += _stopwatch.Elapsed.TotalMilliseconds;
-            RecordAndPushEvent(
-                TimelineEventType.OnAfterRenderAsync,
-                LifecycleEventType.AfterRenderAsync,
-                durationMs: Metrics.OnAfterRenderAsyncDurationMs.Value,
-                isAsync: true,
-                isFirstRender: firstRender,
-                jsData: new { firstRender }
-            );
+            PushEvent(LifecycleEventType.AfterRenderAsync, Metrics.OnAfterRenderAsyncDurationMs.Value, new { firstRender });
         }
     }
 
@@ -873,7 +796,6 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
 
         _ = PushEventAsync(evt);
     }
-
     /// <summary>
     /// Records a timeline event and pushes to JS.
     /// Combines both recording mechanisms.
@@ -904,7 +826,6 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
         // Push to JS (existing mechanism)
         PushEvent(jsEventType, durationMs ?? 0, jsData);
     }
-
     private void BufferEvent(LifecycleEvent evt)
     {
         if (BlazorDevToolsConfig.MaxBufferedEvents <= 0)
@@ -1001,8 +922,7 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
             RecordAndPushEvent(
                 TimelineEventType.Disposed,
                 LifecycleEventType.Disposed
-            );
-            // Unregister from the scoped registry so disposed components don't appear
+            );            // Unregister from the scoped registry so disposed components don't appear
             Registry?.UnregisterComponent(this);
             _bufferedEvents?.Clear();
             _bufferedEvents = null;
