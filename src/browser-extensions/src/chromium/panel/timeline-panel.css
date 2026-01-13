@@ -695,10 +695,18 @@
 
 @media (max-width: 800px) {
     #timeline-details {
-        display: none;
+        width: 200px;
+        min-width: 150px;
     }
     
     .ranked-col-avg {
         display: none;
+    }
+}
+
+@media (max-width: 600px) {
+    #timeline-details {
+        width: 150px;
+        min-width: 120px;
     }
 }
