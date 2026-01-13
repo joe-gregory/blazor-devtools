@@ -93,6 +93,10 @@ let selectedEvent = null;
 let currentView = 'events';
 let refreshInterval = null;
 let lastEventId = -1;
+let zoomLevel = 1;
+let panOffset = 0;
+const MIN_ZOOM = 1;
+const MAX_ZOOM = 20;
 // Tab ID we're inspecting
 const inspectedTabId = chrome.devtools.inspectedWindow.tabId;
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -328,7 +332,6 @@ function renderRankedView() {
 }
 function renderFlamegraph() {
     const container = document.getElementById('timeline-content');
-    // Group renders by batch/time window for flamegraph
     const renderEvents = events.filter(e => e.eventType === 'BuildRenderTree' && e.durationMs);
     if (renderEvents.length === 0) {
         container.innerHTML = `
@@ -340,46 +343,135 @@ function renderFlamegraph() {
         `;
         return;
     }
-    // Simple swimlane visualization
     const componentNames = [...new Set(events.map(e => e.componentName))];
-    const maxTime = Math.max(...events.map(e => e.relativeTimestampMs + (e.durationMs || 0)));
+    // Calculate time range with padding
+    const eventTimes = events.map(e => e.relativeTimestampMs);
+    const eventEndTimes = events.map(e => e.relativeTimestampMs + (e.durationMs || 0));
+    const maxTime = Math.max(...eventEndTimes);
+    const minTime = Math.min(...eventTimes.filter(t => t > 0));
+    const rawRange = maxTime - minTime || 1;
+    const padding = rawRange * 0.05;
+    const paddedMinTime = Math.max(0, minTime - padding);
+    const timeRange = (maxTime + padding) - paddedMinTime;
+    // Calculate visible window based on zoom
+    const visibleRange = timeRange / zoomLevel;
+    const visibleStart = paddedMinTime + (panOffset * (timeRange - visibleRange));
     container.innerHTML = `
         <div class="swimlane-container">
+            <div class="swimlane-toolbar">
+                <div class="zoom-controls">
+                    <button class="zoom-btn" id="zoom-out-btn" title="Zoom out">−</button>
+                    <span class="zoom-level">${zoomLevel.toFixed(1)}x</span>
+                    <button class="zoom-btn" id="zoom-in-btn" title="Zoom in">+</button>
+                    <button class="zoom-btn" id="zoom-reset-btn" title="Reset">⟲</button>
+                </div>
+                <span class="zoom-hint">Scroll to zoom • Drag to pan</span>
+            </div>
             <div class="swimlane-header">
+                <div class="swimlane-label-header">Component</div>
                 <div class="swimlane-time-axis">
-                    ${generateTimeAxis(maxTime)}
+                    ${generateTimeAxis(visibleStart, visibleStart + visibleRange)}
                 </div>
             </div>
-            <div class="swimlane-body">
-                ${componentNames.slice(0, 20).map(name => renderSwimlane(name, maxTime)).join('')}
+            <div class="swimlane-body" id="swimlane-body">
+                ${componentNames.slice(0, 30).map(name => renderSwimlane(name, visibleStart, visibleRange)).join('')}
+            </div>
+            <div class="swimlane-footer">
+                <span class="swimlane-stats">${componentNames.length} components • ${renderEvents.length} renders</span>
             </div>
         </div>
     `;
+    // Click handlers for events
+    container.querySelectorAll('.swimlane-event').forEach(el => {
+        el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const eventId = parseInt(el.getAttribute('data-event-id'), 10);
+            selectedEvent = events.find(ev => ev.eventId === eventId) || null;
+            container.querySelectorAll('.swimlane-event').forEach(ev => ev.classList.remove('selected'));
+            el.classList.add('selected');
+            renderEventDetails();
+        });
+    });
+    // Zoom buttons
+    document.getElementById('zoom-in-btn')?.addEventListener('click', () => {
+        zoomLevel = Math.min(MAX_ZOOM, zoomLevel + 0.5);
+        renderFlamegraph();
+    });
+    document.getElementById('zoom-out-btn')?.addEventListener('click', () => {
+        zoomLevel = Math.max(MIN_ZOOM, zoomLevel - 0.5);
+        if (zoomLevel <= 1)
+            panOffset = 0;
+        renderFlamegraph();
+    });
+    document.getElementById('zoom-reset-btn')?.addEventListener('click', () => {
+        zoomLevel = 1;
+        panOffset = 0;
+        renderFlamegraph();
+    });
+    // Scroll to zoom
+    const swimlaneBody = document.getElementById('swimlane-body');
+    swimlaneBody?.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        zoomLevel = e.deltaY < 0
+            ? Math.min(MAX_ZOOM, zoomLevel + 0.3)
+            : Math.max(MIN_ZOOM, zoomLevel - 0.3);
+        if (zoomLevel <= 1)
+            panOffset = 0;
+        renderFlamegraph();
+    }, { passive: false });
+    // Drag to pan
+    let isDragging = false, dragStartX = 0, dragStartPan = 0;
+    swimlaneBody?.addEventListener('mousedown', (e) => {
+        if (zoomLevel > 1) {
+            isDragging = true;
+            dragStartX = e.clientX;
+            dragStartPan = panOffset;
+        }
+    });
+    document.addEventListener('mousemove', (e) => {
+        if (isDragging && swimlaneBody) {
+            const dx = e.clientX - dragStartX;
+            const trackWidth = swimlaneBody.querySelector('.swimlane-track')?.clientWidth || 500;
+            panOffset = Math.max(0, Math.min(1 - 1 / zoomLevel, dragStartPan - dx / trackWidth));
+            renderFlamegraph();
+        }
+    });
+    document.addEventListener('mouseup', () => { isDragging = false; });
 }
-function renderSwimlane(componentName, maxTime) {
+function renderSwimlane(componentName, visibleStart, visibleRange) {
     const componentEvents = events.filter(e => e.componentName === componentName);
     return `
         <div class="swimlane-row">
-            <div class="swimlane-label">${escapeHtml(componentName)}</div>
+            <div class="swimlane-label" title="${escapeHtml(componentName)}">${escapeHtml(componentName)}</div>
             <div class="swimlane-track">
                 ${componentEvents.map(e => {
-        const left = (e.relativeTimestampMs / maxTime) * 100;
-        const width = e.durationMs ? Math.max((e.durationMs / maxTime) * 100, 0.5) : 0.5;
+        const eventStart = e.relativeTimestampMs;
+        const eventEnd = eventStart + (e.durationMs || 0);
+        // Skip if outside visible range
+        if (eventEnd < visibleStart || eventStart > visibleStart + visibleRange)
+            return '';
+        const left = ((eventStart - visibleStart) / visibleRange) * 100;
+        const width = e.durationMs ? Math.max((e.durationMs / visibleRange) * 100, 1) : 1;
         const color = EVENT_COLORS[e.eventType] || '#888';
-        return `<div class="swimlane-event" 
-                                 style="left: ${left}%; width: ${width}%; background: ${color}"
-                                 title="${e.eventType}: ${formatDuration(e.durationMs || 0)}"></div>`;
+        const icon = EVENT_ICONS[e.eventType] || '•';
+        const isSelected = selectedEvent?.eventId === e.eventId;
+        return `<div class="swimlane-event ${isSelected ? 'selected' : ''}" 
+                                 data-event-id="${e.eventId}"
+                                 style="left: ${Math.max(0, left)}%; width: ${Math.max(width, 2)}%; background: ${color}"
+                                 title="${e.eventType}: ${formatDuration(e.durationMs || 0)}">
+                                 <span class="swimlane-event-icon">${icon}</span>
+                            </div>`;
     }).join('')}
             </div>
         </div>
     `;
 }
-function generateTimeAxis(maxTime) {
+function generateTimeAxis(startTime, endTime) {
     const ticks = 5;
-    const tickInterval = maxTime / ticks;
+    const range = endTime - startTime;
     return Array.from({ length: ticks + 1 }, (_, i) => {
-        const time = i * tickInterval;
-        const left = (time / maxTime) * 100;
+        const time = startTime + (i * range / ticks);
+        const left = (i / ticks) * 100;
         return `<span class="time-tick" style="left: ${left}%">${formatDuration(time)}</span>`;
     }).join('');
 }
