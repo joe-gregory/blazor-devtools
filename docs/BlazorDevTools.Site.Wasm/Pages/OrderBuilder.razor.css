@@ -1,0 +1,101 @@
+/* ═══════════════════════════════════════════════════════════════════════════════
+   BLAZOR DEVELOPER TOOLS - OrderBuilder.css
+   ═══════════════════════════════════════════════════════════════════════════════
+   Styles for the Order Builder performance demo.
+   Add these to your site.css or create a separate stylesheet.
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+/* Product card base styles */
+.product-card {
+    transition: box-shadow 0.2s ease, transform 0.1s ease;
+}
+
+.product-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Visual feedback when component is rendering */
+.product-card.rendering {
+    box-shadow: 0 0 0 3px rgba(255, 193, 7, 0.5);
+    animation: pulse 0.3s ease;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.02);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+/* Badge colors for render counts */
+.product-card .badge.bg-danger {
+    animation: badge-flash-red 0.3s ease;
+}
+
+.product-card .badge.bg-success {
+    animation: badge-flash-green 0.3s ease;
+}
+
+@keyframes badge-flash-red {
+    0% {
+        background-color: #ff6b6b !important;
+    }
+    100% {
+        background-color: #dc3545 !important;
+    }
+}
+
+@keyframes badge-flash-green {
+    0% {
+        background-color: #69db7c !important;
+    }
+    100% {
+        background-color: #198754 !important;
+    }
+}
+
+/* Code block styling */
+pre code {
+    font-family: 'Cascadia Code', 'Fira Code', Consolas, monospace;
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+
+/* Alert styling for action messages */
+.alert-secondary {
+    border-left: 4px solid #6c757d;
+}
+
+/* Card header gradients */
+.card-header.bg-danger {
+    background: linear-gradient(135deg, #dc3545, #c82333) !important;
+}
+
+.card-header.bg-success {
+    background: linear-gradient(135deg, #198754, #157347) !important;
+}
+
+/* Range slider styling */
+.form-range::-webkit-slider-thumb {
+    background: #0d6efd;
+}
+
+.form-range::-moz-range-thumb {
+    background: #0d6efd;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .product-card .fs-1 {
+        font-size: 2rem !important;
+    }
+    
+    .product-card .card-title {
+        font-size: 0.9rem;
+    }
+}

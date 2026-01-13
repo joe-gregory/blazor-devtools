@@ -13,7 +13,8 @@
 
 		<!-- Package Identity -->
 		<PackageId>BlazorDeveloperTools</PackageId>
-		<Version>0.10.0</Version>
+		<Version>1.0.0-beta.1</Version>
+		<PackageVersion>1.0.0-beta.1</PackageVersion>
 		<Authors>Joseph E. Gregory</Authors>
 		<Description>Developer tools for Blazor applications. Provides component lifecycle tracking, performance metrics, and real-time debugging capabilities.</Description>
 		<PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
@@ -22,7 +23,7 @@
 		<PackageTags>blazor;devtools;debugging;performance;components</PackageTags>
 	</PropertyGroup>
 
-	<!-- THIS IS THE CRITICAL PART - provides all ASP.NET Core types -->
+	<!-- THIS IS A CRITICAL PART - provides all ASP.NET Core types -->
 	<ItemGroup>
 		<FrameworkReference Include="Microsoft.AspNetCore.App" />
 	</ItemGroup>
