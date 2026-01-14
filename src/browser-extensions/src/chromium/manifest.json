@@ -1,0 +1,50 @@
+{
+  "manifest_version": 3,
+  "name": "Blazor Developer Tools",
+  "version": "1.0.0.1",
+  "version_name": "1.0.0-beta.1",
+  "description": "Developer tools for debugging Blazor applications",
+  
+  "devtools_page": "devtools.html",
+  
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  
+  "permissions": [
+    "scripting"
+  ],
+  
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ],
+  
+  "background": {
+    "service_worker": "background.js"
+  },
+  
+ "web_accessible_resources": [
+    {
+        "resources": ["bridge.js"],
+        "matches": ["<all_urls>"]
+    }
+  ],
+  
+  "action": {
+    "default_icon": {
+      "16": "assets/icon-16.png",
+      "48": "assets/icon-48.png"
+    },
+    "default_title": "Blazor Developer Tools"
+  },
+  
+  "icons": {
+    "16": "assets/icon-16.png",
+    "48": "assets/icon-48.png",
+    "128": "assets/icon-128.png"
+  }
+}

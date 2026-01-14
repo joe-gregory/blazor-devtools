@@ -1,27 +1,24 @@
 {
   "compilerOptions": {
     "target": "ES2020",
-    "module": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "node",
     "lib": ["ES2020", "DOM"],
-    "outDir": "./chromium/dist",
-    "rootDir": ".",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "moduleResolution": "node",
-    "resolveJsonModule": true,
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "types": ["chrome"],
-    "baseUrl": ".",
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "baseUrl": "./src",
     "paths": {
-      "@shared/*": ["shared/*"]
+      "@core/*": ["core/*"],
+      "@chromium/*": ["chromium/*"]
     }
   },
-  "include": [
-    "shared/**/*",
-    "chromium/src/**/*"
-  ]
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
 }

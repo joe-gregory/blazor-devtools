@@ -1,7 +1,743 @@
 ﻿@page "/"
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Blazor Developer Tools</PageTitle>
 
-<h1>Hello, world!</h1>
+<div class="bdt-home">
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <span class="version-badge">v1.0.0-beta.1</span>
+            <h1>Blazor Developer Tools</h1>
+            <p class="tagline">The first visual DevTools for Blazor</p>
+            <p class="description">
+                Free and Open Source Forever ❤️
+            </p>
+            <div class="hero-buttons">
+                <a href="https://www.nuget.org/packages/BlazorDeveloperTools" target="_blank" class="btn btn-primary">
+                    📦 NuGet Package
+                </a>
+                <a href="https://chromewebstore.google.com/detail/blazor-developer-tools/pfddbenemjnlceffaemllejnjbobadhp" target="_blank" class="btn btn-outline">
+                    🌐 Chrome Extension
+                </a>
+                <a href="https://github.com/joe-gregory/blazor-devtools" target="_blank" class="btn btn-outline">
+                    ⭐ GitHub
+                </a>
+            </div>
+        </div>
+    </section>
 
-Welcome to your new app.
+    <!-- Try It Now -->
+    <section class="try-now">
+        <div class="try-now-content">
+            <span class="try-icon">🚀</span>
+            <div>
+                <strong>Try BDT Right Now!</strong>
+                <p>Install the browser extension and open DevTools (F12) on this very page to see Blazor Developer Tools in action!</p>
+            </div>
+            <a href="/demo" class="btn btn-primary">View Demo Page →</a>
+        </div>
+    </section>
+
+    <!-- What's New in v1 -->
+    <section class="whats-new">
+        <h2>What's New in v1.0.0-beta.1</h2>
+        <p class="section-subtitle">A complete architectural rewrite with powerful new features</p>
+
+        <div class="features-grid">
+            <div class="feature-card">
+                <span class="feature-icon">🧩</span>
+                <h3>Component Tree</h3>
+                <p>Visualize your entire Blazor component hierarchy. See parent-child relationships at a glance.</p>
+            </div>
+
+            <div class="feature-card">
+                <span class="feature-icon">⏱️</span>
+                <h3>Timeline Profiler</h3>
+                <p>Record and analyze component renders with a visual flamegraph. Find performance bottlenecks fast.</p>
+            </div>
+
+            <div class="feature-card">
+                <span class="feature-icon">💡</span>
+                <h3>Why Did This Render?</h3>
+                <p>Click any render event to see exactly what triggered it - parameters changed, StateHasChanged, events, and more.</p>
+            </div>
+
+            <div class="feature-card">
+                <span class="feature-icon">📊</span>
+                <h3>Ranked View</h3>
+                <p>See which components render most often and take the longest. Prioritize optimization efforts.</p>
+            </div>
+
+            <div class="feature-card">
+                <span class="feature-icon">🔧</span>
+                <h3>Works With Any Component</h3>
+                <p>No code changes required for basic tracking. Works with standard ComponentBase out of the box.</p>
+            </div>
+
+            <div class="feature-card">
+                <span class="feature-icon">⚡</span>
+                <h3>Enhanced Metrics</h3>
+                <p>Opt-in to BlazorDevToolsComponentBase for deep lifecycle timing, ShouldRender tracking, and more.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works -->
+    <section class="how-it-works">
+        <h2>How It Works</h2>
+        <p class="section-subtitle">Three pillars working together for complete visibility</p>
+
+        <div class="pillars">
+            <div class="pillar">
+                <div class="pillar-number">1</div>
+                <h3>Enhanced Components</h3>
+                <p class="pillar-tag">Opt-in</p>
+                <p>Inherit from <code>BlazorDevToolsComponentBase</code> for deep lifecycle metrics, timing data, and ShouldRender tracking.</p>
+            </div>
+
+            <div class="pillar">
+                <div class="pillar-number">2</div>
+                <h3>Activator Tracking</h3>
+                <p class="pillar-tag">Automatic</p>
+                <p>Every component is automatically discovered when instantiated. Zero configuration required.</p>
+            </div>
+
+            <div class="pillar">
+                <div class="pillar-number">3</div>
+                <h3>Render Batch Interception</h3>
+                <p class="pillar-tag">Automatic</p>
+                <p>JavaScript intercepts Blazor's render batches to capture component IDs and build the tree hierarchy.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Quick Start -->
+    <section class="quick-start">
+        <h2>Quick Start</h2>
+        <p class="section-subtitle">Get up and running in 2 simple steps</p>
+
+        <div class="steps">
+            <div class="step">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <h3>Install NuGet Package</h3>
+                    <p>Add to your Blazor project:</p>
+                    <div class="code-block">
+                        <code>dotnet add package BlazorDeveloperTools</code>
+                    </div>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <h3>Install Browser Extension</h3>
+                    <p>Add from Chrome Web Store or Edge Add-ons:</p>
+                    <div class="extension-buttons">
+                        <a href="https://chromewebstore.google.com/detail/blazor-developer-tools/pfddbenemjnlceffaemllejnjbobadhp" target="_blank" class="btn btn-sm">
+                            Chrome
+                        </a>
+                        <a href="https://microsoftedge.microsoft.com/addons/detail/blazor-developer-tools/pdggeigaaicabckehkeldfpfikihgcdj" target="_blank" class="btn btn-sm">
+                            Edge
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="quick-start-done">
+            <strong>That's it!</strong> Open your Blazor app, press F12, and look for the "Blazor" tab in DevTools.
+        </div>
+    </section>
+
+    <!-- Installation by Render Mode -->
+    <section class="render-modes">
+        <h2>Installation by Render Mode</h2>
+        <p class="section-subtitle">Different Blazor render modes require slightly different approaches</p>
+
+        <div class="modes-grid">
+            <div class="mode-card">
+                <h3>🌐 WebAssembly Standalone</h3>
+                <p>Install in your main project:</p>
+                <div class="code-block">
+                    <code>dotnet add package BlazorDeveloperTools</code>
+                </div>
+            </div>
+
+            <div class="mode-card">
+                <h3>🖥️ Server</h3>
+                <p>Install in your main project:</p>
+                <div class="code-block">
+                    <code>dotnet add package BlazorDeveloperTools</code>
+                </div>
+            </div>
+
+            <div class="mode-card">
+                <h3>⚡ Auto (WebAssembly Global)</h3>
+                <p>Install in your <strong>.Client</strong> project:</p>
+                <div class="code-block">
+                    <code>cd YourProject.Client<br />dotnet add package BlazorDeveloperTools</code>
+                </div>
+            </div>
+
+            <div class="mode-card">
+                <h3>🔄 Auto (Server + Client)</h3>
+                <p>Install in <strong>both</strong> projects:</p>
+                <div class="code-block">
+                    <code>dotnet add package BlazorDeveloperTools<br />cd YourProject.Client<br />dotnet add package BlazorDeveloperTools</code>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Enhanced Components -->
+    <section class="enhanced-section">
+        <h2>Want Deeper Insights?</h2>
+        <p class="section-subtitle">Opt-in to enhanced tracking for detailed lifecycle metrics</p>
+
+        <div class="enhanced-content">
+            <div class="enhanced-before-after">
+                <div class="code-comparison">
+                    <h4>Standard (automatic tracking)</h4>
+                    <div class="code-block">
+                        <code>@@inherits ComponentBase</code>
+                    </div>
+                    <p>✓ Component tree<br />✓ Basic render tracking<br />✓ Timeline events</p>
+                </div>
+
+                <div class="code-comparison enhanced">
+                    <h4>Enhanced (opt-in)</h4>
+                    <div class="code-block">
+                        <code>@@inherits BlazorDevToolsComponentBase</code>
+                    </div>
+                    <p>✓ Everything above, plus:<br />✓ Lifecycle method timing<br />✓ ShouldRender tracking<br />✓ StateHasChanged counts<br />✓ Parameter change detection</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- vs Competition -->
+    <section class="comparison">
+        <h2>Why Blazor Developer Tools?</h2>
+
+        <div class="comparison-table">
+            <div class="comparison-row header">
+                <div>Feature</div>
+                <div>BDT</div>
+                <div>Others</div>
+            </div>
+            <div class="comparison-row">
+                <div>Visual DevTools Panel</div>
+                <div class="check">✓</div>
+                <div class="cross">✗</div>
+            </div>
+            <div class="comparison-row">
+                <div>Component Tree Hierarchy</div>
+                <div class="check">✓</div>
+                <div class="cross">✗</div>
+            </div>
+            <div class="comparison-row">
+                <div>Timeline Profiler</div>
+                <div class="check">✓</div>
+                <div class="cross">✗</div>
+            </div>
+            <div class="comparison-row">
+                <div>Works without code changes</div>
+                <div class="check">✓</div>
+                <div class="cross">✗</div>
+            </div>
+            <div class="comparison-row">
+                <div>Console Logging</div>
+                <div class="check">✓</div>
+                <div class="check">✓</div>
+            </div>
+        </div>
+        <p class="comparison-note">Other tools require inheriting from a base class for all tracking. BDT works automatically.</p>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bdt-footer">
+        <div class="footer-content">
+            <div class="footer-brand">
+                <h3>Blazor Developer Tools</h3>
+                <p>Making Blazor debugging easier, one component at a time.</p>
+                <p class="copyright">© 2025 Blazor Developer Tools. Apache 2.0 License.</p>
+            </div>
+            <div class="footer-links">
+                <a href="mailto:pamamoyjoseph@gmail.com" title="Email">📧</a>
+                <a href="https://x.com/anthropic" target="_blank" title="Twitter">𝕏</a>
+                <a href="https://github.com/pamamoy/BlazorDeveloperTools" target="_blank" title="GitHub">⭐</a>
+            </div>
+        </div>
+    </footer>
+</div>
+
+<style>
+    /* Base styles using Blazor template CSS variables */
+    .bdt-home {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 1rem;
+    }
+
+    section {
+        margin-bottom: 4rem;
+    }
+
+    h2 {
+        text-align: center;
+        margin-bottom: 0.5rem;
+        color: #333;
+    }
+
+    .section-subtitle {
+        text-align: center;
+        color: #666;
+        margin-bottom: 2rem;
+    }
+
+    /* Hero */
+    .hero {
+        text-align: center;
+        padding: 4rem 1rem;
+        background: linear-gradient(135deg, #512bd4 0%, #7c3aed 100%);
+        color: white;
+        border-radius: 8px;
+        margin: 1rem 0 2rem;
+    }
+
+    .version-badge {
+        display: inline-block;
+        background: rgba(255,255,255,0.2);
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        margin-bottom: 1rem;
+    }
+
+    .hero h1 {
+        font-size: 2.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .tagline {
+        font-size: 1.25rem;
+        opacity: 0.9;
+        margin-bottom: 1rem;
+    }
+
+    .description {
+        max-width: 600px;
+        margin: 0 auto 2rem;
+        opacity: 0.9;
+    }
+
+    .hero-buttons {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    /* Buttons */
+    .btn {
+        display: inline-block;
+        padding: 0.75rem 1.5rem;
+        border-radius: 6px;
+        text-decoration: none;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+
+    .btn-primary {
+        background: #512bd4;
+        color: white;
+    }
+
+        .btn-primary:hover {
+            background: #4318b0;
+        }
+
+    .hero .btn-primary {
+        background: white;
+        color: #512bd4;
+    }
+
+        .hero .btn-primary:hover {
+            background: #f0f0f0;
+        }
+
+    .btn-outline {
+        border: 2px solid white;
+        color: white;
+        background: transparent;
+    }
+
+        .btn-outline:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
+    .btn-sm {
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+        background: #512bd4;
+        color: white;
+        border-radius: 4px;
+    }
+
+    /* Try Now */
+    .try-now {
+        background: #f0fdf4;
+        border: 2px solid #22c55e;
+        border-radius: 8px;
+        padding: 1.5rem;
+    }
+
+    .try-now-content {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .try-icon {
+        font-size: 2rem;
+    }
+
+    .try-now-content > div {
+        flex: 1;
+        min-width: 200px;
+    }
+
+    .try-now-content p {
+        margin: 0.25rem 0 0;
+        color: #666;
+    }
+
+    /* Features Grid */
+    .features-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .feature-card {
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 1.5rem;
+        text-align: center;
+    }
+
+    .feature-icon {
+        font-size: 2.5rem;
+        display: block;
+        margin-bottom: 1rem;
+    }
+
+    .feature-card h3 {
+        margin-bottom: 0.5rem;
+        color: #333;
+    }
+
+    .feature-card p {
+        color: #666;
+        font-size: 0.9rem;
+        margin: 0;
+    }
+
+    /* Pillars */
+    .pillars {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .pillar {
+        background: white;
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 1.5rem;
+        text-align: center;
+        position: relative;
+    }
+
+    .pillar-number {
+        width: 40px;
+        height: 40px;
+        background: #512bd4;
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 1.25rem;
+        margin: 0 auto 1rem;
+    }
+
+    .pillar-tag {
+        display: inline-block;
+        background: #e0e7ff;
+        color: #512bd4;
+        padding: 0.125rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 500;
+        margin-bottom: 0.5rem;
+    }
+
+    .pillar code {
+        background: #f3f4f6;
+        padding: 0.125rem 0.375rem;
+        border-radius: 4px;
+        font-size: 0.8rem;
+    }
+
+    /* Steps */
+    .steps {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+        max-width: 600px;
+        margin: 0 auto 1.5rem;
+    }
+
+    .step {
+        display: flex;
+        gap: 1rem;
+        align-items: flex-start;
+    }
+
+    .step-number {
+        width: 36px;
+        height: 36px;
+        background: #512bd4;
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        flex-shrink: 0;
+    }
+
+    .step-content h3 {
+        margin: 0 0 0.5rem;
+    }
+
+    .step-content p {
+        margin: 0 0 0.5rem;
+        color: #666;
+    }
+
+    .code-block {
+        background: #1e1e1e;
+        color: #d4d4d4;
+        padding: 0.75rem 1rem;
+        border-radius: 6px;
+        overflow-x: auto;
+    }
+
+        .code-block code {
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.875rem;
+        }
+
+    .extension-buttons {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .quick-start-done {
+        background: #f0fdf4;
+        border: 1px solid #22c55e;
+        color: #166534;
+        padding: 1rem;
+        border-radius: 6px;
+        text-align: center;
+        max-width: 600px;
+        margin: 0 auto;
+    }
+
+    /* Render Modes */
+    .modes-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+    }
+
+    .mode-card {
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 1.25rem;
+    }
+
+        .mode-card h3 {
+            margin: 0 0 0.5rem;
+            font-size: 1rem;
+        }
+
+        .mode-card p {
+            margin: 0 0 0.75rem;
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .mode-card .code-block {
+            font-size: 0.8rem;
+        }
+
+    /* Enhanced Section */
+    .enhanced-before-after {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .code-comparison {
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 1.5rem;
+    }
+
+        .code-comparison.enhanced {
+            background: #f0fdf4;
+            border-color: #22c55e;
+        }
+
+        .code-comparison h4 {
+            margin: 0 0 1rem;
+        }
+
+        .code-comparison p {
+            margin: 1rem 0 0;
+            font-size: 0.9rem;
+            color: #666;
+            line-height: 1.6;
+        }
+
+    /* Comparison Table */
+    .comparison-table {
+        max-width: 600px;
+        margin: 0 auto 1rem;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .comparison-row {
+        display: grid;
+        grid-template-columns: 1fr 80px 80px;
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+        .comparison-row:last-child {
+            border-bottom: none;
+        }
+
+        .comparison-row.header {
+            background: #f9fafb;
+            font-weight: 600;
+        }
+
+        .comparison-row .check {
+            color: #22c55e;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .comparison-row .cross {
+            color: #ef4444;
+            text-align: center;
+        }
+
+    .comparison-note {
+        text-align: center;
+        color: #666;
+        font-size: 0.875rem;
+    }
+
+    /* Footer */
+    .bdt-footer {
+        background: #1e1e1e;
+        color: #ccc;
+        padding: 2rem 1rem;
+        margin-top: 4rem;
+        border-radius: 8px 8px 0 0;
+    }
+
+    .footer-content {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .footer-brand h3 {
+        margin: 0 0 0.5rem;
+        color: white;
+    }
+
+    .footer-brand p {
+        margin: 0;
+        font-size: 0.9rem;
+    }
+
+    .copyright {
+        opacity: 0.6;
+        font-size: 0.8rem;
+        margin-top: 0.5rem !important;
+    }
+
+    .footer-links {
+        display: flex;
+        gap: 1rem;
+    }
+
+        .footer-links a {
+            font-size: 1.5rem;
+            text-decoration: none;
+            opacity: 0.8;
+            transition: opacity 0.2s;
+        }
+
+            .footer-links a:hover {
+                opacity: 1;
+            }
+
+    /* Responsive */
+    @@media (max-width: 768px) {
+        .hero h1 {
+            font-size: 1.75rem;
+        }
+
+        .hero-buttons {
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .try-now-content {
+            flex-direction: column;
+            text-align: center;
+        }
+
+        .step {
+            flex-direction: column;
+            text-align: center;
+        }
+
+        .step-number {
+            margin: 0 auto;
+        }
+
+        .footer-content {
+            flex-direction: column;
+            text-align: center;
+        }
+    }
+</style>

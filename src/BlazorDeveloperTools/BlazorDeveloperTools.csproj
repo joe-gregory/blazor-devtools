@@ -1,0 +1,36 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+	<PropertyGroup>
+		<TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<LangVersion>latest</LangVersion>
+
+		<!-- NuGet Package Configuration -->
+		<IsPackable>true</IsPackable>
+		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+		<PackageOutputPath>$(SolutionDir)artifacts\packages</PackageOutputPath>
+
+		<!-- Package Identity -->
+		<PackageId>BlazorDeveloperTools</PackageId>
+		<Version>1.0.0-beta.1</Version>
+		<PackageVersion>1.0.0-beta.1</PackageVersion>
+		<Authors>Joseph E. Gregory</Authors>
+		<Description>Developer tools for Blazor applications. Provides component lifecycle tracking, performance metrics, and real-time debugging capabilities.</Description>
+		<PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<RepositoryUrl>https://github.com/joe-gregory/blazor-devtools</RepositoryUrl>
+		<PackageTags>blazor;devtools;debugging;performance;components</PackageTags>
+	</PropertyGroup>
+
+	<!-- THIS IS A CRITICAL PART - provides all ASP.NET Core types -->
+	<ItemGroup>
+		<FrameworkReference Include="Microsoft.AspNetCore.App" />
+	</ItemGroup>
+
+	<!-- Package content -->
+	<ItemGroup>
+		<None Include="..\..\README.md" Pack="true" PackagePath="\" />
+	</ItemGroup>
+
+</Project>

@@ -1,43 +1,33 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.14.36401.2
+# Visual Studio Version 18
+VisualStudioVersion = 18.0.11222.15
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "demos", "demos", "{2CAE55FE-EAC8-4128-A014-923054C668EF}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BlazorDeveloperTools.Pack", "src\BlazorDeveloperTools.Pack\BlazorDeveloperTools.Pack.csproj", "{1F954884-CCAF-C49C-CAAD-1C4164C6A26E}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BlazorDeveloperTools.Tasks", "src\BlazorDeveloperTools.Tasks\BlazorDeveloperTools.Tasks.csproj", "{86214929-8BF1-885F-555A-09E59DEA3517}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{8EC462FD-D22E-90A8-E5CE-7E832BA40C5D}"
 	ProjectSection(SolutionItems) = preProject
+		.editorconfig = .editorconfig
 		.gitattributes = .gitattributes
 		.gitignore = .gitignore
+		demos\AutoServerGlobal\Components\Pages\CartSummary.razor = demos\AutoServerGlobal\Components\Pages\CartSummary.razor
+		demos\AutoServerGlobal\Components\Pages\NavMenu-snippet.razor = demos\AutoServerGlobal\Components\Pages\NavMenu-snippet.razor
 		NuGet.config = NuGet.config
+		demos\AutoServerGlobal\Components\Pages\OrderBuilder.css = demos\AutoServerGlobal\Components\Pages\OrderBuilder.css
+		demos\AutoServerGlobal\Components\Pages\OrderBuilder.razor = demos\AutoServerGlobal\Components\Pages\OrderBuilder.razor
+		demos\AutoServerGlobal\Components\Pages\Product.cs = demos\AutoServerGlobal\Components\Pages\Product.cs
+		demos\AutoServerGlobal\Components\Pages\ProductCardBasic.razor = demos\AutoServerGlobal\Components\Pages\ProductCardBasic.razor
+		demos\AutoServerGlobal\Components\Pages\ProductCardOptimized.razor = demos\AutoServerGlobal\Components\Pages\ProductCardOptimized.razor
 		README.md = README.md
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BlazorDevTools.Site.Wasm", "docs\BlazorDevTools.Site.Wasm\BlazorDevTools.Site.Wasm.csproj", "{5328199B-EC7E-3807-3406-765C1DCB1695}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{EDA60FF5-7770-4010-BAE1-B3DA2ADE6E47}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AutoServerAndWebAssembly", "demos\AutoServerAndWebAssembly\AutoServerAndWebAssembly\AutoServerAndWebAssembly.csproj", "{1F73CBFE-9629-6ED4-1259-22140FA281E1}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AutoServerAndWebAssembly.Client", "demos\AutoServerAndWebAssembly\AutoServerAndWebAssembly.Client\AutoServerAndWebAssembly.Client.csproj", "{BE13142E-AA34-A9CA-7245-4F34AF341C92}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BlazorDeveloperTools", "src\BlazorDeveloperTools\BlazorDeveloperTools.csproj", "{A19208BD-A1AF-4FAC-A7FD-ACA090799BC4}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AutoServerGlobal", "demos\AutoServerGlobal\AutoServerGlobal.csproj", "{64480EF5-3365-EB7A-650B-1F4FC1D98D2B}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AutoWebAssemblyGlobal", "demos\AutoWebAssemblyGlobal\AutoWebAssemblyGlobal\AutoWebAssemblyGlobal.csproj", "{5A977611-9F19-97ED-13D1-397B82294300}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AutoWebAssemblyGlobal.Client", "demos\AutoWebAssemblyGlobal\AutoWebAssemblyGlobal.Client\AutoWebAssemblyGlobal.Client.csproj", "{6888928A-62FD-BA33-2988-B3B128F27EAC}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebAssemblyStandAlone", "demos\WebAssemblyStandAlone\WebAssemblyStandAlone.csproj", "{4129C8E3-73CB-9A04-0432-416018A7131B}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{01E15FD9-F7DF-435B-95EB-14BACEBA62FD}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BugFixes", "tests\BugFixes\BugFixes.csproj", "{0A38F1A6-9C1A-4037-BBCB-8D4C13D94145}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -45,61 +35,21 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{1F954884-CCAF-C49C-CAAD-1C4164C6A26E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{1F954884-CCAF-C49C-CAAD-1C4164C6A26E}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{1F954884-CCAF-C49C-CAAD-1C4164C6A26E}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{1F954884-CCAF-C49C-CAAD-1C4164C6A26E}.Release|Any CPU.Build.0 = Release|Any CPU
-		{86214929-8BF1-885F-555A-09E59DEA3517}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{86214929-8BF1-885F-555A-09E59DEA3517}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{86214929-8BF1-885F-555A-09E59DEA3517}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{86214929-8BF1-885F-555A-09E59DEA3517}.Release|Any CPU.Build.0 = Release|Any CPU
-		{5328199B-EC7E-3807-3406-765C1DCB1695}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{5328199B-EC7E-3807-3406-765C1DCB1695}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{5328199B-EC7E-3807-3406-765C1DCB1695}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{5328199B-EC7E-3807-3406-765C1DCB1695}.Release|Any CPU.Build.0 = Release|Any CPU
-		{1F73CBFE-9629-6ED4-1259-22140FA281E1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{1F73CBFE-9629-6ED4-1259-22140FA281E1}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{1F73CBFE-9629-6ED4-1259-22140FA281E1}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{1F73CBFE-9629-6ED4-1259-22140FA281E1}.Release|Any CPU.Build.0 = Release|Any CPU
-		{BE13142E-AA34-A9CA-7245-4F34AF341C92}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{BE13142E-AA34-A9CA-7245-4F34AF341C92}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{BE13142E-AA34-A9CA-7245-4F34AF341C92}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{BE13142E-AA34-A9CA-7245-4F34AF341C92}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A19208BD-A1AF-4FAC-A7FD-ACA090799BC4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A19208BD-A1AF-4FAC-A7FD-ACA090799BC4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A19208BD-A1AF-4FAC-A7FD-ACA090799BC4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A19208BD-A1AF-4FAC-A7FD-ACA090799BC4}.Release|Any CPU.Build.0 = Release|Any CPU
 		{64480EF5-3365-EB7A-650B-1F4FC1D98D2B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{64480EF5-3365-EB7A-650B-1F4FC1D98D2B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{64480EF5-3365-EB7A-650B-1F4FC1D98D2B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{64480EF5-3365-EB7A-650B-1F4FC1D98D2B}.Release|Any CPU.Build.0 = Release|Any CPU
-		{5A977611-9F19-97ED-13D1-397B82294300}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{5A977611-9F19-97ED-13D1-397B82294300}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{5A977611-9F19-97ED-13D1-397B82294300}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{5A977611-9F19-97ED-13D1-397B82294300}.Release|Any CPU.Build.0 = Release|Any CPU
-		{6888928A-62FD-BA33-2988-B3B128F27EAC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{6888928A-62FD-BA33-2988-B3B128F27EAC}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{6888928A-62FD-BA33-2988-B3B128F27EAC}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{6888928A-62FD-BA33-2988-B3B128F27EAC}.Release|Any CPU.Build.0 = Release|Any CPU
-		{4129C8E3-73CB-9A04-0432-416018A7131B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{4129C8E3-73CB-9A04-0432-416018A7131B}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{4129C8E3-73CB-9A04-0432-416018A7131B}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{4129C8E3-73CB-9A04-0432-416018A7131B}.Release|Any CPU.Build.0 = Release|Any CPU
-		{0A38F1A6-9C1A-4037-BBCB-8D4C13D94145}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{0A38F1A6-9C1A-4037-BBCB-8D4C13D94145}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{0A38F1A6-9C1A-4037-BBCB-8D4C13D94145}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{0A38F1A6-9C1A-4037-BBCB-8D4C13D94145}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
-		{1F954884-CCAF-C49C-CAAD-1C4164C6A26E} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
-		{86214929-8BF1-885F-555A-09E59DEA3517} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
-		{5328199B-EC7E-3807-3406-765C1DCB1695} = {EDA60FF5-7770-4010-BAE1-B3DA2ADE6E47}
-		{1F73CBFE-9629-6ED4-1259-22140FA281E1} = {2CAE55FE-EAC8-4128-A014-923054C668EF}
-		{BE13142E-AA34-A9CA-7245-4F34AF341C92} = {2CAE55FE-EAC8-4128-A014-923054C668EF}
+		{A19208BD-A1AF-4FAC-A7FD-ACA090799BC4} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 		{64480EF5-3365-EB7A-650B-1F4FC1D98D2B} = {2CAE55FE-EAC8-4128-A014-923054C668EF}
-		{5A977611-9F19-97ED-13D1-397B82294300} = {2CAE55FE-EAC8-4128-A014-923054C668EF}
-		{6888928A-62FD-BA33-2988-B3B128F27EAC} = {2CAE55FE-EAC8-4128-A014-923054C668EF}
-		{4129C8E3-73CB-9A04-0432-416018A7131B} = {2CAE55FE-EAC8-4128-A014-923054C668EF}
-		{0A38F1A6-9C1A-4037-BBCB-8D4C13D94145} = {01E15FD9-F7DF-435B-95EB-14BACEBA62FD}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {E258A0A1-35E3-4DC5-AE28-253C2FE9081A}

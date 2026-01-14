@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
 	  <BdtSkipComponents>ItemContent;MudTimelineItem;MudDialog;DialogActions;DialogContent</BdtSkipComponents>
@@ -13,13 +13,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="BlazorDeveloperTools" Version="0.9.16">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
+    <PackageReference Include="BlazorDeveloperTools" Version="1.0.0-beta.1" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="9.0.9" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="9.0.9" PrivateAssets="all" />
-    <PackageReference Include="MudBlazor" Version="8.13.0" />
   </ItemGroup>
 
   <ItemGroup>
