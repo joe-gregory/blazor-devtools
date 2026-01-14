@@ -5,6 +5,8 @@
 /demos/**/bin/
 /demos/**/obj/
 /src/BlazorDeveloperTools.Pack/tools/
+/src/browser-extensions/dist/
+src/browser-extensions/dist/
 
 # VS/IDE
 .vs/
