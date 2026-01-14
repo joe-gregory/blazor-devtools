@@ -23,8 +23,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		README.md = README.md
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BlazorDevTools.Site.Wasm", "docs\BlazorDevTools.Site.Wasm\BlazorDevTools.Site.Wasm.csproj", "{5328199B-EC7E-3807-3406-765C1DCB1695}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{EDA60FF5-7770-4010-BAE1-B3DA2ADE6E47}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BlazorDeveloperTools", "src\BlazorDeveloperTools\BlazorDeveloperTools.csproj", "{A19208BD-A1AF-4FAC-A7FD-ACA090799BC4}"
@@ -37,10 +35,6 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{5328199B-EC7E-3807-3406-765C1DCB1695}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{5328199B-EC7E-3807-3406-765C1DCB1695}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{5328199B-EC7E-3807-3406-765C1DCB1695}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{5328199B-EC7E-3807-3406-765C1DCB1695}.Release|Any CPU.Build.0 = Release|Any CPU
 		{A19208BD-A1AF-4FAC-A7FD-ACA090799BC4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{A19208BD-A1AF-4FAC-A7FD-ACA090799BC4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A19208BD-A1AF-4FAC-A7FD-ACA090799BC4}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -54,7 +48,6 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
-		{5328199B-EC7E-3807-3406-765C1DCB1695} = {EDA60FF5-7770-4010-BAE1-B3DA2ADE6E47}
 		{A19208BD-A1AF-4FAC-A7FD-ACA090799BC4} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 		{64480EF5-3365-EB7A-650B-1F4FC1D98D2B} = {2CAE55FE-EAC8-4128-A014-923054C668EF}
 	EndGlobalSection
