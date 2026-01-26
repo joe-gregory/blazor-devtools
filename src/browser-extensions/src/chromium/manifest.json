@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Blazor Developer Tools",
-  "version": "1.0.0.1",
-  "version_name": "1.0.0-beta.1",
+  "version": "1.0.0.2",
+  "version_name": "1.0.0-beta.2",
   "description": "Developer tools for debugging Blazor applications",
   
   "devtools_page": "devtools.html",
