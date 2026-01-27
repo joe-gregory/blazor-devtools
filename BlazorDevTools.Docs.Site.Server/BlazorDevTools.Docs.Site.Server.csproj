@@ -10,8 +10,4 @@
     <PackageReference Include="BlazorDeveloperTools" Version="1.0.0-beta.2" />
   </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\src\BlazorDeveloperTools\BlazorDeveloperTools.csproj" />
-  </ItemGroup>
-
 </Project>
