@@ -1,0 +1,60 @@
+@using AutoServerGlobal.Components.Pages.Order_Builder_Models
+@using BlazorDeveloperTools
+@* ═══════════════════════════════════════════════════════════════════════════════
+   BLAZOR DEVELOPER TOOLS - CartSummary.razor
+   ═══════════════════════════════════════════════════════════════════════════════
+   Displays the cart summary with line items.
+   Demonstrates cascading parameter updates when cart changes.
+   ═══════════════════════════════════════════════════════════════════════════════ *@
+
+@inherits BlazorDevToolsComponentBase
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h6 class="mb-0">🛒 Cart Summary</h6>
+        <span class="badge bg-primary">@_itemCount items</span>
+    </div>
+    <div class="card-body">
+        @if (!Items.Any(p => p.Quantity > 0))
+        {
+            <p class="text-muted mb-0">Your cart is empty</p>
+        }
+        else
+        {
+            <ul class="list-unstyled mb-3">
+                @foreach (var item in Items.Where(p => p.Quantity > 0))
+                {
+                    <li class="d-flex justify-content-between py-1 border-bottom">
+                        <span>@item.Quantity× @item.Emoji @item.Name</span>
+                        <span class="text-muted">@item.Total.ToString("C")</span>
+                    </li>
+                }
+            </ul>
+
+            <div class="d-flex justify-content-between fw-bold">
+                <span>Subtotal:</span>
+                <span>@_subtotal.ToString("C")</span>
+            </div>
+        }
+    </div>
+    <div class="card-footer">
+        <button class="btn btn-success w-100" disabled="@(_itemCount == 0)">
+            Checkout
+        </button>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public IEnumerable<Product> Items { get; set; } = Enumerable.Empty<Product>();
+
+    private int _itemCount = 0;
+    private decimal _subtotal = 0;
+
+    protected override void OnParametersSet()
+    {
+        // Recalculate derived values
+        _itemCount = Items.Sum(p => p.Quantity);
+        _subtotal = Items.Sum(p => p.Total);
+    }
+}

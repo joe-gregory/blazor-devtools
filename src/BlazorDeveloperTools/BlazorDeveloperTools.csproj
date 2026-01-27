@@ -13,8 +13,8 @@
 
 		<!-- Package Identity -->
 		<PackageId>BlazorDeveloperTools</PackageId>
-		<Version>1.0.0-beta.1</Version>
-		<PackageVersion>1.0.0-beta.1</PackageVersion>
+		<Version>1.0.0-beta.2</Version>
+		<PackageVersion>1.0.0-beta.2</PackageVersion>
 		<Authors>Joseph E. Gregory</Authors>
 		<Description>Developer tools for Blazor applications. Provides component lifecycle tracking, performance metrics, and real-time debugging capabilities.</Description>
 		<PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>

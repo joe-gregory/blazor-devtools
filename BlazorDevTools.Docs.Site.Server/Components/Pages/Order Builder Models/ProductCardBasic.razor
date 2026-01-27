@@ -1,0 +1,74 @@
+@using BlazorDeveloperTools
+@* ═══════════════════════════════════════════════════════════════════════════════
+   BLAZOR DEVELOPER TOOLS - ProductCardBasic.razor
+   ═══════════════════════════════════════════════════════════════════════════════
+   The ANTI-PATTERN: This component does NOT implement ShouldRender().
+   It re-renders every time the parent re-renders, even if its data hasn't changed.
+   
+   Watch in DevTools: BuildRenderTreeCallCount will match the parent's count,
+   regardless of whether THIS card's quantity changed.
+   ═══════════════════════════════════════════════════════════════════════════════ *@
+
+@inherits BlazorDevToolsComponentBase
+
+<div class="card h-100 product-card">
+    <div class="card-body text-center">
+        <div class="fs-1 mb-2">@Emoji</div>
+        <h6 class="card-title">@Name</h6>
+        <p class="text-muted small mb-2">@Price.ToString("C")/lb</p>
+
+        <div class="d-flex justify-content-center align-items-center gap-2 mb-2">
+            <button class="btn btn-sm btn-outline-secondary"
+                    @onclick="Decrement"
+                    disabled="@(Quantity <= 0)">
+                −
+            </button>
+            <span class="fw-bold" style="min-width: 2rem;">@Quantity</span>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="Increment">+</button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public int ProductId { get; set; }
+
+    [Parameter, EditorRequired]
+    public string Name { get; set; } = string.Empty;
+
+    [Parameter, EditorRequired]
+    public string Emoji { get; set; } = "📦";
+
+    [Parameter, EditorRequired]
+    public decimal Price { get; set; }
+
+    [Parameter]
+    public int Quantity { get; set; }
+
+    [Parameter]
+    public EventCallback<int> QuantityChanged { get; set; }
+
+    // ═══════════════════════════════════════════════════════════════
+    // NO ShouldRender() OVERRIDE - THIS IS THE ANTI-PATTERN!
+    // This component will re-render every time parent calls StateHasChanged,
+    // even if none of OUR parameters changed.
+    //
+    // BlazorDevToolsComponentBase automatically tracks:
+    // - BuildRenderTreeCallCount
+    // - OnParametersSetCallCount
+    // - All lifecycle metrics
+    // ═══════════════════════════════════════════════════════════════
+
+    private async Task Increment()
+    {
+        await QuantityChanged.InvokeAsync(Quantity + 1);
+    }
+
+    private async Task Decrement()
+    {
+        if (Quantity > 0)
+        {
+            await QuantityChanged.InvokeAsync(Quantity - 1);
+        }
+    }
+}

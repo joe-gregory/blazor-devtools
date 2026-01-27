@@ -1,6 +1,6 @@
 {
   "name": "blazor-developer-tools",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0-beta.2",
   "description": "Browser developer tools for Blazor applications",
   "scripts": {
     "build": "webpack --mode production",
