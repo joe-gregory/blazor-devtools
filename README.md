@@ -31,6 +31,10 @@ This release is a complete architectural rewrite with powerful new features:
 - 📈 **Performance Rankings** - Identify your slowest components at a glance
 - 🎨 **CSS Isolation Support** - Full support for Blazor CSS isolation
 
+## Supported Render Modes
+
+> ⚠️ **Currently, Blazor Developer Tools only supports Blazor Server render mode.** Support for WebAssembly and Auto modes is planned for future releases.
+
 ## Installation
 
 ### 1. Install the NuGet Package
@@ -39,23 +43,22 @@ This release is a complete architectural rewrite with powerful new features:
 dotnet add package BlazorDeveloperTools
 ```
 
-### 2. Install the Browser Extension
+### 2. Register the Services
+
+Add this line to your `Program.cs`:
+
+```csharp
+builder.Services.AddBlazorDevTools();
+```
+
+### 3. Install the Browser Extension
 
 - **Chrome**: [Chrome Web Store](https://chromewebstore.google.com/detail/blazor-developer-tools/pfddbenemjnlceffaemllejnjbobadhp)
 - **Edge**: [Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/blazor-developer-tools/pdggeigaaicabckehkeldfpfikihgcdj)
 
-### 3. That's it!
+### 4. That's it!
 
 Open your Blazor app, press F12, and look for the **"Blazor"** tab in DevTools.
-
-## Installation by Render Mode
-
-| Render Mode | Installation |
-|-------------|--------------|
-| **WebAssembly Standalone** | Install in your main project |
-| **Server** | Install in your main project |
-| **Auto (WebAssembly Global)** | Install in your `.Client` project |
-| **Auto (Server + Client)** | Install in **both** projects |
 
 ## Usage
 
@@ -112,28 +115,6 @@ BDT uses a **Three Pillars** architecture:
 
 ## Configuration
 
-### MSBuild Options
-
-Add these to your `.csproj` file:
-
-```xml
-<PropertyGroup>
-  <!-- Enable in production builds (default: Debug only) -->
-  <EnableBlazorDevToolsInProduction>true</EnableBlazorDevToolsInProduction>
-  
-  <!-- Disable automatic markers -->
-  <EnableAutomaticMarkers>false</EnableAutomaticMarkers>
-  
-  <!-- Skip specific components that have issues with markers -->
-  <BdtSkipComponents>ItemContent;MudTimelineItem</BdtSkipComponents>
-  
-  <!-- Enable verbose build output -->
-  <BdtVerbose>true</BdtVerbose>
-</PropertyGroup>
-```
-
-### Runtime Options
-
 Configure in `Program.cs`:
 
 ```csharp
@@ -145,7 +126,7 @@ builder.Services.AddBlazorDevTools(options =>
 });
 ```
 
-#### Disabling in Production
+### Disabling in Production
 
 Timing is enabled by default to work out-of-the-box during development. To disable in production for zero overhead:
 
@@ -156,16 +137,6 @@ builder.Services.AddBlazorDevTools(options =>
     options.EnableTiming = false;
 #endif
 });
-```
-
-Or configure via static property before calling `AddBlazorDevTools()`:
-
-```csharp
-#if !DEBUG
-BlazorDevToolsConfig.EnableTiming = false;
-#endif
-
-builder.Services.AddBlazorDevTools();
 ```
 
 ## Try It Now!
@@ -186,10 +157,10 @@ Licensed under the Apache License 2.0. See [LICENSE](LICENSE) for details.
 
 ## Support
 
-- 📧 Email: [blazordevelopertools@gmail.com](mailto:blazordevelopertools@gmail.com)
-- 🐦 Twitter: [@_joe_gregory](https://x.com/_joe_gregory)
-- 📺 YouTube: [Blazor Developer Tools](https://www.youtube.com/@BlazorDeveloperTools)
+- 📧 Email: [me@joegregory.dev](mailto:me@joegregory.dev)
+- 🐦 Twitter: [@joegregorydev](https://x.com/joegregorydev)
+- 📺 YouTube: [@joegregorydev](https://www.youtube.com/@joegregorydev)
 
 ---
 
-Built with ❤️ for the Blazor community by Joseph E. Gregory
+Built with ❤️ for the Blazor community by Joe Gregory
