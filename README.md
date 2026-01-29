@@ -110,7 +110,11 @@ BDT uses a **Three Pillars** architecture:
 | **2. Activator Tracking** | Automatic | All component instantiation |
 | **3. Render Batch Interception** | Automatic (JS) | Component IDs, hierarchy, render events |
 
-## Configuration Options
+## Configuration
+
+### MSBuild Options
+
+Add these to your `.csproj` file:
 
 ```xml
 <PropertyGroup>
@@ -126,6 +130,42 @@ BDT uses a **Three Pillars** architecture:
   <!-- Enable verbose build output -->
   <BdtVerbose>true</BdtVerbose>
 </PropertyGroup>
+```
+
+### Runtime Options
+
+Configure in `Program.cs`:
+
+```csharp
+builder.Services.AddBlazorDevTools(options =>
+{
+    options.EnableTiming = true;         // Enable lifecycle timing (default: true)
+    options.EnableEventPush = false;     // Push events to JS in real-time (default: false)
+    options.MinDurationToReportMs = 0;   // Filter events below this duration (default: 0)
+});
+```
+
+#### Disabling in Production
+
+Timing is enabled by default to work out-of-the-box during development. To disable in production for zero overhead:
+
+```csharp
+builder.Services.AddBlazorDevTools(options =>
+{
+#if !DEBUG
+    options.EnableTiming = false;
+#endif
+});
+```
+
+Or configure via static property before calling `AddBlazorDevTools()`:
+
+```csharp
+#if !DEBUG
+BlazorDevToolsConfig.EnableTiming = false;
+#endif
+
+builder.Services.AddBlazorDevTools();
 ```
 
 ## Try It Now!
