@@ -10,7 +10,7 @@ The first visual DevTools for Blazor. See your component tree, profile renders, 
 [![NuGet](https://img.shields.io/nuget/v/BlazorDeveloperTools.svg)](https://www.nuget.org/packages/BlazorDeveloperTools/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
-## What's New in v1.0.0-beta.1
+## What's New in v1.0.0-beta.x
 
 This release is a complete architectural rewrite with powerful new features:
 
@@ -128,7 +128,7 @@ builder.Services.AddBlazorDevTools(options =>
 
 ### Disabling in Production
 
-Timing is enabled by default to work out-of-the-box during development. To disable in production for zero overhead:
+Timing for enhanced components is enabled by default to work out-of-the-box during development. To disable in production for zero overhead:
 
 ```csharp
 builder.Services.AddBlazorDevTools(options =>
