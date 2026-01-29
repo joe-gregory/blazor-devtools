@@ -10,7 +10,7 @@ The first visual DevTools for Blazor. See your component tree, profile renders, 
 [![NuGet](https://img.shields.io/nuget/v/BlazorDeveloperTools.svg)](https://www.nuget.org/packages/BlazorDeveloperTools/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
-## What's New in v1.0.0-beta.x
+## What's New in v1.0.0-beta.1
 
 This release is a complete architectural rewrite with powerful new features:
 
@@ -33,7 +33,7 @@ This release is a complete architectural rewrite with powerful new features:
 
 ## Supported Render Modes
 
-> ⚠️ **Currently, Blazor Developer Tools only supports Blazor Server render mode.** Support for WebAssembly and Auto modes is planned for future releases.
+> ⚠️ **Currently, Blazor Developer Tools supports InteractiveAuto (Server) render mode.** This is the default render mode in .NET 8+ Blazor Web Apps. Support for WebAssembly-only mode is planned for future releases.
 
 ## Installation
 
@@ -128,7 +128,7 @@ builder.Services.AddBlazorDevTools(options =>
 
 ### Disabling in Production
 
-Timing for enhanced components is enabled by default to work out-of-the-box during development. To disable in production for zero overhead:
+Timing is enabled by default to work out-of-the-box during development. To disable in production for zero overhead:
 
 ```csharp
 builder.Services.AddBlazorDevTools(options =>
