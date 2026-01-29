@@ -23,7 +23,7 @@
 //   };
 //
 // DESIGN NOTES:
-//   - EnableTiming defaults to true in DEBUG, false in RELEASE
+//   - EnableTiming defaults to true
 //   - EnableEventPush defaults to false (opt-in for JS communication)
 //   - Filters allow reducing noise without disabling entirely
 //   - MaxBufferedEvents handles prerendering scenarios
@@ -42,15 +42,9 @@ public static class BlazorDevToolsConfig
     // ═══════════════════════════════════════════════════════════════
     /// <summary>
     /// Enable/disable lifecycle timing measurement.
-    /// When false, Stopwatch overhead is eliminated but metrics won't have timing data.
-    /// Default: true in DEBUG, false in RELEASE.
+    /// Default: true. Set to false in production for zero overhead.
     /// </summary>
-    public static bool EnableTiming { get; set; }
-#if DEBUG
-        = true;
-#else
-        = false;
-#endif
+    public static bool EnableTiming { get; set; } = true;
     /// <summary>
     /// Enable/disable pushing events to JavaScript.
     /// When false, events are still collected in Metrics but not pushed to JS.
