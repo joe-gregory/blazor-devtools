@@ -109,9 +109,9 @@ BDT uses a **Three Pillars** architecture:
 
 | Pillar | Method | What It Tracks |
 |--------|--------|----------------|
-| **1. Enhanced Components** | Opt-in inheritance | Deep lifecycle metrics, timing, ShouldRender |
-| **2. Activator Tracking** | Automatic | All component instantiation |
-| **3. Render Batch Interception** | Automatic (JS) | Component IDs, hierarchy, render events |
+| **1. Component Activator** | Automatic | All component instantiation, type detection |
+| **2. Renderer Sync** | Automatic (Reflection) | Component IDs, parent-child hierarchy, parameters, internal state |
+| **3. Enhanced Components** | Opt-in inheritance | Deep lifecycle metrics, timing, ShouldRender, parameter change detection |
 
 ## Configuration
 

@@ -12,13 +12,13 @@
             <p class="description">
                 Free and Open Source Forever ❤️
             </p>
-            <h4>⚠️ Blazor Developer Tools beta currently only works in Server render mode ⚠️</h4>
+            <h4>⚠️ Blazor Developer Tools beta currently only works in Auto Server render mode ⚠️</h4>
             <div class="hero-buttons">
                 <a href="https://www.nuget.org/packages/BlazorDeveloperTools" target="_blank" class="btn btn-primary">
                     📦 NuGet Package
                 </a>
-                <a href="https://chromewebstore.google.com/detail/blazor-developer-tools/pfddbenemjnlceffaemllejnjbobadhp" target="_blank" class="btn btn-outline">
-                    🌐 Chrome Extension
+                <a href="#install-extension" class="btn btn-outline">
+                    🌐 Browser Extension
                 </a>
                 <a href="https://github.com/joe-gregory/blazor-devtools" target="_blank" class="btn btn-outline">
                     ⭐ GitHub
@@ -39,9 +39,29 @@
         </div>
     </section>
 
+    <!-- Personal Message -->
+    <section class="personal-message">
+        <div class="personal-card">
+            <h2>From the Creator 👋</h2>
+            <p>
+                Hi, I'm Joe Gregory, the creator of Blazor Developer Tools.
+            </p>
+            <p>
+                Every major frontend framework has its own DevTools. React has them. Vue has them. Angular has them. I thought it was high time we Blazor developers got ours. 💪
+            </p>
+            <p>
+                Blazor is an amazing framework — and a unique one. Its internals are more hidden away than most frontend frameworks, which makes building a metrics tool for it genuinely tricky. But those internals are also a fantastic piece of engineering in their own right. Every addition BlazorDevTools makes honors that architecture. We only seek to extend, never to change. Even this demo site is built on the original Blazor template with our additions on top. We stick to the spirit of Blazor.
+            </p>
+            <p>
+                We're currently in beta, so there are areas to polish — and we know it. Your criticism is welcomed, and we're all ears for feature requests. We build this for you — for the Blazor community. ❤️
+            </p>
+            <p class="personal-signature">— Joe Gregory</p>
+        </div>
+    </section>
+
     <!-- What's New in v1 -->
     <section class="whats-new">
-        <h2>What's New in v1.0.0-beta.1</h2>
+        <h2>What's New in v1.0.0-beta.x</h2>
         <p class="section-subtitle">A complete architectural rewrite with powerful new features</p>
 
         <div class="features-grid">
@@ -49,36 +69,42 @@
                 <span class="feature-icon">🧩</span>
                 <h3>Component Tree</h3>
                 <p>Visualize your entire Blazor component hierarchy. See parent-child relationships at a glance.</p>
+                <img src="images/1-tree.png" alt="Component Tree view showing Blazor component hierarchy" class="feature-image" />
             </div>
 
             <div class="feature-card">
                 <span class="feature-icon">⏱️</span>
                 <h3>Timeline Profiler</h3>
                 <p>Record and analyze component renders with a visual flamegraph. Find performance bottlenecks fast.</p>
+                <img src="images/2-flamegraph.png" alt="Timeline Profiler with flamegraph visualization" class="feature-image" />
             </div>
 
             <div class="feature-card">
                 <span class="feature-icon">💡</span>
                 <h3>Why Did This Render?</h3>
                 <p>Click any render event to see exactly what triggered it - parameters changed, StateHasChanged, events, and more.</p>
+                <img src="images/3-why-rendered.png" alt="Why Did This Render detail panel" class="feature-image" />
             </div>
 
             <div class="feature-card">
                 <span class="feature-icon">📊</span>
                 <h3>Ranked View</h3>
-                <p>See which components render most often and take the longest. Prioritize optimization efforts.</p>
+                <p>See which components are the slowest to render and which ones render the most often.Prioritize optimization efforts.</p>
+                <img src="images/4-ranked.png" alt="Ranked View showing component render frequency" class="feature-image" />
             </div>
 
             <div class="feature-card">
                 <span class="feature-icon">🔧</span>
                 <h3>Works With Any Component</h3>
                 <p>No code changes required for basic tracking. Works with standard ComponentBase out of the box.</p>
+                <img src="images/5-any-component.png" alt="Works with any Blazor component automatically" class="feature-image" />
             </div>
 
             <div class="feature-card">
                 <span class="feature-icon">⚡</span>
                 <h3>Enhanced Metrics</h3>
                 <p>Opt-in to BlazorDevToolsComponentBase for deep lifecycle timing, ShouldRender tracking, and more.</p>
+                <img src="images/6-enhanced.png" alt="Enhanced Metrics with detailed lifecycle data" class="feature-image" />
             </div>
         </div>
     </section>
@@ -91,23 +117,55 @@
         <div class="pillars">
             <div class="pillar">
                 <div class="pillar-number">1</div>
-                <h3>Enhanced Components</h3>
-                <p class="pillar-tag">Opt-in</p>
-                <p>Inherit from <code>BlazorDevToolsComponentBase</code> for deep lifecycle metrics, timing data, and ShouldRender tracking.</p>
+                <h3>Component Activator</h3>
+                <p class="pillar-tag">Automatic</p>
+                <p>A custom <code>IComponentActivator</code> intercepts every component creation, registering it in a scoped registry before the Renderer even assigns an ID. Zero configuration required.</p>
+                <div class="pillar-details">
+                    <p class="pillar-details-label">This gives you:</p>
+                    <p>
+                        ✓ Automatic discovery of every component<br />
+                        ✓ Type name and full namespace<br />
+                        ✓ Creation timestamp<br />
+                        ✓ Enhanced vs. standard detection
+                    </p>
+                </div>
             </div>
 
             <div class="pillar">
                 <div class="pillar-number">2</div>
-                <h3>Activator Tracking</h3>
+                <h3>Renderer Sync</h3>
                 <p class="pillar-tag">Automatic</p>
-                <p>Every component is automatically discovered when instantiated. Zero configuration required.</p>
+                <p>The registry uses reflection to read the Renderer's internal component state, resolving pending components to their IDs and building the full parent-child hierarchy.</p>
+                <div class="pillar-details">
+                    <p class="pillar-details-label">This gives you:</p>
+                    <p>
+                        ✓ Blazor-assigned component IDs<br />
+                        ✓ Parent-child tree hierarchy<br />
+                        ✓ Parameter values ([Parameter] &amp; [CascadingParameter])<br />
+                        ✓ Internal state (HasNeverRendered, HasPendingQueuedRender, IsInitialized)<br />
+                        ✓ Automatic cleanup of disposed components
+                    </p>
+                </div>
             </div>
 
             <div class="pillar">
                 <div class="pillar-number">3</div>
-                <h3>Render Batch Interception</h3>
-                <p class="pillar-tag">Automatic</p>
-                <p>JavaScript intercepts Blazor's render batches to capture component IDs and build the tree hierarchy.</p>
+                <h3>Enhanced Components</h3>
+                <p class="pillar-tag">Opt-in</p>
+                <p>Inherit from <code>BlazorDevToolsComponentBase</code> for complete lifecycle instrumentation. Self-resolves via <code>Attach()</code> and exposes deep metrics no other tool can provide.</p>
+                <div class="pillar-details">
+                    <p class="pillar-details-label">This gives you everything above, plus:</p>
+                    <p>
+                        ✓ Full lifecycle timing (OnInitialized, OnParametersSet, OnAfterRender, and async variants)<br />
+                        ✓ BuildRenderTree duration (last, min, max, average)<br />
+                        ✓ EventCallback timing and invocation counts<br />
+                        ✓ StateHasChanged tracking (total calls, pending-ignored, ShouldRender-blocked)<br />
+                        ✓ ShouldRender true/false counts and block rate %<br />
+                        ✓ Render efficiency %, renders per minute<br />
+                        ✓ Time to first render and component lifetime<br />
+                        ✓ Parameter change detection
+                    </p>
+                </div>
             </div>
         </div>
     </section>
@@ -115,7 +173,7 @@
     <!-- Quick Start -->
     <section class="quick-start">
         <h2>Quick Start</h2>
-        <p class="section-subtitle">Get up and running in 2 simple steps</p>
+        <p class="section-subtitle">Get up and running in 3 simple steps</p>
 
         <div class="steps">
             <div class="step">
@@ -131,6 +189,17 @@
 
             <div class="step">
                 <div class="step-number">2</div>
+                <div class="step-content">
+                    <h3>Register the Service</h3>
+                    <p>Add this line to your <code>Program.cs</code>:</p>
+                    <div class="code-block">
+                        <code>builder.Services.AddBlazorDevTools();</code>
+                    </div>
+                </div>
+            </div>
+
+            <div class="step" id="install-extension">
+                <div class="step-number">3</div>
                 <div class="step-content">
                     <h3>Install Browser Extension</h3>
                     <p>Add from Chrome Web Store or Edge Add-ons:</p>
@@ -151,7 +220,7 @@
         </div>
     </section>
 
-        <!-- Enhanced Components -->
+    <!-- Enhanced Components -->
     <section class="enhanced-section">
         <h2>Want Deeper Insights?</h2>
         <p class="section-subtitle">Opt-in to enhanced tracking for detailed lifecycle metrics</p>
@@ -222,12 +291,13 @@
             <div class="footer-brand">
                 <h3>Blazor Developer Tools</h3>
                 <p>Making Blazor debugging easier, one component at a time.</p>
-                <p class="copyright">© 2025 Blazor Developer Tools. Apache 2.0 License.</p>
+                <p class="copyright">© 2026 Blazor Developer Tools. Apache 2.0 License.</p>
             </div>
             <div class="footer-links">
-                <a href="mailto:pamamoyjoseph@gmail.com" title="Email">📧</a>
-                <a href="https://x.com/anthropic" target="_blank" title="Twitter">𝕏</a>
-                <a href="https://github.com/pamamoy/BlazorDeveloperTools" target="_blank" title="GitHub">⭐</a>
+                <a href="mailto:me@joegregory.dev" title="Email">📧</a>
+                <a href="https://x.com/joegregorydev" target="_blank" title="Twitter">𝕏</a>
+                <a href="https://www.youtube.com/@@joegregorydev" target="_blank" title="YouTube">📺</a>
+                <a href="https://github.com/joe-gregory/blazor-devtools" target="_blank" title="GitHub">⭐</a>
             </div>
         </div>
     </footer>
@@ -407,6 +477,16 @@
         margin: 0;
     }
 
+    .feature-image {
+        width: 100%;
+        max-width: 500px;
+        height: auto;
+        border-radius: 6px;
+        margin-top: 1rem;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
     /* Pillars */
     .pillars {
         display: grid;
@@ -453,6 +533,29 @@
         padding: 0.125rem 0.375rem;
         border-radius: 4px;
         font-size: 0.8rem;
+    }
+
+    .pillar-details {
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid #e5e7eb;
+        text-align: left;
+    }
+
+    .pillar-details-label {
+        font-weight: 600;
+        font-size: 0.8rem;
+        color: #512bd4;
+        margin-bottom: 0.25rem !important;
+        text-transform: uppercase;
+        letter-spacing: 0.025em;
+    }
+
+    .pillar-details p {
+        font-size: 0.85rem;
+        color: #555;
+        line-height: 1.7;
+        margin: 0;
     }
 
     /* Steps */
@@ -620,6 +723,38 @@
         text-align: center;
         color: #666;
         font-size: 0.875rem;
+    }
+
+    /* Personal Message */
+    .personal-card {
+        max-width: 720px;
+        margin: 0 auto;
+        background: #faf9ff;
+        border: 2px solid #e0d8f5;
+        border-radius: 12px;
+        padding: 2.5rem;
+    }
+
+        .personal-card h2 {
+            margin-bottom: 1.25rem;
+        }
+
+        .personal-card p {
+            color: #444;
+            font-size: 1rem;
+            line-height: 1.75;
+            margin: 0 0 1rem;
+        }
+
+            .personal-card p:last-of-type {
+                margin-bottom: 0;
+            }
+
+    .personal-signature {
+        font-weight: 600;
+        color: #512bd4 !important;
+        font-size: 1.05rem !important;
+        margin-top: 1.25rem !important;
     }
 
     /* Footer */

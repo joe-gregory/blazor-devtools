@@ -460,9 +460,9 @@ public class BlazorDevToolsRegistry : IDisposable
             IsEnhanced = component is BlazorDevToolsComponentBase
         };
         _pendingComponents.AddOrUpdate(component, pending);
-#if DEBUG
+        #if DEBUG
         Console.WriteLine($"[BDT] Registered pending: {pending.TypeName} (Enhanced: {pending.IsEnhanced}, Circuit: {CircuitId})");
-#endif
+        #endif
     }
 
     /// <summary>
