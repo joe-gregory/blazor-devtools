@@ -1,5 +1,5 @@
 using BlazorDeveloperTools;
-using BlazorDevTools.Docs.Site.Server.Components;
+using BlazorDevTools.Docs.Site.Server.Razor;
 
 namespace BlazorDevTools.Docs.Site.Server
 {
