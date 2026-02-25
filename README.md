@@ -7,6 +7,8 @@
 The first visual DevTools for Blazor. See your component tree, profile renders, understand why components re-render. No more console.log debugging.
 <img width="1649" height="852" alt="BDT beta 1 screenshot - 1" src="https://github.com/user-attachments/assets/b4723732-091a-48a8-aee4-dd775d4066a7" />
 
+[![Watch the video](https://img.youtube.com/vi/d1EFcvKYBbI/maxresdefault.jpg)](https://youtube.com/shorts/d1EFcvKYBbI)
+
 [![NuGet](https://img.shields.io/nuget/v/BlazorDeveloperTools.svg)](https://www.nuget.org/packages/BlazorDeveloperTools/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
