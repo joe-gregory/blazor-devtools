@@ -969,25 +969,37 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
     // IDISPOSABLE / IASYNCDISPOSABLE
     // ═══════════════════════════════════════════════════════════════
     /// <summary>
-    /// Performs application-defined tasks associated with freeing, releasing, or resetting resources.
+    /// Records disposal metrics and removes the component from the component tree in the dev tool menu
     /// </summary>
-    public void Dispose()
+    /// <remarks>
+    /// Override this method when derived components require cleanup.
+    /// Call <c>base.Dispose()</c> to preserve dev tools cleanup behavior.
+    /// </remarks>
+    public virtual void Dispose()
     {
         Dispose(disposing: true);
         GC.SuppressFinalize(this);
     }
     /// <summary>
-    /// Performs application-defined tasks associated with freeing, releasing, or resetting resources asynchronously.
+    /// Records disposal metrics and removes the component from the component tree in the dev tool menu
     /// </summary>
-    public async ValueTask DisposeAsync()
+    /// <remarks>
+    /// Override this method when derived components require asynchronous cleanup.
+    /// Call <c>await base.DisposeAsync()</c> to preserve dev tools cleanup behavior.
+    /// </remarks>
+    public virtual async ValueTask DisposeAsync()
     {
         await DisposeAsyncCore();
         Dispose(disposing: false);
         GC.SuppressFinalize(this);
     }
     /// <summary>
-    /// Releases the unmanaged resources used by the component and optionally releases the managed resources.
+    /// Core dispose routine used by both synchronous and asynchronous disposal paths.
     /// </summary>
+    /// <param name="disposing">
+    /// <see langword="true"/> when called from <see cref="Dispose()"/>;
+    /// <see langword="false"/> when called from <see cref="DisposeAsync()"/>.
+    /// </param>
     protected virtual void Dispose(bool disposing)
     {
         if (_disposed)
