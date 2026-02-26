@@ -13,5 +13,6 @@
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/BlazorDeveloperTools/BlazorDeveloperTools.csproj" />
+    <Project Path="src/browser-extensions/browser-extensions.csproj" />
   </Folder>
 </Solution>
