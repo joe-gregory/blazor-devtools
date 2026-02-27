@@ -16,8 +16,10 @@
     "baseUrl": "./src",
     "paths": {
       "@core/*": ["core/*"],
-      "@chromium/*": ["chromium/*"]
-    }
+      "@chromium/*": ["chromium/*"],
+	  "@firefox/*": ["firefox/*"]
+    },
+    "types": ["chrome", "firefox-webext-browser"]
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]

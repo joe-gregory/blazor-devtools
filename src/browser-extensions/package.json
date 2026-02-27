@@ -10,16 +10,21 @@
   },
   "devDependencies": {
     "@types/chrome": "^0.0.268",
+	"@types/firefox-webext-browser": "^120.0.0",
     "copy-webpack-plugin": "^12.0.2",
     "css-loader": "^7.1.2",
     "mini-css-extract-plugin": "^2.9.0",
     "rimraf": "^5.0.7",
-    "ts-loader": "^9.5.1",
-    "typescript": "^5.4.5",
-    "webpack": "^5.91.0",
+    "ts-loader": "^9.5.4",
+    "typescript": "^5.9.3",
+    "webpack": "^5.105.2",
     "webpack-cli": "^5.1.4"
   },
-  "keywords": ["blazor", "devtools", "debugging"],
+  "keywords": [
+    "blazor",
+    "devtools",
+    "debugging"
+  ],
   "author": "Joe Gregory",
   "license": "MIT"
 }
