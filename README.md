@@ -12,7 +12,7 @@ The first visual DevTools for Blazor. See your component tree, profile renders, 
 [![NuGet](https://img.shields.io/nuget/v/BlazorDeveloperTools.svg)](https://www.nuget.org/packages/BlazorDeveloperTools/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
-## What's New in v1.0.0-beta.1
+## What's New in v1.0.0-beta
 
 This release is a complete architectural rewrite with powerful new features:
 
@@ -25,7 +25,7 @@ This release is a complete architectural rewrite with powerful new features:
 
 ## Features
 
-- 🔍 **Component Tree Visualization** - See your Blazor component hierarchy in Chrome/Edge DevTools
+- 🔍 **Component Tree Visualization** - See your Blazor component hierarchy in Chrome/Edge/Firefox DevTools
 - 🎯 **Element Picker** - Click any element on the page to identify its Blazor component
 - 📁 **File Path Display** - See which .razor file each component comes from
 - ⏱️ **Timeline Profiler** - Record, analyze, and visualize component render performance
@@ -57,6 +57,7 @@ builder.Services.AddBlazorDevTools();
 
 - **Chrome**: [Chrome Web Store](https://chromewebstore.google.com/detail/blazor-developer-tools/pfddbenemjnlceffaemllejnjbobadhp)
 - **Edge**: [Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/blazor-developer-tools/pdggeigaaicabckehkeldfpfikihgcdj)
+- **Firefox**: [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/blazor-developer-tools/)
 
 ### 4. That's it!
 
@@ -69,7 +70,7 @@ Open your Blazor app, press F12, and look for the **"Blazor"** tab in DevTools.
 Once installed, BDT automatically tracks all components. No code changes needed!
 
 1. Run your Blazor app
-2. Open Chrome/Edge DevTools (F12)
+2. Open your browser's DevTools (F12)
 3. Navigate to the **"Blazor"** tab
 4. Explore the **Components** tree or record a **Timeline** profile
 

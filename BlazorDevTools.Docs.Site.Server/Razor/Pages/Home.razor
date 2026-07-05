@@ -1,4 +1,5 @@
 ﻿@page "/"
+@using System.Reflection
 
 <PageTitle>Blazor Developer Tools</PageTitle>
 
@@ -6,7 +7,7 @@
     <!-- Hero Section -->
     <section class="hero">
         <div class="hero-content">
-            <span class="version-badge">v1.0.0-beta.X</span>
+            <span class="version-badge">v@(BdtVersion)</span>
             <h1>Blazor Developer Tools</h1>
             <p class="tagline">The first visual DevTools for Blazor</p>
             <p class="description">
@@ -71,7 +72,7 @@
 
     <!-- What's New in v1 -->
     <section class="whats-new">
-        <h2>What's New in v1.0.0-beta.x</h2>
+        <h2>What's New in v@(BdtVersion)</h2>
         <p class="section-subtitle">A complete architectural rewrite with powerful new features</p>
 
         <div class="features-grid">
@@ -212,13 +213,16 @@
                 <div class="step-number">3</div>
                 <div class="step-content">
                     <h3>Install Browser Extension</h3>
-                    <p>Add from Chrome Web Store or Edge Add-ons:</p>
+                    <p>Add from Chrome Web Store, Edge Add-ons, or Firefox Add-ons:</p>
                     <div class="extension-buttons">
                         <a href="https://chromewebstore.google.com/detail/blazor-developer-tools/pfddbenemjnlceffaemllejnjbobadhp" target="_blank" class="btn btn-sm">
                             Chrome
                         </a>
                         <a href="https://microsoftedge.microsoft.com/addons/detail/blazor-developer-tools/pdggeigaaicabckehkeldfpfikihgcdj" target="_blank" class="btn btn-sm">
                             Edge
+                        </a>
+                        <a href="https://addons.mozilla.org/en-US/firefox/addon/blazor-developer-tools/" target="_blank" class="btn btn-sm">
+                            Firefox
                         </a>
                     </div>
                 </div>
@@ -847,3 +851,24 @@
         }
     }
 </style>
+
+@code {
+    // Real version of the BlazorDeveloperTools package this site runs on —
+    // read from the assembly so the site never shows a stale/placeholder version.
+    private static readonly string BdtVersion = GetBdtVersion();
+
+    private static string GetBdtVersion()
+    {
+        var informational = typeof(BlazorDeveloperTools.ServiceCollectionExtensions).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+
+        if (string.IsNullOrWhiteSpace(informational))
+        {
+            return "1.0.0";
+        }
+
+        // Strip build metadata (e.g. "1.0.0-beta.5+abc123" -> "1.0.0-beta.5")
+        var plusIndex = informational.IndexOf('+');
+        return plusIndex >= 0 ? informational[..plusIndex] : informational;
+    }
+}
