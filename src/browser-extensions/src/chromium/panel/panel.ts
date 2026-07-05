@@ -8,7 +8,7 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import type { ComponentInfo, LifecycleMetrics } from '../../core/types';
-import { initializeTimelinePanel } from './timeline-panel';
+import { initializeTimelinePanel } from '../../core/timeline-panel';
 
 // The tab ID we're inspecting
 const inspectedTabId = chrome.devtools.inspectedWindow.tabId;
@@ -79,9 +79,6 @@ async function callApi<T>(method: string, ...args: unknown[]): Promise<T> {
         );
     });
 }
-
-// Export for timeline-panel.ts to use
-(window as any).blazorDevToolsCallApi = callApi;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // UI UPDATES
@@ -473,8 +470,8 @@ pickerBtn.addEventListener('click', () => {
 // Initialize tabs
 initializeTabs();
 
-// Initialize timeline panel
-initializeTimelinePanel();
+// Initialize timeline panel (shared core module, browser-specific transport injected)
+initializeTimelinePanel(callApi);
 
 // Initial load
 refreshComponents();

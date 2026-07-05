@@ -427,7 +427,9 @@
 }
 
 .swimlane-header {
-    padding: 8px 8px 8px 150px;
+    display: flex;
+    align-items: flex-end;
+    padding: 8px 0;
     border-bottom: 1px solid var(--border-color);
     background: var(--bg-secondary);
 }
@@ -435,6 +437,7 @@
 .swimlane-time-axis {
     position: relative;
     height: 20px;
+    flex: 1;
 }
 
 .time-tick {
@@ -490,13 +493,6 @@
     height: 16px;
     border-radius: 2px;
     min-width: 3px;
-    cursor: pointer;
-    transition: transform 0.1s ease;
-}
-
-.swimlane-event:hover {
-    transform: scaleY(1.2);
-    z-index: 1;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
@@ -644,9 +640,11 @@
     color: var(--text-muted);
 }
 
+/* Must match .swimlane-label width so the time axis aligns with the tracks */
 .swimlane-label-header {
-    width: 120px;
-    min-width: 120px;
+    width: 150px;
+    min-width: 150px;
+    padding: 0 8px;
     font-size: 10px;
     color: var(--text-muted);
     text-transform: uppercase;
@@ -678,6 +676,64 @@
     transform: scaleY(1.5);
     z-index: 20;
     box-shadow: 0 0 0 2px var(--accent-color);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   COLLAPSED IDLE TIME ("CUTS")
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+.collapse-gaps-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.collapse-gaps-label input {
+    accent-color: var(--accent-color);
+    cursor: pointer;
+    margin: 0;
+}
+
+/* Hatched column marking where idle time was cut out of a track */
+.swimlane-cut {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    min-width: 6px;
+    background: repeating-linear-gradient(
+        135deg,
+        transparent,
+        transparent 3px,
+        var(--border-color) 3px,
+        var(--border-color) 5px
+    );
+    border-left: 1px dashed var(--text-muted);
+    border-right: 1px dashed var(--text-muted);
+    box-sizing: border-box;
+    cursor: help;
+    pointer-events: auto;
+}
+
+/* "✂ 1.2s" chip on the time axis above each cut */
+.time-cut-chip {
+    position: absolute;
+    top: 0;
+    transform: translateX(-50%);
+    font-size: 9px;
+    line-height: 14px;
+    padding: 0 4px;
+    color: var(--text-secondary);
+    background: var(--bg-hover);
+    border: 1px solid var(--border-color);
+    border-radius: 3px;
+    white-space: nowrap;
+    cursor: help;
+    z-index: 2;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
