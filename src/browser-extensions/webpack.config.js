@@ -2,6 +2,26 @@ const path = require('path');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 
+// Single source of truth for the extension version: package.json.
+// Semver "1.0.0-beta.2" becomes store-compatible manifest version "1.0.0.2"
+// (Chrome/Firefox manifests only allow dotted numbers).
+const packageVersion = require('./package.json').version;
+const versionMatch = packageVersion.match(/^(\d+\.\d+\.\d+)(?:-[a-zA-Z]+\.(\d+))?$/);
+if (!versionMatch) {
+    throw new Error(`Unsupported version format in package.json: ${packageVersion}`);
+}
+const manifestVersion = versionMatch[2] ? `${versionMatch[1]}.${versionMatch[2]}` : versionMatch[1];
+
+// Stamps package.json's version onto a copied manifest.json.
+const stampManifestVersion = (content) => {
+    const manifest = JSON.parse(content.toString());
+    manifest.version = manifestVersion;
+    if ('version_name' in manifest) {
+        manifest.version_name = packageVersion; // human-readable semver (Chromium only)
+    }
+    return JSON.stringify(manifest, null, 2);
+};
+
 module.exports = {
     entry: {
         // Standalone bundle (for testing without extension)
@@ -58,13 +78,13 @@ module.exports = {
         new CopyWebpackPlugin({
             patterns: [
                 // Extension manifest and HTML files
-                { from: 'src/chromium/manifest.json', to: 'chromium/' },
+                { from: 'src/chromium/manifest.json', to: 'chromium/', transform: stampManifestVersion },
                 { from: 'src/chromium/devtools.html', to: 'chromium/' },
                 { from: 'src/chromium/panel/panel.html', to: 'chromium/panel/' },
                 { from: 'src/chromium/panel/panel.css', to: 'chromium/panel/' },  // Added CSS copy
                 { from: 'src/chromium/panel/timeline-panel.css', to: 'chromium/panel/' },  // ADD THIS LINE
                 { from: 'src/chromium/assets', to: 'chromium/assets', noErrorOnMissing: true },
-                { from: 'src/firefox/manifest.json', to: 'firefox/' },
+                { from: 'src/firefox/manifest.json', to: 'firefox/', transform: stampManifestVersion },
                 { from: 'src/firefox/devtools.html', to: 'firefox/' },
                 { from: 'src/firefox/panel/panel.html', to: 'firefox/panel/' },
                 { from: 'src/firefox/panel/panel.css', to: 'firefox/panel/' },
