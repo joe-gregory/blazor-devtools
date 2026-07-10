@@ -92,12 +92,19 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
     // ═══════════════════════════════════════════════════════════════
     // STATIC REFLECTION CACHE
     // ═══════════════════════════════════════════════════════════════
-    // RenderHandle.ComponentId is internal, so we cache the PropertyInfo
-    // once and reuse it for all component instances. This is type metadata,
-    // not instance data, so static is correct and efficient.
+    // RenderHandle stores the component ID in a private field (_componentId);
+    // there is no ComponentId property on net8/net9/net10. We cache the
+    // FieldInfo once and reuse it for all component instances (type metadata,
+    // not instance data, so static is correct and efficient). A property
+    // lookup is kept as a fallback in case a future framework exposes one.
+    private static readonly FieldInfo? ComponentIdField;
     private static readonly PropertyInfo? ComponentIdProperty;
     static BlazorDevToolsComponentBase()
     {
+        ComponentIdField = typeof(RenderHandle).GetField(
+            "_componentId",
+            BindingFlags.NonPublic | BindingFlags.Instance
+        );
         ComponentIdProperty = typeof(RenderHandle).GetProperty(
             "ComponentId",
             BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public
@@ -472,14 +479,10 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
     /// </summary>
     private void ExtractComponentId()
     {
-        if (ComponentIdProperty == null)
-        {
-            return;
-        }
-
         try
         {
-            var id = ComponentIdProperty.GetValue(_renderHandle);
+            var id = ComponentIdField?.GetValue(_renderHandle)
+                ?? ComponentIdProperty?.GetValue(_renderHandle);
             if (id is int componentId)
             {
                 _componentId = componentId;
