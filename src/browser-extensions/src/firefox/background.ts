@@ -26,8 +26,9 @@ browser.runtime.onMessage.addListener((message, sender) => {
         blazorTabs.add(senderTabId);
         updateIcon(senderTabId, true);
         console.log(`[BDT Background] Blazor detected in tab ${senderTabId}`);
-        // Re-broadcast to panel so it can refresh
-        browser.runtime.sendMessage({ type: 'BLAZOR_DETECTED', tabId: senderTabId, circuitId: message.circuitId });
+        // Re-broadcast to panel so it can refresh (no panel may be listening —
+        // swallow the rejection so it doesn't land in the extension error log)
+        browser.runtime.sendMessage({ type: 'BLAZOR_DETECTED', tabId: senderTabId, circuitId: message.circuitId }).catch(() => { });
     }
     
     if (message.type === 'BLAZOR_DISCONNECTED' && senderTabId) {

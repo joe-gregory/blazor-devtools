@@ -24,8 +24,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         blazorTabs.add(senderTabId);
         updateIcon(senderTabId, true);
         console.log(`[BDT Background] Blazor detected in tab ${senderTabId}`);
-        // Re-broadcast to panel so it can refresh
-        chrome.runtime.sendMessage({ type: 'BLAZOR_DETECTED', tabId: senderTabId, circuitId: message.circuitId });
+        // Re-broadcast to panel so it can refresh. No panel may be listening —
+        // touch lastError so Chrome doesn't log "Unchecked runtime.lastError".
+        chrome.runtime.sendMessage(
+            { type: 'BLAZOR_DETECTED', tabId: senderTabId, circuitId: message.circuitId },
+            () => void chrome.runtime.lastError
+        );
     }
     
     if (message.type === 'BLAZOR_DISCONNECTED' && senderTabId) {
@@ -51,8 +55,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     
     // Forward events from content script to any listeners (panel)
     if (message.type === 'CONTENT_EVENT') {
-        // Re-broadcast to panel
-        chrome.runtime.sendMessage(message);
+        // Re-broadcast to panel (which may not be open — swallow lastError)
+        chrome.runtime.sendMessage(message, () => void chrome.runtime.lastError);
     }
 });
 

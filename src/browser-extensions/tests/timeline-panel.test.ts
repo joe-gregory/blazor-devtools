@@ -141,6 +141,55 @@ describe('timeline panel', () => {
         expect(details.textContent).toContain('Counter');
     });
 
+    describe('disconnected page handling', () => {
+        // Regression: page reloads/navigations made every panel->page call an
+        // "Uncaught (in promise) Could not establish connection" entry in the
+        // extension error log.
+
+        it('shows a connection warning instead of throwing when record fails', async () => {
+            const failingApi: CallApi = async () => {
+                throw new Error('Could not establish connection. Receiving end does not exist.');
+            };
+            initializeTimelinePanel(failingApi);
+
+            click(document.getElementById('timeline-record-btn')!);
+            await flushAsync();
+
+            expect(document.getElementById('timeline-stats')!.textContent).toContain('Lost connection');
+            // Panel did not get stuck in a recording state.
+            expect((document.getElementById('timeline-stop-btn') as HTMLButtonElement).disabled).toBe(true);
+        });
+
+        it('stops recording after repeated poll failures', async () => {
+            vi.useFakeTimers();
+            try {
+                let polls = 0;
+                const api: CallApi = async <T>(method: string): Promise<T> => {
+                    if (method === 'GetTimelineEventsSince') {
+                        polls++;
+                        throw new Error('Receiving end does not exist.');
+                    }
+                    if (method === 'GetTimelineEvents') return [] as unknown as T;
+                    if (method === 'GetRankedComponents') return [] as unknown as T;
+                    return undefined as unknown as T;
+                };
+                initializeTimelinePanel(api);
+
+                click(document.getElementById('timeline-record-btn')!);
+                await vi.advanceTimersByTimeAsync(0); // let startRecording resolve
+                expect((document.getElementById('timeline-stop-btn') as HTMLButtonElement).disabled).toBe(false);
+
+                await vi.advanceTimersByTimeAsync(2500); // > MAX_POLL_FAILURES * 500ms
+
+                expect(polls).toBeGreaterThanOrEqual(4);
+                expect(document.getElementById('timeline-stats')!.textContent).toContain('Lost connection');
+                expect((document.getElementById('timeline-stop-btn') as HTMLButtonElement).disabled).toBe(true);
+            } finally {
+                vi.useRealTimers();
+            }
+        });
+    });
+
     it('does not double-register handlers when initialized twice', async () => {
         const { api, calls } = makeFakeApi(BURSTY_EVENTS);
         initializeTimelinePanel(api);

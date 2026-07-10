@@ -51,13 +51,13 @@ window.addEventListener('message', (event) => {
         case 'READY':
             blazorReady = true;
             console.log('[BDT Content] Blazor bridge ready, circuit:', data.circuitId);
-            browser.runtime.sendMessage({ type: 'BLAZOR_DETECTED', circuitId: data.circuitId });
+            browser.runtime.sendMessage({ type: 'BLAZOR_DETECTED', circuitId: data.circuitId }).catch(() => { });
             break;
 
         case 'DISCONNECTED':
             blazorReady = false;
             console.log('[BDT Content] Blazor disconnected');
-            browser.runtime.sendMessage({ type: 'BLAZOR_DISCONNECTED' });
+            browser.runtime.sendMessage({ type: 'BLAZOR_DISCONNECTED' }).catch(() => { });
             break;
 
         case 'RESPONSE':

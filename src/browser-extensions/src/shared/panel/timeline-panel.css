@@ -682,6 +682,11 @@
    AXIS MODES: SEQUENCE PAUSES & COLLAPSED IDLE TIME ("CUTS")
    ═══════════════════════════════════════════════════════════════════════════════ */
 
+.stats-error {
+    font-size: 11px;
+    color: #e5484d;
+}
+
 .axis-mode-label {
     display: flex;
     align-items: center;

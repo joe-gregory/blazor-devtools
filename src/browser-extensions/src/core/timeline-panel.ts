@@ -144,6 +144,13 @@ let dragStartPan = 0;
 let dragMoved = false;
 let pendingViewUpdate = false;
 
+// Connection health: the inspected page can stop answering at any moment
+// (reload, navigation, circuit dropped). We surface that instead of letting
+// promise rejections escape to the extension error log.
+let connectionError: string | null = null;
+let consecutivePollFailures = 0;
+const MAX_POLL_FAILURES = 4; // ~2s of failed polls -> assume the page is gone
+
 let initialized = false;
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -152,6 +159,8 @@ let initialized = false;
 
 async function startRecording(): Promise<void> {
     await callApi('StartTimelineRecording');
+    connectionError = null;
+    consecutivePollFailures = 0;
     isRecording = true;
     lastEventId = -1;
     events = [];
@@ -161,21 +170,40 @@ async function startRecording(): Promise<void> {
 }
 
 async function stopRecording(): Promise<void> {
-    await callApi('StopTimelineRecording');
-    isRecording = false;
     stopPolling();
-    await fetchAllEvents();
-    updateUI();
+    try {
+        await callApi('StopTimelineRecording');
+        await fetchAllEvents();
+        connectionError = null;
+    } finally {
+        // Whatever happened on the wire, the panel is no longer recording.
+        isRecording = false;
+        updateUI();
+    }
 }
 
 async function clearRecording(): Promise<void> {
     await callApi('ClearTimelineEvents');
+    connectionError = null;
     events = [];
     rankedComponents = [];
     selectedEvent = null;
     lastEventId = -1;
     invalidateRenderCaches();
     updateUI();
+}
+
+/**
+ * Route a failed panel→page call somewhere useful: the stats bar, plus one
+ * console.warn. Without this every reload of the inspected page produced
+ * "Uncaught (in promise) Error: Could not establish connection" entries in
+ * the extension error log.
+ */
+function reportConnectionError(action: string, err: unknown): void {
+    connectionError = `Lost connection to the page while trying to ${action} — ` +
+        `is a Blazor app with BlazorDeveloperTools running in the inspected tab?`;
+    console.warn(`[BDT Timeline] ${action} failed:`, err instanceof Error ? err.message : err);
+    updateStats();
 }
 
 async function fetchAllEvents(): Promise<void> {
@@ -207,12 +235,26 @@ function startPolling(): void {
     if (refreshInterval) return;
     refreshInterval = window.setInterval(async () => {
         if (!isRecording) return;
-        const changed = await fetchNewEvents();
-        // Avoid rebuilding DOM under the user's cursor when nothing changed.
-        if (changed) {
-            updateUI();
-        } else {
-            updateStats();
+        try {
+            const changed = await fetchNewEvents();
+            consecutivePollFailures = 0;
+            connectionError = null;
+            // Avoid rebuilding DOM under the user's cursor when nothing changed.
+            if (changed) {
+                updateUI();
+            } else {
+                updateStats();
+            }
+        } catch (err) {
+            // The page reloaded, navigated away, or the circuit dropped.
+            // Tolerate brief outages (e.g. a reload) before giving up.
+            consecutivePollFailures++;
+            if (consecutivePollFailures >= MAX_POLL_FAILURES) {
+                stopPolling();
+                isRecording = false;
+                reportConnectionError('record', err);
+                updateUI();
+            }
         }
     }, POLL_INTERVAL_MS);
 }
@@ -262,6 +304,11 @@ function updateControls(): void {
 
 function updateStats(): void {
     const statsEl = document.getElementById('timeline-stats')!;
+
+    if (connectionError) {
+        statsEl.innerHTML = `<span class="stats-error">⚠ ${escapeHtml(connectionError)}</span>`;
+        return;
+    }
 
     if (events.length === 0) {
         statsEl.innerHTML = '<span class="stats-empty">Click record to start profiling</span>';
@@ -846,19 +893,29 @@ function saveAxisModePreference(value: AxisMode): void {
 
 function initializeEventHandlers(): void {
     document.getElementById('timeline-record-btn')!.addEventListener('click', async () => {
-        if (!isRecording) {
+        if (isRecording) return;
+        try {
             await startRecording();
+        } catch (err) {
+            reportConnectionError('start recording', err);
         }
     });
 
     document.getElementById('timeline-stop-btn')!.addEventListener('click', async () => {
-        if (isRecording) {
+        if (!isRecording) return;
+        try {
             await stopRecording();
+        } catch (err) {
+            reportConnectionError('stop recording', err);
         }
     });
 
     document.getElementById('timeline-clear-btn')!.addEventListener('click', async () => {
-        await clearRecording();
+        try {
+            await clearRecording();
+        } catch (err) {
+            reportConnectionError('clear the recording', err);
+        }
     });
 
     document.querySelectorAll('.timeline-view-tab').forEach(tab => {
@@ -981,4 +1038,6 @@ export function __resetForTests(): void {
     invalidateRenderCaches();
     pointerDownX = null;
     dragMoved = false;
+    connectionError = null;
+    consecutivePollFailures = 0;
 }
