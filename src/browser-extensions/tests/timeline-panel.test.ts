@@ -152,43 +152,81 @@ describe('timeline panel', () => {
         expect(calls.filter(c => c === 'StartTimelineRecording')).toHaveLength(1);
     });
 
-    describe('flamegraph idle-time collapsing', () => {
-        it('renders cut markers and axis chips for large idle gaps', async () => {
+    describe('flamegraph axis modes', () => {
+        function selectAxisMode(mode: string): void {
+            const select = document.getElementById('axis-mode-select') as HTMLSelectElement;
+            select.value = mode;
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        it('defaults to the sequence (subway) view with elapsed-pause markers', async () => {
             initializeTimelinePanel(makeFakeApi(BURSTY_EVENTS).api);
             await recordAndStop();
             switchToView('flamegraph');
 
             expect(document.querySelector('.swimlane-container')).not.toBeNull();
-            expect(document.querySelectorAll('.swimlane-cut').length).toBeGreaterThan(0);
-            expect(document.querySelectorAll('.time-cut-chip').length).toBe(1);
-            expect(document.getElementById('swimlane-stats')!.textContent).toContain('idle');
-            // The checkbox reflects the default-on preference.
-            const checkbox = document.getElementById('collapse-gaps-checkbox') as HTMLInputElement;
-            expect(checkbox.checked).toBe(true);
+            const select = document.getElementById('axis-mode-select') as HTMLSelectElement;
+            expect(select.value).toBe('sequence');
+            // The ~5s pause between bursts gets separator markers and a "+" chip.
+            expect(document.querySelectorAll('.swimlane-seq-gap').length).toBeGreaterThan(0);
+            const chip = document.querySelector('.time-cut-chip')!;
+            expect(chip.textContent).toMatch(/^\+/);
+            expect(document.getElementById('swimlane-stats')!.textContent).toContain('pause');
+            // No hatched cuts in sequence mode.
+            expect(document.querySelectorAll('.swimlane-cut')).toHaveLength(0);
         });
 
-        it('removes cuts when the checkbox is unticked and persists the preference', async () => {
+        it('spaces bursty events uniformly in sequence mode', async () => {
             initializeTimelinePanel(makeFakeApi(BURSTY_EVENTS).api);
             await recordAndStop();
             switchToView('flamegraph');
 
-            const checkbox = document.getElementById('collapse-gaps-checkbox') as HTMLInputElement;
-            checkbox.checked = false;
-            checkbox.dispatchEvent(new Event('change', { bubbles: true }));
-            await vi.waitFor(() => {
-                expect(document.querySelectorAll('.swimlane-cut')).toHaveLength(0);
-            });
-            expect(localStorage.getItem('bdt-timeline-collapse-gaps')).toBe('0');
+            // Events at 1ms and 5000ms are consecutive stops on the subway map:
+            // their x-positions must be commensurate, not 3 orders of magnitude apart.
+            const lefts = [...document.querySelectorAll<HTMLElement>('.swimlane-event')]
+                .map(el => parseFloat(el.style.left));
+            const max = Math.max(...lefts);
+            const nonZero = lefts.filter(l => l > 0);
+            expect(max).toBeGreaterThan(50); // late events sit well across the axis
+            expect(Math.min(...nonZero)).toBeGreaterThan(10); // early events are not crushed at 0
         });
 
-        it('renders no cuts when events are dense', async () => {
+        it('switches to hatched cuts in time-collapsed mode and persists the preference', async () => {
+            initializeTimelinePanel(makeFakeApi(BURSTY_EVENTS).api);
+            await recordAndStop();
+            switchToView('flamegraph');
+
+            selectAxisMode('time-collapsed');
+            await vi.waitFor(() => {
+                expect(document.querySelectorAll('.swimlane-cut').length).toBeGreaterThan(0);
+            });
+            expect(document.querySelectorAll('.swimlane-seq-gap')).toHaveLength(0);
+            expect(document.getElementById('swimlane-stats')!.textContent).toContain('idle');
+            expect(localStorage.getItem('bdt-timeline-axis-mode')).toBe('time-collapsed');
+        });
+
+        it('renders a plain proportional axis in time mode', async () => {
+            initializeTimelinePanel(makeFakeApi(BURSTY_EVENTS).api);
+            await recordAndStop();
+            switchToView('flamegraph');
+
+            selectAxisMode('time');
+            await vi.waitFor(() => {
+                expect(document.querySelectorAll('.swimlane-seq-gap')).toHaveLength(0);
+            });
+            expect(document.querySelectorAll('.swimlane-cut')).toHaveLength(0);
+            expect(document.querySelectorAll('.time-cut-chip')).toHaveLength(0);
+        });
+
+        it('marks no pauses when events are dense', async () => {
             const dense = BURSTY_EVENTS.map((e, i) => ({ ...e, relativeTimestampMs: i * 10 }));
             initializeTimelinePanel(makeFakeApi(dense).api);
             await recordAndStop();
             switchToView('flamegraph');
 
             expect(document.querySelector('.swimlane-container')).not.toBeNull();
-            expect(document.querySelectorAll('.swimlane-cut')).toHaveLength(0);
+            expect(document.querySelectorAll('.swimlane-seq-gap')).toHaveLength(0);
+            expect(document.querySelectorAll('.time-cut-chip')).toHaveLength(0);
         });
     });
 });

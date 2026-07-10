@@ -679,24 +679,38 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
-   COLLAPSED IDLE TIME ("CUTS")
+   AXIS MODES: SEQUENCE PAUSES & COLLAPSED IDLE TIME ("CUTS")
    ═══════════════════════════════════════════════════════════════════════════════ */
 
-.collapse-gaps-label {
+.axis-mode-label {
     display: flex;
     align-items: center;
     gap: 6px;
     font-size: 11px;
     color: var(--text-secondary);
-    cursor: pointer;
     user-select: none;
     white-space: nowrap;
 }
 
-.collapse-gaps-label input {
-    accent-color: var(--accent-color);
+.axis-mode-label select {
+    font-size: 11px;
+    padding: 2px 4px;
+    background: var(--bg-hover);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 3px;
     cursor: pointer;
-    margin: 0;
+}
+
+/* Sequence view: thin dotted separator marking a real pause between events */
+.swimlane-seq-gap {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    min-width: 2px;
+    border-left: 1px dotted var(--text-muted);
+    opacity: 0.6;
+    cursor: help;
 }
 
 /* Hatched column marking where idle time was cut out of a track */

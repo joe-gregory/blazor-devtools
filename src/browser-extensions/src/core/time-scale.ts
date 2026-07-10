@@ -6,12 +6,19 @@
 //
 // Blazor render events are bursty: dozens of events within a few milliseconds,
 // followed by seconds of idle time. On a linear axis the bursts collapse into
-// unreadable slivers separated by empty space. This module builds a piecewise-
-// linear mapping between REAL time (ms since recording start) and VIRTUAL time
-// (the coordinate space the flamegraph is drawn in) that compresses long idle
-// gaps down to a thin, clearly-marked "cut".
+// unreadable slivers separated by empty space. This module builds piecewise-
+// linear mappings between REAL time (ms since recording start) and VIRTUAL time
+// (the coordinate space the flamegraph is drawn in):
 //
-// The mapping is strictly monotonic, so zooming, panning, and hit-testing all
+//   - buildTimeScale     — linear wall-clock axis, optionally compressing long
+//                          idle gaps down to thin, clearly-marked "cuts"
+//   - buildSequenceScale — the "subway map": x-position reflects event ORDER,
+//                          not wall-clock distance. Every consecutive pair of
+//                          event timestamps gets the same visual spacing, and
+//                          notable real pauses are annotated so elapsed time
+//                          is still communicated ("+1.2s" markers).
+//
+// All mappings are strictly monotonic, so zooming, panning, and hit-testing
 // operate in virtual space and remain consistent with what is drawn.
 //
 // This file is intentionally free of DOM/browser dependencies so it can be
@@ -74,9 +81,15 @@ export interface TimeScale {
     toReal(virtualMs: number): number;
 }
 
-const DEFAULT_MIN_GAP_MS = 200;
-const DEFAULT_MIN_GAP_DOMAIN_FRACTION = 0.04;
+// Fixed threshold: any idle stretch longer than this is worth cutting. This is
+// deliberately NOT relative to the recording length — on a long recording a
+// one-second gap is just as dead as on a short one.
+const DEFAULT_MIN_GAP_MS = 300;
+const DEFAULT_MIN_GAP_DOMAIN_FRACTION = 0;
 const DEFAULT_COLLAPSED_GAP_FRACTION = 0.02;
+
+/** In sequence mode, real pauses at least this long get an elapsed-time marker. */
+const DEFAULT_SEQUENCE_GAP_LABEL_MS = 100;
 
 /**
  * Merge possibly-overlapping activity intervals into a sorted, disjoint list.
@@ -216,7 +229,76 @@ export function buildTimeScale(
         virtualCursor += length;
     }
 
-    const virtualTotalMs = virtualCursor;
+    return makeSegmentedScale(segments, domainStartMs, domainEndMs, gaps);
+}
+
+/**
+ * Build a "subway map" scale over the given event start times: consecutive
+ * distinct timestamps are spaced uniformly, so x-position communicates ORDER
+ * rather than wall-clock distance. Real pauses of at least `gapLabelMs` are
+ * reported in `gaps` so the UI can annotate elapsed time between bursts.
+ *
+ * `domainEndMs` should be the end of the last event (start + duration) so
+ * trailing durations still fit on the axis.
+ */
+export function buildSequenceScale(
+    startTimesMs: number[],
+    domainEndMs: number,
+    gapLabelMs: number = DEFAULT_SEQUENCE_GAP_LABEL_MS,
+): TimeScale {
+    // Knots: distinct event start times, plus the domain end as the final stop.
+    const knots = [...new Set(startTimesMs)].sort((a, b) => a - b);
+    if (knots.length === 0) {
+        return identityScale(0, 0);
+    }
+    const domainStartMs = knots[0];
+    const end = Math.max(domainEndMs, knots[knots.length - 1]);
+    if (end > knots[knots.length - 1]) {
+        knots.push(end);
+    }
+    if (knots.length === 1) {
+        // Single instant — nothing to space out.
+        return identityScale(domainStartMs, domainStartMs);
+    }
+
+    // One uniform virtual slot between each pair of consecutive knots.
+    const SLOT = 1;
+    const segments: ScaleSegment[] = [];
+    const gaps: CollapsedGap[] = [];
+    for (let i = 0; i < knots.length - 1; i++) {
+        const virtualStart = i * SLOT;
+        segments.push({
+            realStartMs: knots[i],
+            realEndMs: knots[i + 1],
+            virtualStartMs: virtualStart,
+            virtualEndMs: virtualStart + SLOT,
+        });
+
+        const elapsed = knots[i + 1] - knots[i];
+        if (elapsed >= gapLabelMs) {
+            // Annotate the middle fifth of the slot so the marker sits between
+            // the two events rather than on top of either.
+            gaps.push({
+                realStartMs: knots[i],
+                realEndMs: knots[i + 1],
+                skippedMs: elapsed,
+                virtualStartMs: virtualStart + SLOT * 0.4,
+                virtualWidthMs: SLOT * 0.2,
+            });
+        }
+    }
+
+    return makeSegmentedScale(segments, domainStartMs, end, gaps);
+}
+
+/** Wrap a sorted list of piecewise-linear segments into a TimeScale. */
+function makeSegmentedScale(
+    segments: ScaleSegment[],
+    domainStartMs: number,
+    domainEndMs: number,
+    gaps: CollapsedGap[],
+): TimeScale {
+    const virtualTotalMs = segments.length > 0 ? segments[segments.length - 1].virtualEndMs : 0;
 
     const toVirtual = (realMs: number): number => {
         const t = clamp(realMs, domainStartMs, domainEndMs);

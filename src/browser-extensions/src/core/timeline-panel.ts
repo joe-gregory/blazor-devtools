@@ -23,7 +23,7 @@ import type {
     TimelineEvent,
     ComponentRanking,
 } from './types';
-import { buildTimeScale, type TimeScale, type TimeInterval } from './time-scale';
+import { buildTimeScale, buildSequenceScale, type TimeScale, type TimeInterval } from './time-scale';
 
 /** Extension-specific transport injected by the host panel (chrome.* or browser.*). */
 export type CallApi = <T>(method: string, ...args: unknown[]) => Promise<T>;
@@ -99,7 +99,17 @@ const BUTTON_ZOOM_FACTOR = 1.25;
 const DRAG_THRESHOLD_PX = 4;
 const MAX_SWIMLANES = 30;
 const POLL_INTERVAL_MS = 500;
-const COLLAPSE_GAPS_STORAGE_KEY = 'bdt-timeline-collapse-gaps';
+const AXIS_MODE_STORAGE_KEY = 'bdt-timeline-axis-mode';
+
+/**
+ * How the flamegraph x-axis maps time to pixels:
+ *  - sequence:       "subway map" — event order, uniform spacing, elapsed-time
+ *                    markers between bursts (default)
+ *  - time:           linear wall-clock (the "scientific" view)
+ *  - time-collapsed: linear wall-clock with idle stretches >= 300ms cut out
+ */
+type AxisMode = 'sequence' | 'time' | 'time-collapsed';
+const AXIS_MODES: readonly AxisMode[] = ['sequence', 'time', 'time-collapsed'];
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // STATE
@@ -117,10 +127,10 @@ let lastEventId = -1;
 // Flamegraph view state (virtual-time space, see time-scale.ts)
 let zoomLevel = 1;
 let panOffset = 0; // 0..1 fraction of the pannable range
-let collapseGaps = true;
+let axisMode: AxisMode = 'sequence';
 let timeScale: TimeScale | null = null;
 let timeScaleEventCount = -1;
-let timeScaleCollapseFlag: boolean | null = null;
+let timeScaleAxisMode: AxisMode | null = null;
 
 // Skeleton tracking: rebuild swimlane rows only when the component set changes.
 let renderedSwimlaneKey = '';
@@ -408,20 +418,28 @@ function getTimeScale(): TimeScale {
     if (
         timeScale &&
         timeScaleEventCount === events.length &&
-        timeScaleCollapseFlag === collapseGaps
+        timeScaleAxisMode === axisMode
     ) {
         return timeScale;
     }
 
-    const { startMs, endMs } = computeDomain();
-    const intervals: TimeInterval[] = events.map(e => ({
-        startMs: e.relativeTimestampMs,
-        endMs: e.relativeTimestampMs + (e.durationMs || 0),
-    }));
+    if (axisMode === 'sequence') {
+        const startTimes = events.map(e => e.relativeTimestampMs);
+        const domainEnd = Math.max(...events.map(e => e.relativeTimestampMs + (e.durationMs || 0)));
+        timeScale = buildSequenceScale(startTimes, domainEnd);
+    } else {
+        const { startMs, endMs } = computeDomain();
+        const intervals: TimeInterval[] = events.map(e => ({
+            startMs: e.relativeTimestampMs,
+            endMs: e.relativeTimestampMs + (e.durationMs || 0),
+        }));
+        timeScale = buildTimeScale(intervals, startMs, endMs, {
+            collapseGaps: axisMode === 'time-collapsed',
+        });
+    }
 
-    timeScale = buildTimeScale(intervals, startMs, endMs, { collapseGaps });
     timeScaleEventCount = events.length;
-    timeScaleCollapseFlag = collapseGaps;
+    timeScaleAxisMode = axisMode;
     return timeScale;
 }
 
@@ -464,9 +482,13 @@ function renderFlamegraph(): void {
                         <button class="zoom-btn" id="zoom-in-btn" title="Zoom in">+</button>
                         <button class="zoom-btn" id="zoom-reset-btn" title="Reset">⟲</button>
                     </div>
-                    <label class="collapse-gaps-label" title="Compress long idle periods into thin cuts so activity stays readable">
-                        <input type="checkbox" id="collapse-gaps-checkbox" ${collapseGaps ? 'checked' : ''} />
-                        Collapse idle time
+                    <label class="axis-mode-label" title="Sequence: subway-map view — spacing shows event order, with markers for real pauses. Time: proportional wall-clock axis, optionally with idle stretches cut out.">
+                        View
+                        <select id="axis-mode-select">
+                            <option value="sequence" ${axisMode === 'sequence' ? 'selected' : ''}>Sequence</option>
+                            <option value="time" ${axisMode === 'time' ? 'selected' : ''}>Time (linear)</option>
+                            <option value="time-collapsed" ${axisMode === 'time-collapsed' ? 'selected' : ''}>Time (idle collapsed)</option>
+                        </select>
                     </label>
                     <span class="zoom-hint">Scroll to zoom • Drag to pan</span>
                 </div>
@@ -556,36 +578,56 @@ function updateFlamegraphView(): void {
         const componentCount = new Set(events.map(e => e.componentName)).size;
         const renderCount = events.filter(e => e.eventType === 'BuildRenderTree' && e.durationMs).length;
         const skipped = scale.gaps.reduce((sum, g) => sum + g.skippedMs, 0);
-        stats.textContent =
-            `${componentCount} components • ${renderCount} renders` +
-            (scale.gaps.length > 0
+        let gapNote = '';
+        if (scale.gaps.length > 0) {
+            gapNote = axisMode === 'time-collapsed'
                 ? ` • ${scale.gaps.length} cut${scale.gaps.length === 1 ? '' : 's'} hiding ${formatDuration(skipped)} idle`
-                : '');
+                : axisMode === 'sequence'
+                    ? ` • ${scale.gaps.length} pause${scale.gaps.length === 1 ? '' : 's'} marked`
+                    : '';
+        }
+        stats.textContent = `${componentCount} components • ${renderCount} renders${gapNote}`;
     }
 }
 
-/** Hatched full-height markers showing where idle time was cut out. */
+/**
+ * Markers where the axis is not wall-clock proportional:
+ *  - time-collapsed: hatched full-height "cut" columns where idle time was removed
+ *  - sequence:       thin dotted separators where a real pause elapsed
+ */
 function renderCutMarkers(scale: TimeScale, visibleStart: number, visibleRange: number): string {
+    if (axisMode === 'time') return '';
+    const cls = axisMode === 'sequence' ? 'swimlane-seq-gap' : 'swimlane-cut';
     return scale.gaps.map(gap => {
         const vEnd = gap.virtualStartMs + gap.virtualWidthMs;
         if (vEnd < visibleStart || gap.virtualStartMs > visibleStart + visibleRange) return '';
         const left = ((gap.virtualStartMs - visibleStart) / visibleRange) * 100;
         const width = Math.max((gap.virtualWidthMs / visibleRange) * 100, 0.3);
-        return `<div class="swimlane-cut"
+        const title = axisMode === 'sequence'
+            ? `${formatDuration(gap.skippedMs)} elapsed (${formatTime(gap.realStartMs)} → ${formatTime(gap.realEndMs)})`
+            : `✂ ${formatDuration(gap.skippedMs)} of idle time hidden (${formatTime(gap.realStartMs)} → ${formatTime(gap.realEndMs)})`;
+        return `<div class="${cls}"
                      style="left: ${Math.max(0, left)}%; width: ${width}%"
-                     title="✂ ${formatDuration(gap.skippedMs)} of idle time hidden (${formatTime(gap.realStartMs)} → ${formatTime(gap.realEndMs)})"></div>`;
+                     title="${title}"></div>`;
     }).join('');
 }
 
-/** Small "✂ 1.2s" chips on the time axis above each cut. */
+/** Elapsed-time chips on the time axis: "✂ 1.2s" for cuts, "+1.2s" for sequence pauses. */
 function renderCutChips(scale: TimeScale, visibleStart: number, visibleRange: number): string {
+    if (axisMode === 'time') return '';
     return scale.gaps.map(gap => {
         const vCenter = gap.virtualStartMs + gap.virtualWidthMs / 2;
         if (vCenter < visibleStart || vCenter > visibleStart + visibleRange) return '';
         const left = ((vCenter - visibleStart) / visibleRange) * 100;
+        const label = axisMode === 'sequence'
+            ? `+${formatDuration(gap.skippedMs)}`
+            : `✂ ${formatDuration(gap.skippedMs)}`;
+        const title = axisMode === 'sequence'
+            ? `${formatDuration(gap.skippedMs)} elapsed between events`
+            : `✂ ${formatDuration(gap.skippedMs)} of idle time hidden`;
         return `<span class="time-cut-chip"
                       style="left: ${left}%"
-                      title="✂ ${formatDuration(gap.skippedMs)} of idle time hidden">✂ ${formatDuration(gap.skippedMs)}</span>`;
+                      title="${title}">${label}</span>`;
     }).join('');
 }
 
@@ -773,17 +815,18 @@ function formatTriggerReason(reason: string): string {
     return reasons[reason] || reason;
 }
 
-function loadCollapseGapsPreference(): boolean {
+function loadAxisModePreference(): AxisMode {
     try {
-        return localStorage.getItem(COLLAPSE_GAPS_STORAGE_KEY) !== '0';
+        const stored = localStorage.getItem(AXIS_MODE_STORAGE_KEY);
+        return AXIS_MODES.includes(stored as AxisMode) ? (stored as AxisMode) : 'sequence';
     } catch {
-        return true;
+        return 'sequence';
     }
 }
 
-function saveCollapseGapsPreference(value: boolean): void {
+function saveAxisModePreference(value: AxisMode): void {
     try {
-        localStorage.setItem(COLLAPSE_GAPS_STORAGE_KEY, value ? '1' : '0');
+        localStorage.setItem(AXIS_MODE_STORAGE_KEY, value);
     } catch {
         // Storage unavailable (e.g., privacy mode) — preference just won't persist.
     }
@@ -849,12 +892,12 @@ function initializeEventHandlers(): void {
         }
     });
 
-    // Collapse-idle-time toggle.
+    // Axis-mode dropdown (Sequence / Time / Time collapsed).
     content.addEventListener('change', (e) => {
-        const target = e.target as HTMLInputElement;
-        if (target.id === 'collapse-gaps-checkbox') {
-            collapseGaps = target.checked;
-            saveCollapseGapsPreference(collapseGaps);
+        const target = e.target as HTMLSelectElement;
+        if (target.id === 'axis-mode-select' && AXIS_MODES.includes(target.value as AxisMode)) {
+            axisMode = target.value as AxisMode;
+            saveAxisModePreference(axisMode);
             resetZoom(); // The virtual axis changed shape; a stale window would mislead.
         }
     });
@@ -915,7 +958,7 @@ export function initializeTimelinePanel(api: CallApi): void {
     initialized = true;
 
     callApi = api;
-    collapseGaps = loadCollapseGapsPreference();
+    axisMode = loadAxisModePreference();
     initializeEventHandlers();
     updateUI();
     console.log('[BDT Timeline] Panel initialized');
@@ -933,7 +976,7 @@ export function __resetForTests(): void {
     lastEventId = -1;
     zoomLevel = 1;
     panOffset = 0;
-    collapseGaps = true;
+    axisMode = 'sequence';
     timeScale = null;
     invalidateRenderCaches();
     pointerDownX = null;

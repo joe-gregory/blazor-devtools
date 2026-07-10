@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildTimeScale, mergeIntervals, findCollapsibleGaps, type TimeInterval } from '../src/core/time-scale';
+import { buildTimeScale, buildSequenceScale, mergeIntervals, findCollapsibleGaps, type TimeInterval } from '../src/core/time-scale';
 
 const collapse = { collapseGaps: true };
 const noCollapse = { collapseGaps: false };
@@ -120,5 +120,66 @@ describe('buildTimeScale', () => {
         expect(scale.virtualTotalMs).toBe(0);
         expect(scale.toVirtual(0)).toBe(0);
         expect(scale.toReal(0)).toBe(0);
+    });
+
+    it('collapses a 1s gap regardless of recording length (fixed threshold)', () => {
+        // Regression: the old threshold scaled with the domain (4%), so on a
+        // 60s recording a 1s gap was never collapsed.
+        const longRecording: TimeInterval[] = [
+            { startMs: 0, endMs: 10 },
+            { startMs: 1010, endMs: 1020 },      // 1s gap after burst 1
+            { startMs: 60000, endMs: 60010 },    // most of the minute idle
+        ];
+        const scale = buildTimeScale(longRecording, 0, 60010, collapse);
+        expect(scale.gaps.map(g => g.skippedMs)).toEqual([1000, 58980]);
+    });
+});
+
+describe('buildSequenceScale', () => {
+    // Bursts at 0/2/5ms, then 5000/5010ms — sequence view should space these evenly.
+    const startTimes = [0, 2, 5, 5000, 5010];
+
+    it('spaces consecutive event times uniformly', () => {
+        const scale = buildSequenceScale(startTimes, 5015);
+        const positions = startTimes.map(t => scale.toVirtual(t));
+        // 5 start knots + final end knot -> uniform unit steps between starts.
+        expect(positions).toEqual([0, 1, 2, 3, 4]);
+        expect(scale.virtualTotalMs).toBe(5); // trailing segment to domain end
+    });
+
+    it('annotates real pauses above the label threshold', () => {
+        const scale = buildSequenceScale(startTimes, 5015, 100);
+        expect(scale.gaps).toHaveLength(1);
+        expect(scale.gaps[0].skippedMs).toBe(4995); // 5 -> 5000
+        // Marker sits between the two events' virtual positions.
+        expect(scale.gaps[0].virtualStartMs).toBeGreaterThan(2);
+        expect(scale.gaps[0].virtualStartMs + scale.gaps[0].virtualWidthMs).toBeLessThan(3);
+    });
+
+    it('is monotonic and maps ticks back to real station times', () => {
+        const scale = buildSequenceScale(startTimes, 5015);
+        let prev = -Infinity;
+        for (let v = 0; v <= scale.virtualTotalMs; v += 0.25) {
+            const t = scale.toReal(v);
+            expect(t).toBeGreaterThanOrEqual(prev);
+            prev = t;
+            // Round-trip through the piecewise mapping is exact.
+            expect(scale.toVirtual(t)).toBeCloseTo(v, 6);
+        }
+        expect(scale.toReal(3)).toBe(5000);
+    });
+
+    it('deduplicates identical timestamps', () => {
+        const scale = buildSequenceScale([10, 10, 20], 20);
+        expect(scale.toVirtual(10)).toBe(0);
+        expect(scale.toVirtual(20)).toBe(1);
+        expect(scale.virtualTotalMs).toBe(1);
+    });
+
+    it('handles empty and single-instant input', () => {
+        expect(buildSequenceScale([], 0).virtualTotalMs).toBe(0);
+        const single = buildSequenceScale([42], 42);
+        expect(single.virtualTotalMs).toBe(0);
+        expect(single.toReal(0)).toBe(42);
     });
 });
