@@ -585,6 +585,10 @@ function updateFlamegraphView(): void {
     }
 
     const cutMarkers = renderCutMarkers(scale, visibleStart, visibleRange);
+    // Sequence mode draws subway-style events: a fixed-size "station" badge at
+    // the event's start plus a thin duration line — the badge never shrinks
+    // with the bar. Time modes keep proportional bars with the icon inside.
+    const seqClass = axisMode === 'sequence' ? ' seq' : '';
 
     body.querySelectorAll<HTMLElement>('.swimlane-track').forEach(track => {
         const componentEvents = eventsByComponent.get(track.dataset.component || '') || [];
@@ -601,7 +605,7 @@ function updateFlamegraphView(): void {
             const icon = EVENT_ICONS[e.eventType] || '•';
             const isSelected = selectedEvent?.eventId === e.eventId;
 
-            return `<div class="swimlane-event ${isSelected ? 'selected' : ''}"
+            return `<div class="swimlane-event${seqClass} ${isSelected ? 'selected' : ''}"
                          data-event-id="${e.eventId}"
                          style="left: ${Math.max(0, left)}%; width: ${width}%; background: ${color}"
                          title="${e.eventType}: ${formatDuration(e.durationMs || 0)}">

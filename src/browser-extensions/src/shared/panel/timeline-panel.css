@@ -718,6 +718,62 @@
     cursor: help;
 }
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   Sequence-mode events: subway styling.
+   The event element itself becomes a thin "line segment" showing duration,
+   while the icon becomes a fixed-size circular "station" badge anchored at
+   the event's start — it never shrinks with the bar.
+   ───────────────────────────────────────────────────────────────────────── */
+
+.swimlane-event.seq {
+    top: 10px;
+    height: 5px;
+    border-radius: 2px;
+    overflow: visible;
+    opacity: 0.85;
+}
+
+.swimlane-event.seq .swimlane-event-icon {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translate(-35%, -50%);
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: inherit;            /* station takes the event's color */
+    border: 1px solid var(--bg-primary);
+    color: #fff;
+    font-size: 8px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    box-shadow: 0 0 2px rgba(0, 0, 0, 0.35);
+    transition: transform 0.1s ease;
+}
+
+/* Hover/selection act on the station badge, not the sliver of a bar */
+.swimlane-event.seq:hover,
+.swimlane-event.seq.selected {
+    transform: none;
+}
+
+.swimlane-event.seq:hover .swimlane-event-icon {
+    transform: translate(-35%, -50%) scale(1.3);
+    z-index: 10;
+}
+
+.swimlane-event.seq.selected {
+    box-shadow: none;
+}
+
+.swimlane-event.seq.selected .swimlane-event-icon {
+    box-shadow: 0 0 0 2px var(--accent-color);
+    z-index: 20;
+}
+
 /* Hatched column marking where idle time was cut out of a track */
 .swimlane-cut {
     position: absolute;

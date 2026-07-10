@@ -240,6 +240,22 @@ describe('timeline panel', () => {
             expect(Math.min(...nonZero)).toBeGreaterThan(10); // early events are not crushed at 0
         });
 
+        it('renders fixed-size station badges in sequence mode only', async () => {
+            initializeTimelinePanel(makeFakeApi(BURSTY_EVENTS).api);
+            await recordAndStop();
+            switchToView('flamegraph');
+
+            // Sequence (default): events carry the subway styling class.
+            expect(document.querySelectorAll('.swimlane-event.seq').length).toBeGreaterThan(0);
+
+            selectAxisMode('time');
+            await vi.waitFor(() => {
+                expect(document.querySelectorAll('.swimlane-event.seq')).toHaveLength(0);
+            });
+            // Time mode still renders the events, just without subway styling.
+            expect(document.querySelectorAll('.swimlane-event').length).toBeGreaterThan(0);
+        });
+
         it('switches to hatched cuts in time-collapsed mode and persists the preference', async () => {
             initializeTimelinePanel(makeFakeApi(BURSTY_EVENTS).api);
             await recordAndStop();
