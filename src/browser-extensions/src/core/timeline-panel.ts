@@ -783,9 +783,9 @@ function renderEventDetails(): void {
 
             <div class="detail-section">
                 <div class="detail-section-title">Timing</div>
-                <div class="detail-row">
-                    <span class="detail-label">Timestamp</span>
-                    <span class="detail-value">${formatTime(e.relativeTimestampMs)}</span>
+                <div class="detail-row" title="How long after the recording started this event began">
+                    <span class="detail-label">Started at</span>
+                    <span class="detail-value">${formatTime(e.relativeTimestampMs)} into recording</span>
                 </div>
                 ${e.durationMs ? `
                 <div class="detail-row">
