@@ -253,6 +253,15 @@ public static class RendererInterop
     /// <summary>
     /// Extracts all component states from a Renderer instance.
     /// </summary>
+    /// <remarks>
+    /// The Renderer's _componentStateById dictionary is internal and can be
+    /// mutated by the Renderer while we enumerate it (e.g. during Hot Reload
+    /// or bursts of renders arriving between dispatcher work items). We cannot
+    /// synchronize with the Renderer's writes — any lock on our side would only
+    /// serialize our own readers — so instead the enumeration retries a few
+    /// times when it observes a concurrent modification. Each attempt is a
+    /// fresh snapshot; a torn snapshot is never returned. (#34)
+    /// </remarks>
     /// <param name="renderer">The Renderer to extract from.</param>
     /// <returns>Dictionary of componentId → ComponentStateInfo, or null if extraction failed.</returns>
     public static Dictionary<int, ComponentStateInfo>? GetAllComponentStates(Renderer renderer)
@@ -260,45 +269,59 @@ public static class RendererInterop
         EnsureInitialized();
         if (!_isSupported || _componentStateByIdField == null) return null;
 
-        try
+        const int maxAttempts = 3;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++)
         {
-            object? dictObj = _componentStateByIdField.GetValue(renderer);
-            if (dictObj == null) return null;
-
-            // The dictionary is Dictionary<int, ComponentState>
-            // We need to enumerate it via reflection since ComponentState is internal
-            System.Collections.IEnumerable? enumerable = dictObj as System.Collections.IEnumerable;
-            if (enumerable == null) return null;
-
-            Dictionary<int, ComponentStateInfo> result = new();
-
-            foreach (object kvp in enumerable)
+            try
             {
-                // kvp is KeyValuePair<int, ComponentState>
-                Type kvpType = kvp.GetType();
-                PropertyInfo? keyProp = kvpType.GetProperty("Key");
-                PropertyInfo? valueProp = kvpType.GetProperty("Value");
+                object? dictObj = _componentStateByIdField.GetValue(renderer);
+                if (dictObj == null) return null;
 
-                if (keyProp == null || valueProp == null) continue;
+                // The dictionary is Dictionary<int, ComponentState>
+                // We need to enumerate it via reflection since ComponentState is internal
+                System.Collections.IEnumerable? enumerable = dictObj as System.Collections.IEnumerable;
+                if (enumerable == null) return null;
 
-                int componentId = (int)(keyProp.GetValue(kvp) ?? -1);
-                object? componentState = valueProp.GetValue(kvp);
+                Dictionary<int, ComponentStateInfo> result = new();
 
-                if (componentState == null) continue;
+                foreach (object kvp in enumerable)
+                {
+                    // kvp is KeyValuePair<int, ComponentState>
+                    Type kvpType = kvp.GetType();
+                    PropertyInfo? keyProp = kvpType.GetProperty("Key");
+                    PropertyInfo? valueProp = kvpType.GetProperty("Value");
 
-                ComponentStateInfo info = ExtractComponentStateInfo(componentId, componentState);
-                result[componentId] = info;
+                    if (keyProp == null || valueProp == null) continue;
+
+                    int componentId = (int)(keyProp.GetValue(kvp) ?? -1);
+                    object? componentState = valueProp.GetValue(kvp);
+
+                    if (componentState == null) continue;
+
+                    ComponentStateInfo info = ExtractComponentStateInfo(componentId, componentState);
+                    result[componentId] = info;
+                }
+
+                return result;
             }
-
-            return result;
-        }
-        catch (Exception ex)
-        {
+            catch (InvalidOperationException) when (attempt < maxAttempts)
+            {
+                // "Collection was modified" — the Renderer mutated the dictionary
+                // mid-enumeration. Discard the torn snapshot and try again.
 #if DEBUG
-            Console.WriteLine($"[BDT RendererInterop] GetAllComponentStates failed: {ex.Message}");
+                Console.WriteLine($"[BDT RendererInterop] Concurrent modification during enumeration, retrying ({attempt}/{maxAttempts})");
 #endif
-            return null;
+            }
+            catch (Exception ex)
+            {
+#if DEBUG
+                Console.WriteLine($"[BDT RendererInterop] GetAllComponentStates failed: {ex.Message}");
+#endif
+                return null;
+            }
         }
+
+        return null;
     }
 
     /// <summary>

@@ -50,8 +50,12 @@ window.addEventListener('message', (event) => {
         case 'READY':
             blazorReady = true;
             console.log('[BDT Content] Blazor DevTools ready, circuit:', data?.circuitId);
-            // Notify background that Blazor is detected
-            chrome.runtime.sendMessage({ type: 'BLAZOR_DETECTED', circuitId: data?.circuitId });
+            // Notify background that Blazor is detected (swallow lastError if
+            // the service worker is not awake to receive it)
+            chrome.runtime.sendMessage(
+                { type: 'BLAZOR_DETECTED', circuitId: data?.circuitId },
+                () => void chrome.runtime.lastError
+            );
             break;
 
         case 'RESPONSE':
