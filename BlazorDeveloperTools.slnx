@@ -1,0 +1,18 @@
+<Solution>
+  <Folder Name="/demos/">
+    <Project Path="demos/AutoServerGlobal/AutoServerGlobal.csproj" />
+  </Folder>
+  <Folder Name="/docs/">
+    <Project Path="BlazorDevTools.Docs.Site.Server/BlazorDevTools.Docs.Site.Server.csproj" />
+  </Folder>
+  <Folder Name="/Solution Items/">
+    <File Path=".gitattributes" />
+    <File Path=".gitignore" />
+    <File Path="NuGet.config" />
+    <File Path="README.md" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/BlazorDeveloperTools/BlazorDeveloperTools.csproj" />
+    <Project Path="src/browser-extensions/browser-extensions.csproj" />
+  </Folder>
+</Solution>
