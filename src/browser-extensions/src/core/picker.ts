@@ -92,10 +92,13 @@ function deepFindRenderingComponentId(value: unknown, depth: number): number | n
 
 let active = false;
 let callbacks: PickerCallbacks | null = null;
+let capture: HTMLDivElement | null = null;
 let overlay: HTMLDivElement | null = null;
 let label: HTMLDivElement | null = null;
 let currentPick: PickResult | null = null;
 let labelRequestToken = 0;
+// componentId → its handler-bearing elements, scanned lazily once per session.
+let componentElements: Map<number, Element[]> | null = null;
 
 export function isPickerActive(): boolean {
     return active;
@@ -105,30 +108,44 @@ export function startPicker(cb: PickerCallbacks): void {
     if (active) return;
     active = true;
     callbacks = cb;
+    componentElements = null;
     createOverlay();
-    document.addEventListener('mousemove', onMouseMove, true);
-    document.addEventListener('click', onClick, true);
+    // All mouse interaction happens on the capture layer, NOT the page. This
+    // is how browser devtools pickers work: disabled controls (which suppress
+    // mouse events) remain pickable, and the page sees no hover side-effects.
+    capture!.addEventListener('mousemove', onMouseMove, true);
+    capture!.addEventListener('click', onClick, true);
     document.addEventListener('keydown', onKeyDown, true);
-    document.documentElement.style.cursor = 'crosshair';
 }
 
 export function stopPicker(notify = true): void {
     if (!active) return;
     active = false;
-    document.removeEventListener('mousemove', onMouseMove, true);
-    document.removeEventListener('click', onClick, true);
     document.removeEventListener('keydown', onKeyDown, true);
-    document.documentElement.style.cursor = '';
+    capture?.remove();
     overlay?.remove();
     label?.remove();
+    capture = null;
     overlay = null;
     label = null;
     currentPick = null;
+    componentElements = null;
     if (notify) callbacks?.onStop();
     callbacks = null;
 }
 
 function createOverlay(): void {
+    capture = document.createElement('div');
+    capture.setAttribute('data-bdt-picker-capture', '');
+    Object.assign(capture.style, {
+        position: 'fixed',
+        inset: '0',
+        zIndex: '2147483645',
+        cursor: 'crosshair',
+        background: 'transparent',
+    } as Partial<CSSStyleDeclaration>);
+    document.body.appendChild(capture);
+
     overlay = document.createElement('div');
     overlay.setAttribute('data-bdt-picker-overlay', '');
     Object.assign(overlay.style, {
@@ -166,12 +183,11 @@ function createOverlay(): void {
 }
 
 function onMouseMove(e: MouseEvent): void {
-    const target = document.elementFromPoint(e.clientX, e.clientY);
-    // Ignore our own overlay elements (pointer-events:none should prevent
-    // this, but elementFromPoint can still return them in edge cases).
-    const start = target?.closest('[data-bdt-picker-overlay],[data-bdt-picker-label]')
-        ? null
-        : target;
+    // Hit-test through our own layers to the page element under the cursor.
+    const start = document.elementsFromPoint(e.clientX, e.clientY)
+        .find(el => !el.hasAttribute('data-bdt-picker-capture')
+            && !el.hasAttribute('data-bdt-picker-overlay')
+            && !el.hasAttribute('data-bdt-picker-label')) ?? null;
 
     const pick = findOwnerComponentId(start);
     if (pick?.componentId === currentPick?.componentId && pick?.element === currentPick?.element) return;
@@ -183,7 +199,11 @@ function onMouseMove(e: MouseEvent): void {
         return;
     }
 
-    const rect = pick.element.getBoundingClientRect();
+    // Outline the component's whole DOM region, not just the handler-bearing
+    // element: the lowest common ancestor of every element owned by this
+    // componentId (e.g. a card component highlights the entire card, even
+    // though only its buttons carry Blazor handlers).
+    const rect = componentExtentElement(pick).getBoundingClientRect();
     Object.assign(overlay.style, {
         display: 'block',
         left: `${rect.left}px`,
@@ -202,6 +222,54 @@ function onMouseMove(e: MouseEvent): void {
         if (token !== labelRequestToken || !label || !currentPick) return;
         if (name) label.textContent = `<${name}> #${currentPick.componentId}`;
     }).catch(() => { /* bridge unavailable — keep the id-only label */ });
+}
+
+/**
+ * The element best representing the component's full DOM extent: the lowest
+ * common ancestor of all elements stamped with the same componentId. Falls
+ * back to the picked element itself when it is the only one.
+ */
+function componentExtentElement(pick: PickResult): Element {
+    if (!componentElements) {
+        componentElements = scanComponentElements();
+    }
+    let elements = componentElements.get(pick.componentId);
+    // DOM may have re-rendered since the scan — rescan if entries went stale.
+    if (!elements || elements.some(el => !el.isConnected)) {
+        componentElements = scanComponentElements();
+        elements = componentElements.get(pick.componentId);
+    }
+    if (!elements || elements.length === 0) return pick.element;
+    return lowestCommonAncestor(elements) ?? pick.element;
+}
+
+/** Lowest common ancestor of a non-empty element list. Exported for testing. */
+export function lowestCommonAncestor(elements: Element[]): Element | null {
+    let lca: Element = elements[0];
+    for (const el of elements.slice(1)) {
+        while (!lca.contains(el)) {
+            if (!lca.parentElement) return null;
+            lca = lca.parentElement;
+        }
+    }
+    return lca;
+}
+
+/** One pass over the DOM grouping handler-bearing elements by componentId. */
+function scanComponentElements(): Map<number, Element[]> {
+    const map = new Map<number, Element[]>();
+    for (const el of Array.from(document.body.querySelectorAll('*'))) {
+        const componentId = readRenderingComponentId(el);
+        if (componentId !== null) {
+            let list = map.get(componentId);
+            if (!list) {
+                list = [];
+                map.set(componentId, list);
+            }
+            list.push(el);
+        }
+    }
+    return map;
 }
 
 function positionLabel(rect: DOMRect): void {

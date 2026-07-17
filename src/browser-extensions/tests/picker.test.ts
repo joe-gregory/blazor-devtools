@@ -3,7 +3,7 @@
 // EventDelegator stamps on handler-bearing elements (see core/picker.ts).
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { findOwnerComponentId, startPicker, stopPicker, isPickerActive } from '../src/core/picker';
+import { findOwnerComponentId, startPicker, stopPicker, isPickerActive, lowestCommonAncestor } from '../src/core/picker';
 
 /** Stamp an element the way Blazor's EventDelegator does. */
 function stampBlazorEvents(el: Element, componentId: number, shape: 'flat' | 'handlers' | 'map' = 'flat'): void {
@@ -69,6 +69,33 @@ describe('findOwnerComponentId', () => {
     });
 });
 
+describe('lowestCommonAncestor', () => {
+    it('finds the enclosing container of a component\'s handler elements', () => {
+        // Mirrors the OrderBuilder card case: a card whose + and − buttons
+        // share a componentId should highlight the whole card.
+        document.body.innerHTML = `
+            <div id="card"><h5>Apples</h5>
+                <div class="controls"><button id="minus">−</button><button id="plus">+</button></div>
+            </div>`;
+        const lca = lowestCommonAncestor([
+            document.getElementById('minus')!,
+            document.getElementById('plus')!,
+        ]);
+        expect(lca).toBe(document.querySelector('.controls'));
+        const withHeader = lowestCommonAncestor([
+            document.getElementById('plus')!,
+            document.querySelector('h5')!,
+        ]);
+        expect(withHeader).toBe(document.getElementById('card'));
+    });
+
+    it('returns the element itself for a single-element list', () => {
+        document.body.innerHTML = '<button id="only"></button>';
+        const only = document.getElementById('only')!;
+        expect(lowestCommonAncestor([only])).toBe(only);
+    });
+});
+
 describe('picker mode lifecycle', () => {
     let target: HTMLElement;
 
@@ -77,12 +104,16 @@ describe('picker mode lifecycle', () => {
         document.body.innerHTML = '<main><button id="target">Click</button></main>';
         target = document.getElementById('target')!;
         stampBlazorEvents(target, 7);
-        // jsdom does not implement elementFromPoint.
-        document.elementFromPoint = () => target;
+        // jsdom does not implement elementsFromPoint.
+        document.elementsFromPoint = () => [target];
     });
 
+    function captureEl(): HTMLElement {
+        return document.querySelector('[data-bdt-picker-capture]') as HTMLElement;
+    }
+
     function mouseMove(): void {
-        document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: 10, clientY: 10 }));
+        captureEl().dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: 10, clientY: 10 }));
     }
 
     it('highlights the hovered component and picks it on click', async () => {
@@ -103,7 +134,7 @@ describe('picker mode lifecycle', () => {
         await new Promise(r => setTimeout(r, 0)); // async label enrichment
         expect(label.textContent).toBe('<Counter> #7');
 
-        document.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+        captureEl().dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
         expect(onPick).toHaveBeenCalledWith(7);
         expect(onStop).toHaveBeenCalled();
         expect(isPickerActive()).toBe(false);
