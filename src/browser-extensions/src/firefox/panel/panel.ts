@@ -89,6 +89,7 @@ async function refreshComponents(): Promise<void> {
         const result = await callApi<ComponentInfo[]>('GetAllComponentsDto');
         components = Array.isArray(result) ? result : [];
         renderTree();
+        refreshSelectedDetails();
         componentCount.textContent = `(${components.length})`;
         setStatus(true, 'Connected');
     } catch (err) {
@@ -248,9 +249,24 @@ function renderTree(): void {
     });
 }
 
+// Keep the open details pane in sync with the auto-refresh: parameters and
+// metrics change between refreshes (e.g. a bound Quantity parameter), but
+// renderDetails previously only ran on click, freezing a stale snapshot.
+let lastRenderedDetailsJson = '';
+
+function refreshSelectedDetails(): void {
+    if (selectedComponentId === null) return;
+    const selected = components.find(c => c.componentId === selectedComponentId);
+    if (!selected) return;
+    const json = JSON.stringify(selected);
+    if (json === lastRenderedDetailsJson) return; // avoid pointless DOM churn
+    lastRenderedDetailsJson = json;
+    renderDetails(selected);
+}
+
 function selectComponent(component: ComponentInfo): void {
     selectedComponentId = component.componentId;
-    
+
     // Update selection in tree
     componentTree.querySelectorAll('.component-node').forEach(node => {
         node.classList.toggle('selected', 
@@ -258,6 +274,7 @@ function selectComponent(component: ComponentInfo): void {
     });
     
     // Render details
+    lastRenderedDetailsJson = JSON.stringify(component);
     renderDetails(component);
 }
 
