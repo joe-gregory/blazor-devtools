@@ -189,7 +189,7 @@ function onMouseMove(e: MouseEvent): void {
             && !el.hasAttribute('data-bdt-picker-overlay')
             && !el.hasAttribute('data-bdt-picker-label')) ?? null;
 
-    const pick = findOwnerComponentId(start);
+    const pick = resolvePick(start);
     if (pick?.componentId === currentPick?.componentId && pick?.element === currentPick?.element) return;
     currentPick = pick;
 
@@ -225,22 +225,66 @@ function onMouseMove(e: MouseEvent): void {
 }
 
 /**
+ * Resolve the hovered element to a component. Two strategies:
+ *  1. Climb to the nearest ancestor stamped by Blazor's EventDelegator.
+ *  2. When nothing above is stamped (hovering a card's static text, or a
+ *     disabled control that CSS excludes from hit-testing via
+ *     pointer-events:none — Bootstrap does this for .btn:disabled), find the
+ *     SMALLEST component region that contains the hovered element instead.
+ * Exported for unit testing.
+ */
+export function resolvePick(start: Element | null): PickResult | null {
+    if (!start) return null;
+
+    const direct = findOwnerComponentId(start);
+    if (direct) return direct;
+
+    let best: { componentId: number; element: Element; depth: number } | null = null;
+    for (const [componentId, elements] of Array.from(freshComponentElements())) {
+        const extent = lowestCommonAncestor(elements);
+        if (!extent || extent === document.body || extent === document.documentElement) continue;
+        if (!extent.contains(start)) continue;
+        const depth = ancestorDepth(extent);
+        if (!best || depth > best.depth) {
+            best = { componentId, element: extent, depth };
+        }
+    }
+    return best ? { componentId: best.componentId, element: best.element } : null;
+}
+
+function ancestorDepth(el: Element): number {
+    let depth = 0;
+    for (let cur = el.parentElement; cur; cur = cur.parentElement) depth++;
+    return depth;
+}
+
+/** The scan cache, rebuilt when re-renders disconnect any of its entries. */
+function freshComponentElements(): Map<number, Element[]> {
+    if (!componentElements || isScanStale(componentElements)) {
+        componentElements = scanComponentElements();
+    }
+    return componentElements;
+}
+
+function isScanStale(map: Map<number, Element[]>): boolean {
+    for (const elements of Array.from(map.values())) {
+        if (elements.some(el => !el.isConnected)) return true;
+    }
+    return false;
+}
+
+/**
  * The element best representing the component's full DOM extent: the lowest
  * common ancestor of all elements stamped with the same componentId. Falls
  * back to the picked element itself when it is the only one.
  */
 function componentExtentElement(pick: PickResult): Element {
-    if (!componentElements) {
-        componentElements = scanComponentElements();
-    }
-    let elements = componentElements.get(pick.componentId);
-    // DOM may have re-rendered since the scan — rescan if entries went stale.
-    if (!elements || elements.some(el => !el.isConnected)) {
-        componentElements = scanComponentElements();
-        elements = componentElements.get(pick.componentId);
-    }
+    const elements = freshComponentElements().get(pick.componentId);
     if (!elements || elements.length === 0) return pick.element;
-    return lowestCommonAncestor(elements) ?? pick.element;
+    const lca = lowestCommonAncestor(elements) ?? pick.element;
+    // Never highlight something smaller than what was actually resolved
+    // (fallback picks already carry their extent as the element).
+    return lca.contains(pick.element) ? lca : pick.element;
 }
 
 /** Lowest common ancestor of a non-empty element list. Exported for testing. */

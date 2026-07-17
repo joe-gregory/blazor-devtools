@@ -3,7 +3,7 @@
 // EventDelegator stamps on handler-bearing elements (see core/picker.ts).
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { findOwnerComponentId, startPicker, stopPicker, isPickerActive, lowestCommonAncestor } from '../src/core/picker';
+import { findOwnerComponentId, resolvePick, startPicker, stopPicker, isPickerActive, lowestCommonAncestor } from '../src/core/picker';
 
 /** Stamp an element the way Blazor's EventDelegator does. */
 function stampBlazorEvents(el: Element, componentId: number, shape: 'flat' | 'handlers' | 'map' = 'flat'): void {
@@ -93,6 +93,54 @@ describe('lowestCommonAncestor', () => {
         document.body.innerHTML = '<button id="only"></button>';
         const only = document.getElementById('only')!;
         expect(lowestCommonAncestor([only])).toBe(only);
+    });
+});
+
+describe('resolvePick containment fallback', () => {
+    // Bootstrap's .btn:disabled { pointer-events: none } makes elementsFromPoint
+    // skip disabled buttons, so the hit lands on unstamped card containers.
+    // resolvePick must then find the smallest component region containing it.
+
+    beforeEach(() => {
+        stopPicker(false);
+        document.body.innerHTML = `
+            <div id="page">
+                <div id="card-apples"><p id="apples-price">$2.99/lb</p>
+                    <button id="apples-minus">−</button><button id="apples-plus">+</button>
+                </div>
+                <div id="card-oranges"><p id="oranges-price">$1.49/lb</p>
+                    <button id="oranges-minus">−</button><button id="oranges-plus">+</button>
+                </div>
+            </div>`;
+        stampBlazorEvents(document.getElementById('apples-minus')!, 11);
+        stampBlazorEvents(document.getElementById('apples-plus')!, 11);
+        stampBlazorEvents(document.getElementById('oranges-minus')!, 12);
+        stampBlazorEvents(document.getElementById('oranges-plus')!, 12);
+        // Start/stop a picker session so the scan cache is per-test fresh.
+        startPicker({ getComponentLabel: async () => null, onPick: () => { }, onStop: () => { } });
+    });
+
+    it('resolves unstamped content inside a card to that card\'s component', () => {
+        const pick = resolvePick(document.getElementById('apples-price'));
+        expect(pick?.componentId).toBe(11);
+        expect(pick?.element).toBe(document.getElementById('card-apples'));
+    });
+
+    it('prefers the direct stamp when hovering a stamped element', () => {
+        const pick = resolvePick(document.getElementById('oranges-plus'));
+        expect(pick?.componentId).toBe(12);
+    });
+
+    it('keeps sibling cards isolated: each card\'s content resolves to its own component', () => {
+        const pick = resolvePick(document.getElementById('oranges-price'));
+        expect(pick?.componentId).toBe(12);
+        expect(pick?.element).toBe(document.getElementById('card-oranges'));
+    });
+
+    it('returns null for elements outside any component region', () => {
+        const stray = document.createElement('footer');
+        document.body.appendChild(stray);
+        expect(resolvePick(stray)).toBeNull();
     });
 });
 
