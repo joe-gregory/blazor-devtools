@@ -37,6 +37,19 @@ browser.runtime.onMessage.addListener((message, sender) => {
         console.log(`[BDT Background] Blazor disconnected in tab ${senderTabId}`);
     }
     
+    // Forward picker start/stop from panel to the tab's content script
+    if (message.type === 'PICKER_CONTROL' && targetTabId) {
+        return browser.tabs.sendMessage(targetTabId, message)
+            .catch((error) => ({ error: error.message }));
+    }
+
+    // Forward picker (and other) events from content script to the panel,
+    // stamped with the source tab so panels can filter.
+    if (message.type === 'CONTENT_EVENT') {
+        browser.runtime.sendMessage({ ...message, tabId: senderTabId }).catch(() => { });
+        return false;
+    }
+
     // Forward panel requests to content script
     if (message.type === 'PANEL_REQUEST' && targetTabId) {
         if (!blazorTabs.has(targetTabId)) {
@@ -45,14 +58,14 @@ browser.runtime.onMessage.addListener((message, sender) => {
         }
 
         console.log(`[BDT Background] Forwarding request to tab ${targetTabId}:`, message.method);
-        
+
         return browser.tabs.sendMessage(targetTabId, message)
             .catch((error) => {
                 console.error('[BDT Background] Send failed:', error.message);
                 return { error: error.message };
             });
     }
-    
+
     return false; // Synchronous response
 });
 

@@ -453,10 +453,57 @@ refreshBtn.addEventListener('click', () => {
     refreshComponents();
 });
 
-pickerBtn.addEventListener('click', () => {
-    // TODO: Implement element picker
-    pickerBtn.classList.toggle('active');
+// ─────────────────────────────────────────────────────────────────────────────
+// ELEMENT PICKER (#41)
+// Toggles picker mode in the inspected page. The page-side picker (core/picker,
+// hosted by bridge.js) highlights the hovered component and reports the pick
+// back through content script → background → this panel (CONTENT_EVENT).
+// ─────────────────────────────────────────────────────────────────────────────
+
+let pickerActive = false;
+
+function setPickerActive(value: boolean): void {
+    pickerActive = value;
+    pickerBtn.classList.toggle('active', value);
+}
+
+pickerBtn.addEventListener('click', async () => {
+    const next = !pickerActive;
+    setPickerActive(next);
+    try {
+        const response = await browser.runtime.sendMessage({
+            type: 'PICKER_CONTROL',
+            tabId: inspectedTabId,
+            action: next ? 'start' : 'stop',
+        });
+        if (response?.error) throw new Error(response.error);
+    } catch {
+        setPickerActive(false);
+        setStatus(false, 'Picker unavailable — is the page connected?');
+    }
 });
+
+browser.runtime.onMessage.addListener((message: any) => {
+    if (message.type !== 'CONTENT_EVENT' || message.event !== 'picker') return;
+    if (message.tabId !== undefined && message.tabId !== inspectedTabId) return;
+
+    setPickerActive(false);
+    if (message.data?.event === 'picked' && typeof message.data.componentId === 'number') {
+        selectPickedComponent(message.data.componentId);
+    }
+});
+
+async function selectPickedComponent(componentId: number): Promise<void> {
+    let component = components.find(c => c.componentId === componentId);
+    if (!component) {
+        await refreshComponents();
+        component = components.find(c => c.componentId === componentId);
+    }
+    if (component) {
+        selectComponent(component);
+        componentTree.querySelector('.component-node.selected')?.scrollIntoView({ block: 'nearest' });
+    }
+}
 
 // ???????????????????????????????????????????????????????????????????????????????
 // INITIALIZATION

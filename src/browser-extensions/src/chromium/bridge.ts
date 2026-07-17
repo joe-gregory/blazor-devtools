@@ -15,14 +15,36 @@
 //
 // ═══════════════════════════════════════════════════════════════════════════════
 
+import { startPicker, stopPicker } from '../core/picker';
+
 (function() {
     // Listen for requests from content script
     window.addEventListener('message', async (event) => {
         if (event.source !== window) return;
         if (event.data?.source !== 'blazor-devtools-content') return;
 
+        // Element picker control (runs here in the MAIN world because the
+        // DOM→component mapping reads expandos invisible to content scripts).
+        if (event.data.type === 'PICKER_CONTROL') {
+            if (event.data.action === 'start') {
+                startPicker({
+                    getComponentLabel: async (componentId) => {
+                        const dotNetRef = (window as any).blazorDevTools?._dotNetRef;
+                        if (!dotNetRef) return null;
+                        const info = await dotNetRef.invokeMethodAsync('GetComponentInfo', componentId);
+                        return info?.typeName ?? null;
+                    },
+                    onPick: (componentId) => postPickerEvent('picked', componentId),
+                    onStop: () => postPickerEvent('stopped'),
+                });
+            } else {
+                stopPicker();
+            }
+            return;
+        }
+
         const { id, method, args } = event.data;
-        
+
         try {
             const dotNetRef = (window as any).blazorDevTools?._dotNetRef;
             if (!dotNetRef) {
@@ -46,6 +68,14 @@
             }, '*');
         }
     });
+
+    function postPickerEvent(pickerEvent: 'picked' | 'stopped', componentId?: number): void {
+        window.postMessage({
+            source: 'blazor-devtools-bridge',
+            type: 'PICKER_EVENT',
+            data: { event: pickerEvent, componentId }
+        }, '*');
+    }
 
     // Watch for Blazor DevTools to become ready
     function checkBlazorReady(): boolean {

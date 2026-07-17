@@ -458,10 +458,55 @@ refreshBtn.addEventListener('click', () => {
     refreshComponents();
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// ELEMENT PICKER (#41)
+// Toggles picker mode in the inspected page. The page-side picker (core/picker,
+// hosted by bridge.js) highlights the hovered component and reports the pick
+// back through content script → background → this panel (CONTENT_EVENT).
+// ─────────────────────────────────────────────────────────────────────────────
+
+let pickerActive = false;
+
+function setPickerActive(value: boolean): void {
+    pickerActive = value;
+    pickerBtn.classList.toggle('active', value);
+}
+
 pickerBtn.addEventListener('click', () => {
-    // TODO: Implement element picker
-    pickerBtn.classList.toggle('active');
+    const next = !pickerActive;
+    setPickerActive(next);
+    chrome.runtime.sendMessage(
+        { type: 'PICKER_CONTROL', tabId: inspectedTabId, action: next ? 'start' : 'stop' },
+        (response) => {
+            if (chrome.runtime.lastError || response?.error) {
+                setPickerActive(false);
+                setStatus(false, 'Picker unavailable — is the page connected?');
+            }
+        }
+    );
 });
+
+chrome.runtime.onMessage.addListener((message) => {
+    if (message.type !== 'CONTENT_EVENT' || message.event !== 'picker') return;
+    if (message.tabId !== undefined && message.tabId !== inspectedTabId) return;
+
+    setPickerActive(false);
+    if (message.data?.event === 'picked' && typeof message.data.componentId === 'number') {
+        selectPickedComponent(message.data.componentId);
+    }
+});
+
+async function selectPickedComponent(componentId: number): Promise<void> {
+    let component = components.find(c => c.componentId === componentId);
+    if (!component) {
+        await refreshComponents();
+        component = components.find(c => c.componentId === componentId);
+    }
+    if (component) {
+        selectComponent(component);
+        componentTree.querySelector('.component-node.selected')?.scrollIntoView({ block: 'nearest' });
+    }
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // INITIALIZATION
