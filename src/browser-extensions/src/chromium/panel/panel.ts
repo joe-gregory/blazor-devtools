@@ -59,24 +59,30 @@ function initializeTabs(): void {
 
 async function callApi<T>(method: string, ...args: unknown[]): Promise<T> {
     return new Promise((resolve, reject) => {
-        // Send message to content script via background, include tabId
-        chrome.runtime.sendMessage(
-            {
-                type: 'PANEL_REQUEST',
-                tabId: inspectedTabId,
-                method,
-                args,
-            },
-            (response) => {
-                if (chrome.runtime.lastError) {
-                    reject(new Error(chrome.runtime.lastError.message));
-                } else if (response?.error) {
-                    reject(new Error(response.error));
-                } else {
-                    resolve(response?.data);
+        // Send message to content script via background, include tabId.
+        // sendMessage throws synchronously ("Extension context invalidated")
+        // when this panel outlived an extension reload — reject instead.
+        try {
+            chrome.runtime.sendMessage(
+                {
+                    type: 'PANEL_REQUEST',
+                    tabId: inspectedTabId,
+                    method,
+                    args,
+                },
+                (response) => {
+                    if (chrome.runtime.lastError) {
+                        reject(new Error(chrome.runtime.lastError.message));
+                    } else if (response?.error) {
+                        reject(new Error(response.error));
+                    } else {
+                        resolve(response?.data);
+                    }
                 }
-            }
-        );
+            );
+        } catch (err) {
+            reject(err instanceof Error ? err : new Error(String(err)));
+        }
     });
 }
 
@@ -99,6 +105,13 @@ async function refreshComponents(): Promise<void> {
         componentCount.textContent = `(${components.length})`;
         setStatus(true, 'Connected');
     } catch (err) {
+        // This panel outlived an extension reload: nothing here can work
+        // anymore. Stop polling and tell the developer to reopen DevTools.
+        if (err instanceof Error && err.message.includes('Extension context invalidated')) {
+            stopAutoRefresh();
+            setStatus(false, 'Extension was reloaded — close and reopen DevTools');
+            return;
+        }
         console.error('[BDT Panel] Refresh failed:', err);
         setStatus(false, 'Disconnected');
         componentTree.innerHTML = '<div class="loading">Failed to connect to Blazor DevTools</div>';
@@ -540,10 +553,14 @@ initializeTimelinePanel(callApi);
 refreshComponents();
 
 // Auto-refresh every X seconds (only for components tab)
-setInterval(() => {
+const autoRefreshId = window.setInterval(() => {
     if (currentTab === 'components') {
         refreshComponents();
     }
 }, 1000);
+
+function stopAutoRefresh(): void {
+    clearInterval(autoRefreshId);
+}
 
 console.log('[BDT Panel] Panel initialized, inspecting tab:', inspectedTabId);
