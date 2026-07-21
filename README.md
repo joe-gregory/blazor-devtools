@@ -26,8 +26,7 @@ This release is a complete architectural rewrite with powerful new features:
 ## Features
 
 - 🔍 **Component Tree Visualization** - See your Blazor component hierarchy in Chrome/Edge/Firefox DevTools
-- 🎯 **Element Picker** - Click any element on the page to identify its Blazor component
-- 📁 **File Path Display** - See which .razor file each component comes from
+- 🎯 **Element Picker** - Click any element on the page to identify and inspect its Blazor component
 - ⏱️ **Timeline Profiler** - Record, analyze, and visualize component render performance
 - 🔥 **Flamegraph View** - Visual swimlane timeline of all component events
 - 📈 **Performance Rankings** - Identify your slowest components at a glance
