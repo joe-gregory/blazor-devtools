@@ -89,9 +89,17 @@ async function refreshComponents(): Promise<void> {
         const result = await callApi<ComponentInfo[]>('GetAllComponentsDto');
         components = Array.isArray(result) ? result : [];
         renderTree();
+        refreshSelectedDetails();
         componentCount.textContent = `(${components.length})`;
         setStatus(true, 'Connected');
     } catch (err) {
+        // This panel outlived an extension reload: nothing here can work
+        // anymore. Stop polling and tell the developer to reopen DevTools.
+        if (err instanceof Error && /context invalidated/i.test(err.message)) {
+            stopAutoRefresh();
+            setStatus(false, 'Extension was reloaded — close and reopen DevTools');
+            return;
+        }
         console.error('[BDT Panel] Refresh failed:', err);
         setStatus(false, 'Disconnected');
         componentTree.innerHTML = '<div class="loading">Failed to connect to Blazor DevTools</div>';
@@ -248,9 +256,24 @@ function renderTree(): void {
     });
 }
 
+// Keep the open details pane in sync with the auto-refresh: parameters and
+// metrics change between refreshes (e.g. a bound Quantity parameter), but
+// renderDetails previously only ran on click, freezing a stale snapshot.
+let lastRenderedDetailsJson = '';
+
+function refreshSelectedDetails(): void {
+    if (selectedComponentId === null) return;
+    const selected = components.find(c => c.componentId === selectedComponentId);
+    if (!selected) return;
+    const json = JSON.stringify(selected);
+    if (json === lastRenderedDetailsJson) return; // avoid pointless DOM churn
+    lastRenderedDetailsJson = json;
+    renderDetails(selected);
+}
+
 function selectComponent(component: ComponentInfo): void {
     selectedComponentId = component.componentId;
-    
+
     // Update selection in tree
     componentTree.querySelectorAll('.component-node').forEach(node => {
         node.classList.toggle('selected', 
@@ -258,6 +281,7 @@ function selectComponent(component: ComponentInfo): void {
     });
     
     // Render details
+    lastRenderedDetailsJson = JSON.stringify(component);
     renderDetails(component);
 }
 
@@ -453,10 +477,57 @@ refreshBtn.addEventListener('click', () => {
     refreshComponents();
 });
 
-pickerBtn.addEventListener('click', () => {
-    // TODO: Implement element picker
-    pickerBtn.classList.toggle('active');
+// ─────────────────────────────────────────────────────────────────────────────
+// ELEMENT PICKER (#41)
+// Toggles picker mode in the inspected page. The page-side picker (core/picker,
+// hosted by bridge.js) highlights the hovered component and reports the pick
+// back through content script → background → this panel (CONTENT_EVENT).
+// ─────────────────────────────────────────────────────────────────────────────
+
+let pickerActive = false;
+
+function setPickerActive(value: boolean): void {
+    pickerActive = value;
+    pickerBtn.classList.toggle('active', value);
+}
+
+pickerBtn.addEventListener('click', async () => {
+    const next = !pickerActive;
+    setPickerActive(next);
+    try {
+        const response = await browser.runtime.sendMessage({
+            type: 'PICKER_CONTROL',
+            tabId: inspectedTabId,
+            action: next ? 'start' : 'stop',
+        });
+        if (response?.error) throw new Error(response.error);
+    } catch {
+        setPickerActive(false);
+        setStatus(false, 'Picker unavailable — is the page connected?');
+    }
 });
+
+browser.runtime.onMessage.addListener((message: any) => {
+    if (message.type !== 'CONTENT_EVENT' || message.event !== 'picker') return;
+    if (message.tabId !== undefined && message.tabId !== inspectedTabId) return;
+
+    setPickerActive(false);
+    if (message.data?.event === 'picked' && typeof message.data.componentId === 'number') {
+        selectPickedComponent(message.data.componentId);
+    }
+});
+
+async function selectPickedComponent(componentId: number): Promise<void> {
+    let component = components.find(c => c.componentId === componentId);
+    if (!component) {
+        await refreshComponents();
+        component = components.find(c => c.componentId === componentId);
+    }
+    if (component) {
+        selectComponent(component);
+        componentTree.querySelector('.component-node.selected')?.scrollIntoView({ block: 'nearest' });
+    }
+}
 
 // ???????????????????????????????????????????????????????????????????????????????
 // INITIALIZATION
@@ -472,10 +543,14 @@ initializeTimelinePanel(callApi);
 refreshComponents();
 
 // Auto-refresh every X seconds (only for components tab)
-setInterval(() => {
+const autoRefreshId = window.setInterval(() => {
     if (currentTab === 'components') {
         refreshComponents();
     }
 }, 1000);
+
+function stopAutoRefresh(): void {
+    clearInterval(autoRefreshId);
+}
 
 console.log('[BDT Panel] Panel initialized, inspecting tab:', inspectedTabId);

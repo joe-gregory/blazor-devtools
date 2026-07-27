@@ -74,6 +74,11 @@ window.addEventListener('message', (event) => {
                 }
             }
             break;
+
+        case 'PICKER_EVENT':
+            // Push picker events (picked/stopped) to the panel via background
+            browser.runtime.sendMessage({ type: 'CONTENT_EVENT', event: 'picker', data }).catch(() => { });
+            break;
     }
 });
 
@@ -82,6 +87,16 @@ window.addEventListener('message', (event) => {
 // ???????????????????????????????????????????????????????????????????????????????
 
 browser.runtime.onMessage.addListener((message) => {
+    if (message.type === 'PICKER_CONTROL') {
+        // Forward picker start/stop into the page's MAIN world (bridge.js)
+        window.postMessage({
+            source: 'blazor-devtools-content',
+            type: 'PICKER_CONTROL',
+            action: message.action,
+        }, '*');
+        return Promise.resolve({ ok: true });
+    }
+
     if (message.type !== 'PANEL_REQUEST') return false;
 
     const { method, args } = message;

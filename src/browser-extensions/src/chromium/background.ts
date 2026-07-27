@@ -38,6 +38,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         console.log(`[BDT Background] Blazor disconnected in tab ${senderTabId}`);
     }
     
+    // Forward picker start/stop from panel to the tab's content script
+    if (message.type === 'PICKER_CONTROL' && targetTabId) {
+        chrome.tabs.sendMessage(targetTabId, message, (response) => {
+            if (chrome.runtime.lastError) {
+                sendResponse({ error: chrome.runtime.lastError.message });
+            } else {
+                sendResponse(response);
+            }
+        });
+        return true;
+    }
+
     // Forward panel requests to content script
     if (message.type === 'PANEL_REQUEST' && targetTabId) {
         console.log(`[BDT Background] Forwarding request to tab ${targetTabId}:`, message.method);
@@ -55,8 +67,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     
     // Forward events from content script to any listeners (panel)
     if (message.type === 'CONTENT_EVENT') {
-        // Re-broadcast to panel (which may not be open — swallow lastError)
-        chrome.runtime.sendMessage(message, () => void chrome.runtime.lastError);
+        // Re-broadcast to panel with the source tab stamped so a panel can
+        // ignore events from tabs it is not inspecting. May have no listener —
+        // swallow lastError.
+        chrome.runtime.sendMessage({ ...message, tabId: senderTabId }, () => void chrome.runtime.lastError);
     }
 });
 

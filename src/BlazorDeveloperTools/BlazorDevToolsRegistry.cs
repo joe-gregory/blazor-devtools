@@ -965,6 +965,16 @@ public class BlazorDevToolsRegistry : IDisposable
                 IsInitialized = tracked.InternalState.IsInitialized
             };
         }
+        // Parameters and tracked state must also be read from the live component:
+        // values bound by the parent (e.g. a card's Quantity) change on every
+        // render, so the registration-time snapshot goes stale immediately.
+        var parameters = tracked.Instance is IComponent liveComponent
+            ? ComponentReflectionHelper.ExtractParameters(liveComponent)
+            : tracked.Parameters;
+        var trackedState = tracked.Instance is IComponent liveForState
+            ? ComponentReflectionHelper.ExtractTrackedState(liveForState)
+            : tracked.TrackedState;
+
         ComponentInfoDto dto = new()
         {
             ComponentId = tracked.ComponentId,
@@ -977,14 +987,14 @@ public class BlazorDevToolsRegistry : IDisposable
             CreatedAt = tracked.CreatedAt,
             LastRenderedAt = lastRendered,
             HasEnhancedMetrics = tracked.HasEnhancedMetrics,
-            Parameters = tracked.Parameters?.Select(p => new ParameterDto
+            Parameters = parameters?.Select(p => new ParameterDto
             {
                 Name = p.Name,
                 TypeName = p.TypeName,
                 Value = p.Value?.ToString(),
                 IsCascading = p.IsCascading
             }).ToList(),
-            TrackedState = tracked.TrackedState,
+            TrackedState = trackedState,
             InternalState = internalState
         };
         if (tracked.HasEnhancedMetrics && tracked.Metrics != null)
