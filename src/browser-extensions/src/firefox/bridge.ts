@@ -10,6 +10,7 @@
 // ???????????????????????????????????????????????????????????????????????????????
 
 import { startPicker, stopPicker } from '../core/picker';
+import { startHighlighter, stopHighlighter } from '../core/highlighter';
 
 (function () {
     'use strict';
@@ -23,6 +24,26 @@ import { startPicker, stopPicker } from '../core/picker';
     window.addEventListener('message', (event) => {
         if (event.source !== window) return;
         if (event.data?.source !== 'blazor-devtools-content') return;
+
+        // Highlight-updates mode: flash components on the page as they re-render.
+        if (event.data?.type === 'HIGHLIGHT_CONTROL') {
+            if (event.data.action === 'start') {
+                startHighlighter(async () => {
+                    const dotNetRef = (window as any).blazorDevTools?._dotNetRef;
+                    if (!dotNetRef) throw new Error('Not connected to .NET registry');
+                    const components = await dotNetRef.invokeMethodAsync('GetAllComponentsDto');
+                    return (components ?? []).map((c: any) => ({
+                        componentId: c.componentId,
+                        renderCount: c.renderCount ?? 0,
+                        lastRenderedAt: c.lastRenderedAt ?? null,
+                    }));
+                });
+            } else {
+                stopHighlighter();
+            }
+            return;
+        }
+
         if (event.data?.type !== 'PICKER_CONTROL') return;
 
         if (event.data.action === 'start') {

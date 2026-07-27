@@ -38,8 +38,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         console.log(`[BDT Background] Blazor disconnected in tab ${senderTabId}`);
     }
     
-    // Forward picker start/stop from panel to the tab's content script
-    if (message.type === 'PICKER_CONTROL' && targetTabId) {
+    // Forward picker/highlighter start/stop from panel to the tab's content script
+    if ((message.type === 'PICKER_CONTROL' || message.type === 'HIGHLIGHT_CONTROL') && targetTabId) {
         chrome.tabs.sendMessage(targetTabId, message, (response) => {
             if (chrome.runtime.lastError) {
                 sendResponse({ error: chrome.runtime.lastError.message });

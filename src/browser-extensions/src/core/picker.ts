@@ -4,30 +4,22 @@
 //
 // Element picker: DevTools-style "inspect" mode that maps DOM elements back to
 // Blazor component instances. Runs in the page's MAIN world (loaded via
-// bridge.js), because the mapping relies on expando properties that Blazor's
-// runtime attaches to DOM nodes — invisible from a content script's isolated
-// world.
-//
-// HOW THE MAPPING WORKS (no markers, no framework patching):
-//   blazor.web.js's EventDelegator stamps every element that has a Blazor
-//   event handler (@onclick, @oninput, ...) with a string-keyed expando:
-//       element["_blazorEvents_<rendererId>"] = {
-//           handlers: { [eventName]: { renderingComponentId, ... } } | flat map
-//       }
-//   `renderingComponentId` is the per-instance componentId of the component
-//   whose render tree declared the handler — exactly what the picker needs.
-//   We climb from the hovered element to the nearest ancestor carrying one of
-//   these expandos. Components with no event handlers anywhere in their markup
-//   resolve to their closest handler-bearing ancestor component (documented
-//   MVP limitation; render-tree-frame walking can refine this later).
+// bridge.js). The DOM↔component mapping lives in component-regions.ts, shared
+// with the render-highlighter.
 //
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export interface PickResult {
-    componentId: number;
-    /** The DOM element the componentId was found on (highlight anchor). */
-    element: Element;
-}
+import {
+    type OwnedElement,
+    findOwnerComponentId,
+    freshComponentElements,
+    invalidateRegionCache,
+    lowestCommonAncestor,
+} from './component-regions';
+
+export { findOwnerComponentId, lowestCommonAncestor } from './component-regions';
+
+export type PickResult = OwnedElement;
 
 export interface PickerCallbacks {
     /** Resolve a componentId to a display name (may be async via the bridge). */
@@ -36,54 +28,6 @@ export interface PickerCallbacks {
     onPick(componentId: number): void;
     /** Picker exited (Escape, click, or programmatic stop). */
     onStop(): void;
-}
-
-const EVENTS_EXPANDO_PATTERN = /^_blazorEvents_\d+$/;
-
-/**
- * Find the componentId owning `start`, by climbing to the nearest ancestor
- * stamped by Blazor's EventDelegator. Exported for unit testing.
- */
-export function findOwnerComponentId(start: Element | null): PickResult | null {
-    for (let el: Element | null = start; el; el = el.parentElement) {
-        const componentId = readRenderingComponentId(el);
-        if (componentId !== null) {
-            return { componentId, element: el };
-        }
-    }
-    return null;
-}
-
-/** Extract renderingComponentId from an element's _blazorEvents_* expando, if any. */
-function readRenderingComponentId(el: Element): number | null {
-    for (const key of Object.getOwnPropertyNames(el)) {
-        if (!EVENTS_EXPANDO_PATTERN.test(key)) continue;
-        const found = deepFindRenderingComponentId((el as unknown as Record<string, unknown>)[key], 0);
-        if (found !== null) return found;
-    }
-    return null;
-}
-
-/**
- * The EventDelegator's expando shape has shifted across framework versions
- * (nested per-event-name maps, .handlers wrappers, ...). Rather than pin one
- * shape, search shallowly for the well-known `renderingComponentId` field.
- */
-function deepFindRenderingComponentId(value: unknown, depth: number): number | null {
-    if (value === null || typeof value !== 'object' || depth > 3) return null;
-    const obj = value as Record<string, unknown>;
-    if (typeof obj.renderingComponentId === 'number') return obj.renderingComponentId;
-    for (const key of Object.keys(obj)) {
-        const found = deepFindRenderingComponentId(obj[key], depth + 1);
-        if (found !== null) return found;
-    }
-    if (value instanceof Map) {
-        for (const entry of value.values()) {
-            const found = deepFindRenderingComponentId(entry, depth + 1);
-            if (found !== null) return found;
-        }
-    }
-    return null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -97,8 +41,6 @@ let overlay: HTMLDivElement | null = null;
 let label: HTMLDivElement | null = null;
 let currentPick: PickResult | null = null;
 let labelRequestToken = 0;
-// componentId → its handler-bearing elements, scanned lazily once per session.
-let componentElements: Map<number, Element[]> | null = null;
 
 export function isPickerActive(): boolean {
     return active;
@@ -108,7 +50,7 @@ export function startPicker(cb: PickerCallbacks): void {
     if (active) return;
     active = true;
     callbacks = cb;
-    componentElements = null;
+    invalidateRegionCache();
     createOverlay();
     // All mouse interaction happens on the capture layer, NOT the page. This
     // is how browser devtools pickers work: disabled controls (which suppress
@@ -129,7 +71,7 @@ export function stopPicker(notify = true): void {
     overlay = null;
     label = null;
     currentPick = null;
-    componentElements = null;
+    invalidateRegionCache();
     if (notify) callbacks?.onStop();
     callbacks = null;
 }
@@ -200,9 +142,8 @@ function onMouseMove(e: MouseEvent): void {
     }
 
     // Outline the component's whole DOM region, not just the handler-bearing
-    // element: the lowest common ancestor of every element owned by this
-    // componentId (e.g. a card component highlights the entire card, even
-    // though only its buttons carry Blazor handlers).
+    // element (e.g. a card component highlights the entire card, even though
+    // only its buttons carry Blazor handlers).
     const rect = componentExtentElement(pick).getBoundingClientRect();
     Object.assign(overlay.style, {
         display: 'block',
@@ -258,62 +199,16 @@ function ancestorDepth(el: Element): number {
     return depth;
 }
 
-/** The scan cache, rebuilt when re-renders disconnect any of its entries. */
-function freshComponentElements(): Map<number, Element[]> {
-    if (!componentElements || isScanStale(componentElements)) {
-        componentElements = scanComponentElements();
-    }
-    return componentElements;
-}
-
-function isScanStale(map: Map<number, Element[]>): boolean {
-    for (const elements of Array.from(map.values())) {
-        if (elements.some(el => !el.isConnected)) return true;
-    }
-    return false;
-}
-
 /**
- * The element best representing the component's full DOM extent: the lowest
- * common ancestor of all elements stamped with the same componentId. Falls
- * back to the picked element itself when it is the only one.
+ * The element best representing the component's full DOM extent. Never
+ * highlights something smaller than what was actually resolved (fallback
+ * picks already carry their extent as the element).
  */
 function componentExtentElement(pick: PickResult): Element {
     const elements = freshComponentElements().get(pick.componentId);
     if (!elements || elements.length === 0) return pick.element;
     const lca = lowestCommonAncestor(elements) ?? pick.element;
-    // Never highlight something smaller than what was actually resolved
-    // (fallback picks already carry their extent as the element).
     return lca.contains(pick.element) ? lca : pick.element;
-}
-
-/** Lowest common ancestor of a non-empty element list. Exported for testing. */
-export function lowestCommonAncestor(elements: Element[]): Element | null {
-    let lca: Element = elements[0];
-    for (const el of elements.slice(1)) {
-        while (!lca.contains(el)) {
-            if (!lca.parentElement) return null;
-            lca = lca.parentElement;
-        }
-    }
-    return lca;
-}
-
-/** One pass over the DOM grouping handler-bearing elements by componentId. */
-function scanComponentElements(): Map<number, Element[]> {
-    const map = new Map<number, Element[]>();
-    for (const el of Array.from(document.body.querySelectorAll('*'))) {
-        const componentId = readRenderingComponentId(el);
-        if (componentId !== null) {
-            let list = map.get(componentId);
-            if (!list) {
-                list = [];
-                map.set(componentId, list);
-            }
-            list.push(el);
-        }
-    }
-    return map;
 }
 
 function positionLabel(rect: DOMRect): void {

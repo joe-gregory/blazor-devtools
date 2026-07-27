@@ -16,6 +16,7 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { startPicker, stopPicker } from '../core/picker';
+import { startHighlighter, stopHighlighter } from '../core/highlighter';
 
 (function() {
     // Listen for requests from content script
@@ -39,6 +40,25 @@ import { startPicker, stopPicker } from '../core/picker';
                 });
             } else {
                 stopPicker();
+            }
+            return;
+        }
+
+        // Highlight-updates mode: flash components on the page as they re-render.
+        if (event.data.type === 'HIGHLIGHT_CONTROL') {
+            if (event.data.action === 'start') {
+                startHighlighter(async () => {
+                    const dotNetRef = (window as any).blazorDevTools?._dotNetRef;
+                    if (!dotNetRef) throw new Error('Not connected to .NET registry');
+                    const components = await dotNetRef.invokeMethodAsync('GetAllComponentsDto');
+                    return (components ?? []).map((c: any) => ({
+                        componentId: c.componentId,
+                        renderCount: c.renderCount ?? 0,
+                        lastRenderedAt: c.lastRenderedAt ?? null,
+                    }));
+                });
+            } else {
+                stopHighlighter();
             }
             return;
         }

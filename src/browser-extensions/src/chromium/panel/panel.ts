@@ -527,6 +527,31 @@ chrome.runtime.onMessage.addListener((message) => {
     }
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// HIGHLIGHT UPDATES
+// Toggles the page-side render-highlighter (core/highlighter, hosted by
+// bridge.js): components flash on the page as they re-render.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const highlightBtn = document.getElementById('highlight-btn')!;
+let highlightActive = false;
+
+highlightBtn.addEventListener('click', () => {
+    const next = !highlightActive;
+    highlightActive = next;
+    highlightBtn.classList.toggle('active', next);
+    chrome.runtime.sendMessage(
+        { type: 'HIGHLIGHT_CONTROL', tabId: inspectedTabId, action: next ? 'start' : 'stop' },
+        (response) => {
+            if (chrome.runtime.lastError || response?.error) {
+                highlightActive = false;
+                highlightBtn.classList.remove('active');
+                setStatus(false, 'Highlighting unavailable — is the page connected?');
+            }
+        }
+    );
+});
+
 async function selectPickedComponent(componentId: number): Promise<void> {
     let component = components.find(c => c.componentId === componentId);
     if (!component) {

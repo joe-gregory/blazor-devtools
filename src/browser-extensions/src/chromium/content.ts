@@ -121,11 +121,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         return false;
     }
 
-    if (message.type === 'PICKER_CONTROL') {
-        // Forward picker start/stop into the page's MAIN world (bridge.js)
+    if (message.type === 'PICKER_CONTROL' || message.type === 'HIGHLIGHT_CONTROL') {
+        // Forward mode start/stop into the page's MAIN world (bridge.js)
         window.postMessage({
             source: 'blazor-devtools-content',
-            type: 'PICKER_CONTROL',
+            type: message.type,
             action: message.action,
         }, '*');
         sendResponse({ ok: true });
