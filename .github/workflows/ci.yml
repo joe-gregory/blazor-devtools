@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.x'
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: src/browser-extensions/package-lock.json
+
+      - name: Install extension dependencies
+        working-directory: src/browser-extensions
+        run: npm ci
+
+      - name: Extension tests
+        working-directory: src/browser-extensions
+        run: npm test
+
+      # Builds the library (net8/9/10), demo app, docs site, and the browser
+      # extensions (browser-extensions.csproj runs webpack via npm during the
+      # dotnet build).
+      - name: Build solution
+        run: dotnet build BlazorDeveloperTools.slnx -c Release
