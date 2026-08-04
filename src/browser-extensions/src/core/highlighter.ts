@@ -27,7 +27,7 @@ export interface ComponentRenderSnapshot {
 export type FetchSnapshots = () => Promise<ComponentRenderSnapshot[]>;
 
 const POLL_INTERVAL_MS = 400;
-const FLASH_DURATION_MS = 700;
+const FLASH_DURATION_MS = 450;
 
 let active = false;
 let timer: number | null = null;
@@ -114,6 +114,9 @@ function flashComponent(componentId: number): void {
     const flash = document.createElement('div');
     flash.setAttribute('data-bdt-flash', '');
     flash.setAttribute('data-bdt-flash-component', String(componentId));
+    // Outline-only, React-DevTools style: nested parent+child flashes read as
+    // concentric frames instead of stacked translucent fills, so a re-rendering
+    // page-level parent doesn't visually drown its children.
     Object.assign(flash.style, {
         position: 'fixed',
         left: `${rect.left}px`,
@@ -122,7 +125,6 @@ function flashComponent(componentId: number): void {
         height: `${rect.height}px`,
         outline: '2px solid #22c55e',
         outlineOffset: '-1px',
-        background: 'rgba(34, 197, 94, 0.10)',
         borderRadius: '2px',
         pointerEvents: 'none',
         opacity: '1',
