@@ -24,6 +24,7 @@ import type {
     ComponentRanking,
 } from './types';
 import { buildTimeScale, buildSequenceScale, type TimeScale, type TimeInterval } from './time-scale';
+import { deriveCommits, type Commit } from './commits';
 
 /** Extension-specific transport injected by the host panel (chrome.* or browser.*). */
 export type CallApi = <T>(method: string, ...args: unknown[]) => Promise<T>;
@@ -120,7 +121,7 @@ let isRecording = false;
 let events: TimelineEvent[] = [];
 let rankedComponents: ComponentRanking[] = [];
 let selectedEvent: TimelineEvent | null = null;
-let currentView: 'events' | 'ranked' | 'flamegraph' = 'events';
+let currentView: 'events' | 'ranked' | 'flamegraph' | 'commits' = 'events';
 let refreshInterval: number | null = null;
 let lastEventId = -1;
 
@@ -131,6 +132,11 @@ let axisMode: AxisMode = 'sequence';
 let timeScale: TimeScale | null = null;
 let timeScaleEventCount = -1;
 let timeScaleAxisMode: AxisMode | null = null;
+
+// Commits view state (commits derived client-side, see commits.ts)
+let commitsCache: Commit[] | null = null;
+let commitsCacheEventCount = -1;
+let selectedCommitIndex: number | null = null;
 
 // Skeleton tracking: rebuild swimlane rows only when the component set changes.
 let renderedSwimlaneKey = '';
@@ -225,6 +231,9 @@ function invalidateRenderCaches(): void {
     renderedSwimlaneKey = '';
     renderedListKey = '';
     timeScaleEventCount = -1;
+    commitsCache = null;
+    commitsCacheEventCount = -1;
+    selectedCommitIndex = null;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -284,6 +293,9 @@ function updateUI(): void {
             break;
         case 'flamegraph':
             renderFlamegraph();
+            break;
+        case 'commits':
+            renderCommitsView();
             break;
     }
 
@@ -692,6 +704,99 @@ function generateTimeAxis(scale: TimeScale, visibleStart: number, visibleRange: 
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// COMMITS VIEW (React-DevTools-style: one bar per burst of rendering)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function getCommits(): Commit[] {
+    if (!commitsCache || commitsCacheEventCount !== events.length) {
+        commitsCache = deriveCommits(events);
+        commitsCacheEventCount = events.length;
+    }
+    return commitsCache;
+}
+
+/** Heat color for a commit relative to the slowest commit in the recording. */
+function commitColor(commit: Commit, maxMs: number): string {
+    const ratio = maxMs > 0 ? commit.totalRenderMs / maxMs : 0;
+    if (ratio > 0.66) return '#ef4444';
+    if (ratio > 0.33) return '#f59e0b';
+    return '#22c55e';
+}
+
+function renderCommitsView(): void {
+    const container = document.getElementById('timeline-content')!;
+    const commits = getCommits();
+
+    if (commits.length === 0) {
+        container.innerHTML = `
+            <div class="timeline-empty">
+                <div class="empty-icon">📊</div>
+                <div class="empty-title">No commits recorded</div>
+                <div class="empty-hint">Record some interactions — each burst of rendering becomes a commit</div>
+            </div>
+        `;
+        return;
+    }
+
+    if (selectedCommitIndex === null || selectedCommitIndex >= commits.length) {
+        selectedCommitIndex = commits.length - 1; // most recent by default
+    }
+
+    const maxMs = Math.max(...commits.map(c => c.totalRenderMs));
+
+    container.innerHTML = `
+        <div class="commits-container">
+            <div class="commit-chart" title="One bar per commit — click to inspect, ←/→ to navigate">
+                ${commits.map(c => {
+                    const heightPct = Math.max(maxMs > 0 ? (c.totalRenderMs / maxMs) * 100 : 0, 6);
+                    const isSelected = c.index === selectedCommitIndex;
+                    return `<div class="commit-bar ${isSelected ? 'selected' : ''}"
+                                 data-commit="${c.index}"
+                                 style="height: ${heightPct}%; background: ${commitColor(c, maxMs)}"
+                                 title="Commit ${c.index + 1}: ${c.renderCount} render${c.renderCount === 1 ? '' : 's'}, ${formatDuration(c.totalRenderMs)} at ${formatTime(c.startMs)}"></div>`;
+                }).join('')}
+            </div>
+            <div class="commit-hint">${commits.length} commit${commits.length === 1 ? '' : 's'} • click a bar or use ← → to navigate</div>
+            <div class="commit-detail" id="commit-detail">
+                ${renderCommitDetail(commits[selectedCommitIndex])}
+            </div>
+        </div>
+    `;
+}
+
+function renderCommitDetail(commit: Commit): string {
+    const maxComponentMs = Math.max(...commit.components.map(c => c.durationMs), 0.001);
+    return `
+        <div class="commit-detail-header">
+            <span class="commit-detail-title">Commit ${commit.index + 1}</span>
+            <span class="commit-detail-meta">
+                started ${formatTime(commit.startMs)} into recording •
+                ${commit.renderCount} render${commit.renderCount === 1 ? '' : 's'} •
+                ${formatDuration(commit.totalRenderMs)} total
+            </span>
+        </div>
+        ${commit.components.map(c => `
+            <div class="commit-component-row" data-event-id="${c.firstEventId}"
+                 title="Click to inspect this component's render event">
+                <span class="commit-component-name">${escapeHtml(c.componentName)}</span>
+                <div class="commit-component-bar-container">
+                    <div class="commit-component-bar" style="width: ${(c.durationMs / maxComponentMs) * 100}%"></div>
+                </div>
+                <span class="commit-component-duration">${formatDuration(c.durationMs)}</span>
+                ${c.renderCount > 1 ? `<span class="commit-component-count">×${c.renderCount}</span>` : '<span class="commit-component-count"></span>'}
+            </div>
+        `).join('')}
+    `;
+}
+
+function selectCommit(index: number): void {
+    const commits = getCommits();
+    if (commits.length === 0) return;
+    selectedCommitIndex = Math.min(Math.max(index, 0), commits.length - 1);
+    renderCommitsView();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // ZOOM & PAN (virtual-time space)
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -937,10 +1042,17 @@ function initializeEventHandlers(): void {
 
         if (dragMoved) return; // A pan gesture just ended — not a click.
 
-        const eventEl = target.closest<HTMLElement>('.event-row, .swimlane-event');
+        const eventEl = target.closest<HTMLElement>('.event-row, .swimlane-event, .commit-component-row');
         if (eventEl) {
             e.stopPropagation();
             selectEventById(parseInt(eventEl.getAttribute('data-event-id')!, 10));
+            return;
+        }
+
+        const commitBar = target.closest<HTMLElement>('.commit-bar');
+        if (commitBar) {
+            e.stopPropagation();
+            selectCommit(parseInt(commitBar.getAttribute('data-commit')!, 10));
             return;
         }
 
@@ -1002,6 +1114,18 @@ function initializeEventHandlers(): void {
         // so a pan gesture doesn't select whatever ends up under the cursor.
         setTimeout(() => { dragMoved = false; }, 0);
     });
+
+    // ←/→ navigate commits while the commits view is visible (ignored while
+    // typing in an input/select so it can't fight the axis-mode dropdown etc).
+    document.addEventListener('keydown', (e) => {
+        if (currentView !== 'commits') return;
+        const tag = (e.target as HTMLElement).tagName;
+        if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+        if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+        e.preventDefault();
+        const current = selectedCommitIndex ?? getCommits().length - 1;
+        selectCommit(current + (e.key === 'ArrowRight' ? 1 : -1));
+    });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1039,6 +1163,7 @@ export function __resetForTests(): void {
     panOffset = 0;
     axisMode = 'sequence';
     timeScale = null;
+    selectedCommitIndex = null;
     invalidateRenderCaches();
     pointerDownX = null;
     dragMoved = false;

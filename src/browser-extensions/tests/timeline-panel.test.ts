@@ -201,6 +201,48 @@ describe('timeline panel', () => {
         expect(calls.filter(c => c === 'StartTimelineRecording')).toHaveLength(1);
     });
 
+    describe('commits view', () => {
+        // BURSTY_EVENTS has render work around 1-8ms and around 5000ms:
+        // two commits.
+
+        beforeEach(async () => {
+            initializeTimelinePanel(makeFakeApi(BURSTY_EVENTS).api);
+            await recordAndStop();
+            switchToView('commits');
+        });
+
+        it('renders one bar per commit and selects the latest by default', () => {
+            const bars = document.querySelectorAll('.commit-bar');
+            expect(bars).toHaveLength(2);
+            expect(bars[1].classList.contains('selected')).toBe(true);
+            // Detail shows the second burst's components.
+            const detail = document.getElementById('commit-detail')!;
+            expect(detail.textContent).toContain('Commit 2');
+            expect(detail.textContent).toContain('Counter');
+        });
+
+        it('clicking a bar shows that commit\'s component breakdown', () => {
+            click(document.querySelector('.commit-bar[data-commit="0"]')!);
+            const detail = document.getElementById('commit-detail')!;
+            expect(detail.textContent).toContain('Commit 1');
+            expect(detail.textContent).toContain('NavMenu');
+        });
+
+        it('navigates commits with arrow keys', () => {
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+            expect(document.querySelector('.commit-bar[data-commit="0"]')!.classList.contains('selected')).toBe(true);
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+            expect(document.querySelector('.commit-bar[data-commit="1"]')!.classList.contains('selected')).toBe(true);
+        });
+
+        it('clicking a component row opens that render event\'s details', () => {
+            click(document.querySelector('.commit-component-row')!);
+            const details = document.getElementById('timeline-details')!;
+            expect(details.textContent).not.toContain('Select an event to view details');
+            expect(details.textContent).toContain('Build Render Tree');
+        });
+    });
+
     describe('flamegraph axis modes', () => {
         function selectAxisMode(mode: string): void {
             const select = document.getElementById('axis-mode-select') as HTMLSelectElement;
