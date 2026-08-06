@@ -54,12 +54,54 @@ export interface Commit {
 }
 
 /**
- * Cluster a recording's events into commits. Clusters containing no render
- * work (only lifecycle noise) are dropped — commits are about output.
+ * Derive a recording's commits.
+ *
+ * Preferred source: real renderer batch ids — packages with the
+ * "render-batches" capability stamp `batchId` on events, giving exact
+ * boundaries. Falls back to time-clustering when batch ids are absent or
+ * sparse (older packages), so the view works against any published NuGet.
+ * Clusters containing no render work (only lifecycle noise) are dropped —
+ * commits are about output.
  */
 export function deriveCommits(events: TimelineEvent[], gapMs: number = COMMIT_GAP_MS): Commit[] {
     if (events.length === 0) return [];
 
+    const renderEvents = events.filter(e => RENDER_EVENT_TYPES.has(e.eventType));
+    const withBatchId = renderEvents.filter(e => e.batchId !== null && e.batchId !== undefined);
+    if (renderEvents.length > 0 && withBatchId.length >= renderEvents.length * 0.9) {
+        return commitsFromBatchIds(events);
+    }
+
+    return commitsFromClustering(events, gapMs);
+}
+
+/** Group events by the renderer's real batch ids. */
+function commitsFromBatchIds(events: TimelineEvent[]): Commit[] {
+    const byBatch = new Map<number, TimelineEvent[]>();
+    for (const e of events) {
+        if (e.batchId === null || e.batchId === undefined) continue;
+        let list = byBatch.get(e.batchId);
+        if (!list) {
+            list = [];
+            byBatch.set(e.batchId, list);
+        }
+        list.push(e);
+    }
+
+    const groups = Array.from(byBatch.values())
+        .map(group => [...group].sort((a, b) => a.relativeTimestampMs - b.relativeTimestampMs))
+        .sort((a, b) => a[0].relativeTimestampMs - b[0].relativeTimestampMs);
+
+    const commits: Commit[] = [];
+    for (const group of groups) {
+        const commit = buildCommit(group, commits.length);
+        if (commit) commits.push(commit);
+    }
+    return commits;
+}
+
+/** Fallback: cluster by time gaps (gap measured from the cluster's end). */
+function commitsFromClustering(events: TimelineEvent[], gapMs: number): Commit[] {
     const sorted = [...events].sort((a, b) => a.relativeTimestampMs - b.relativeTimestampMs);
 
     interface Cluster { events: TimelineEvent[]; endMs: number; }
@@ -79,39 +121,45 @@ export function deriveCommits(events: TimelineEvent[], gapMs: number = COMMIT_GA
 
     const commits: Commit[] = [];
     for (const cluster of clusters) {
-        const renderEvents = cluster.events.filter(e => RENDER_EVENT_TYPES.has(e.eventType));
-        if (renderEvents.length === 0) continue; // lifecycle-only noise
-
-        const byComponent = new Map<number, CommitComponent>();
-        for (const e of renderEvents) {
-            let entry = byComponent.get(e.componentId);
-            if (!entry) {
-                entry = {
-                    componentId: e.componentId,
-                    componentName: e.componentName,
-                    durationMs: 0,
-                    renderCount: 0,
-                    firstEventId: e.eventId,
-                };
-                byComponent.set(e.componentId, entry);
-            }
-            entry.renderCount++;
-            entry.durationMs += e.durationMs || 0;
-        }
-
-        const components = Array.from(byComponent.values())
-            .sort((a, b) => b.durationMs - a.durationMs);
-
-        commits.push({
-            index: commits.length,
-            startMs: cluster.events[0].relativeTimestampMs,
-            endMs: cluster.endMs,
-            totalRenderMs: components.reduce((sum, c) => sum + c.durationMs, 0),
-            renderCount: renderEvents.length,
-            components,
-            events: cluster.events,
-        });
+        const commit = buildCommit(cluster.events, commits.length, cluster.endMs);
+        if (commit) commits.push(commit);
     }
 
     return commits;
+}
+
+/** Assemble a Commit from a group of events; null when it has no render work. */
+function buildCommit(groupEvents: TimelineEvent[], index: number, endMs?: number): Commit | null {
+    const renderEvents = groupEvents.filter(e => RENDER_EVENT_TYPES.has(e.eventType));
+    if (renderEvents.length === 0) return null; // lifecycle-only noise
+
+    const byComponent = new Map<number, CommitComponent>();
+    for (const e of renderEvents) {
+        let entry = byComponent.get(e.componentId);
+        if (!entry) {
+            entry = {
+                componentId: e.componentId,
+                componentName: e.componentName,
+                durationMs: 0,
+                renderCount: 0,
+                firstEventId: e.eventId,
+            };
+            byComponent.set(e.componentId, entry);
+        }
+        entry.renderCount++;
+        entry.durationMs += e.durationMs || 0;
+    }
+
+    const components = Array.from(byComponent.values())
+        .sort((a, b) => b.durationMs - a.durationMs);
+
+    return {
+        index,
+        startMs: groupEvents[0].relativeTimestampMs,
+        endMs: endMs ?? Math.max(...groupEvents.map(e => e.relativeTimestampMs + (e.durationMs || 0))),
+        totalRenderMs: components.reduce((sum, c) => sum + c.durationMs, 0),
+        renderCount: renderEvents.length,
+        components,
+        events: groupEvents,
+    };
 }

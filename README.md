@@ -62,6 +62,12 @@ builder.Services.AddBlazorDevTools();
 
 Open your Blazor app, press F12, and look for the **"Blazor"** tab in DevTools.
 
+## Extension ↔ NuGet compatibility
+
+The browser extension auto-updates through the stores; the NuGet package is pinned per-project — so version skew between them is normal and supported. Any extension ≥ 1.0.0-beta.4 works with any package ≥ 1.0.0-beta.6. The panel shows both versions in its top bar, and features that need a newer package say so instead of breaking. Keeping **both on the latest version** is always recommended.
+
+*Maintainer note: the package's `[JSInvokable]` API surface is additive-only within the 1.x line — methods are never removed or renamed, DTO fields never repurposed. New package-side behaviors are advertised via `GetPackageInfo().Capabilities` and feature-detected by the extension.*
+
 ## Usage
 
 ### Basic Tracking (Zero Config)
