@@ -57,11 +57,16 @@ const TREE: ComponentInfo[] = [
     makeComponent({ componentId: 6, typeName: 'ProductCardOptimized', parentComponentId: 4 }),
 ];
 
-function makeHost(components: ComponentInfo[]): ComponentsPanelHost {
+function makeHost(components: ComponentInfo[], packageInfo?: { version: string; capabilities?: string[] }): ComponentsPanelHost {
     return {
         inspectedTabId: 1,
+        extensionVersion: '1.0.0-beta.6',
         callApi: async <T>(method: string): Promise<T> => {
             if (method === 'GetAllComponentsDto') return components as unknown as T;
+            if (method === 'GetPackageInfo') {
+                if (!packageInfo) throw new Error("Method 'GetPackageInfo' not found"); // old package
+                return packageInfo as unknown as T;
+            }
             return undefined as unknown as T;
         },
         sendMessage: async () => undefined,
@@ -175,6 +180,27 @@ describe('components panel', () => {
             search('');
             expect(visibleNames()).toHaveLength(TREE.length);
             expect(document.getElementById('component-count')!.textContent).toBe('(7)');
+        });
+    });
+
+    describe('version handshake', () => {
+        it('shows both versions when the package supports GetPackageInfo', async () => {
+            __resetComponentsPanelForTests();
+            loadPanelDom();
+            initializeComponentsPanel(makeHost(TREE, { version: '1.0.0-beta.8', capabilities: ['render-batches'] }));
+            await flushAsync();
+            await flushAsync(); // handshake resolves after the first refresh
+
+            expect(document.getElementById('version-info')!.textContent)
+                .toBe('ext 1.0.0-beta.6 · pkg 1.0.0-beta.8');
+        });
+
+        it('degrades gracefully when the package predates the handshake', async () => {
+            // Default host throws "method not found" for GetPackageInfo (old package).
+            await flushAsync();
+            expect(document.getElementById('version-info')!.textContent)
+                .toBe('ext 1.0.0-beta.6 · pkg older (no handshake)');
+            expect(document.getElementById('version-info')!.title).toContain('dotnet add package');
         });
     });
 

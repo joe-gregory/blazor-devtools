@@ -82,6 +82,39 @@ describe('deriveCommits', () => {
         expect(fast).toMatchObject({ componentName: 'Fast', durationMs: 2, renderCount: 2, firstEventId: 0 });
     });
 
+    it('prefers real renderer batch ids when events carry them', () => {
+        // Two events 5ms apart but in DIFFERENT renderer batches: clustering
+        // would merge them; batch ids must keep them separate.
+        const commits = deriveCommits([
+            ev({ eventId: 0, relativeTimestampMs: 0, durationMs: 2, batchId: 10 }),
+            ev({ eventId: 1, relativeTimestampMs: 5, durationMs: 3, batchId: 11 }),
+        ]);
+        expect(commits).toHaveLength(2);
+        expect(commits[0].renderCount).toBe(1);
+        expect(commits[1].startMs).toBe(5);
+    });
+
+    it('groups by batch id across large time gaps', () => {
+        // Same batch id despite a big gap (async work inside one batch):
+        // batch truth wins over time proximity.
+        const commits = deriveCommits([
+            ev({ eventId: 0, relativeTimestampMs: 0, durationMs: 2, batchId: 10 }),
+            ev({ eventId: 1, relativeTimestampMs: 500, durationMs: 3, batchId: 10 }),
+        ]);
+        expect(commits).toHaveLength(1);
+        expect(commits[0].renderCount).toBe(2);
+    });
+
+    it('falls back to clustering when batch ids are sparse', () => {
+        // Only 1 of 3 render events has a batchId (< 90%): use clustering.
+        const commits = deriveCommits([
+            ev({ eventId: 0, relativeTimestampMs: 0, durationMs: 2, batchId: 10 }),
+            ev({ eventId: 1, relativeTimestampMs: 5, durationMs: 3 }),
+            ev({ eventId: 2, relativeTimestampMs: 5000, durationMs: 4 }),
+        ]);
+        expect(commits).toHaveLength(2); // time-based: burst + burst
+    });
+
     it('handles unsorted input and empty input', () => {
         expect(deriveCommits([])).toEqual([]);
         const commits = deriveCommits([

@@ -435,12 +435,14 @@ public class TimelineRecorder
         Dictionary<string, string>? metadata = null)
     {
         if (!_isRecording) return -1;
-        
+
         lock (_lock)
         {
+            AutoTrackBatch(eventType, componentId);
+
             var relativeMs = _stopwatch.Elapsed.TotalMilliseconds;
             var eventId = _nextEventId++;
-            
+
             // Determine trigger reason
             var (triggerReason, triggeringEventId) = DetermineTriggerReason(
                 componentId, eventType, isFirstRender);
@@ -489,12 +491,14 @@ public class TimelineRecorder
         bool isEnhanced = true)
     {
         if (!_isRecording) return -1;
-        
+
         lock (_lock)
         {
+            AutoTrackBatch(eventType, componentId);
+
             var relativeMs = _stopwatch.Elapsed.TotalMilliseconds;
             var eventId = _nextEventId++;
-            
+
             var (triggerReason, triggeringEventId) = DetermineTriggerReason(
                 componentId, eventType, isFirstRender);
             
@@ -546,7 +550,82 @@ public class TimelineRecorder
     // ─────────────────────────────────────────────────────────────────────────
     // Render Batch Recording
     // ─────────────────────────────────────────────────────────────────────────
-    
+
+    /// <summary>
+    /// Automatic render-batch boundary detection. Called (under _lock) for
+    /// every recorded event.
+    ///
+    /// Blazor's Renderer processes each render batch in a single synchronous
+    /// turn on the renderer's SynchronizationContext: every component that
+    /// renders in the batch does so before control returns to the dispatcher.
+    /// So: when render work is recorded and no batch is open, open one and
+    /// Post a close callback to the current SynchronizationContext — the
+    /// callback runs when the turn (and therefore the batch) completes. This
+    /// gives renderer-true batch boundaries without hooking Renderer internals.
+    ///
+    /// Fallback: when no SynchronizationContext is available (unit tests,
+    /// unusual hosts), the batch is closed lazily by the next render event
+    /// that arrives after a quiet gap.
+    /// </summary>
+    private void AutoTrackBatch(TimelineEventType eventType, int componentId)
+    {
+        bool isRenderWork = eventType == TimelineEventType.BuildRenderTree
+            || eventType == TimelineEventType.ComponentRendered;
+        if (!isRenderWork) return;
+
+        var nowMs = _stopwatch.Elapsed.TotalMilliseconds;
+
+        // Fallback close for contexts where the Post never ran.
+        if (_currentBatch != null && !_currentBatchHasScheduledClose
+            && nowMs - _currentBatch.StartRelativeMs > FallbackBatchGapMs)
+        {
+            CloseCurrentBatch();
+        }
+
+        if (_currentBatch == null)
+        {
+            RecordBatchStart();
+            var ctx = SynchronizationContext.Current;
+            _currentBatchHasScheduledClose = ctx != null;
+            if (ctx != null)
+            {
+                var batchId = _currentBatch!.BatchId;
+                // Runs after the current dispatcher turn — i.e. after every
+                // component in this batch has rendered.
+                ctx.Post(_ => CloseBatchIfCurrent(batchId), null);
+            }
+        }
+
+        if (_currentBatch != null && !_currentBatch.ComponentIds.Contains(componentId))
+        {
+            _currentBatch.ComponentIds.Add(componentId);
+            _currentBatch.ComponentCount = _currentBatch.ComponentIds.Count;
+        }
+    }
+
+    private const double FallbackBatchGapMs = 50;
+    private bool _currentBatchHasScheduledClose;
+
+    private void CloseBatchIfCurrent(long batchId)
+    {
+        lock (_lock)
+        {
+            if (_currentBatch?.BatchId == batchId)
+            {
+                CloseCurrentBatch();
+            }
+        }
+    }
+
+    private void CloseCurrentBatch()
+    {
+        if (_currentBatch == null) return;
+        var ids = new List<int>(_currentBatch.ComponentIds);
+        var batchId = _currentBatch.BatchId;
+        _currentBatchHasScheduledClose = false;
+        RecordBatchEnd(batchId, ids);
+    }
+
     /// <summary>
     /// Record start of a render batch.
     /// </summary>
