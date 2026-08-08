@@ -65,5 +65,8 @@ function onMessage(handler: (message: any) => void): void {
     });
 }
 
-initializeComponentsPanel({ inspectedTabId, callApi, sendMessage, onMessage });
+const manifest = chrome.runtime.getManifest();
+const extensionVersion = (manifest as { version_name?: string }).version_name ?? manifest.version;
+
+initializeComponentsPanel({ inspectedTabId, extensionVersion, callApi, sendMessage, onMessage });
 initializeTimelinePanel(callApi);

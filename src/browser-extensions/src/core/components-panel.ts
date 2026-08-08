@@ -15,6 +15,8 @@ import type { ComponentInfo, LifecycleMetrics } from './types';
 export interface ComponentsPanelHost {
     /** The tab this DevTools instance inspects. */
     inspectedTabId: number;
+    /** The extension's own version (from the manifest). */
+    extensionVersion: string;
     /** Invoke a [JSInvokable] registry method in the inspected page. */
     callApi<T>(method: string, ...args: unknown[]): Promise<T>;
     /**
@@ -86,6 +88,53 @@ let autoRefreshId: number | null = null;
 let initialized = false;
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// PACKAGE HANDSHAKE (feature detection)
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// The extension auto-updates; the NuGet package is pinned per-project — skew
+// is normal. GetPackageInfo() exists only on newer packages, so it is
+// feature-detected: failure means "older package", not an error. The result
+// drives the version display and lets features gate on capabilities instead
+// of breaking against old packages.
+
+export interface PackageInfo {
+    version: string;
+    capabilities?: string[];
+}
+
+/** null = not yet fetched · 'unavailable' = package predates the handshake */
+let packageInfo: PackageInfo | 'unavailable' | null = null;
+
+/** Whether the connected package advertises a named capability. */
+export function packageHasCapability(name: string): boolean {
+    return packageInfo !== null && packageInfo !== 'unavailable'
+        && (packageInfo.capabilities ?? []).includes(name);
+}
+
+async function fetchPackageInfoOnce(): Promise<void> {
+    if (packageInfo !== null) return;
+    try {
+        const info = await host.callApi<PackageInfo>('GetPackageInfo');
+        packageInfo = info?.version ? info : 'unavailable';
+    } catch {
+        packageInfo = 'unavailable'; // method not found ⇒ package < handshake version
+    }
+    renderVersionInfo();
+}
+
+function renderVersionInfo(): void {
+    const el = document.getElementById('version-info');
+    if (!el) return;
+    const pkg = packageInfo === null ? '…'
+        : packageInfo === 'unavailable' ? 'older (no handshake)'
+            : packageInfo.version;
+    el.textContent = `ext ${host.extensionVersion} · pkg ${pkg}`;
+    el.title = packageInfo === 'unavailable'
+        ? 'Extension and BlazorDeveloperTools NuGet versions. Your package predates the version handshake — updating it is recommended: dotnet add package BlazorDeveloperTools --prerelease'
+        : 'Extension and BlazorDeveloperTools NuGet versions. Keeping both up to date is recommended.';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // TAB SWITCHING
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -127,6 +176,7 @@ async function refreshComponents(): Promise<void> {
         renderTree();
         refreshSelectedDetails();
         setStatus(true, 'Connected');
+        void fetchPackageInfoOnce();
     } catch (err) {
         // This panel outlived an extension reload: nothing here can work
         // anymore. Stop polling and tell the developer to reopen DevTools.
@@ -668,6 +718,7 @@ export function initializeComponentsPanel(panelHost: ComponentsPanelHost): void 
     hideFramework = loadHideFrameworkPreference();
     filterBtn.classList.toggle('active', hideFramework);
 
+    renderVersionInfo();
     initializeTabs();
 
     refreshBtn.addEventListener('click', () => void refreshComponents());
@@ -730,4 +781,5 @@ export function __resetComponentsPanelForTests(): void {
     lastRenderedDetailsJson = '';
     pickerActive = false;
     highlightActive = false;
+    packageInfo = null;
 }

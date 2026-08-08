@@ -812,6 +812,132 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
+   COMMITS VIEW (one bar per burst of rendering)
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+.commits-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 12px;
+    box-sizing: border-box;
+}
+
+.commit-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 110px;
+    padding: 8px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    overflow-x: auto;
+    flex-shrink: 0;
+}
+
+.commit-bar {
+    width: 14px;
+    min-width: 8px;
+    flex-shrink: 0;
+    border-radius: 2px 2px 0 0;
+    cursor: pointer;
+    opacity: 0.75;
+    transition: opacity 0.1s ease;
+}
+
+.commit-bar:hover {
+    opacity: 1;
+}
+
+.commit-bar.selected {
+    opacity: 1;
+    box-shadow: 0 0 0 2px var(--accent-color);
+}
+
+.commit-hint {
+    font-size: 10px;
+    color: var(--text-muted);
+    padding: 6px 2px;
+    flex-shrink: 0;
+}
+
+.commit-detail {
+    flex: 1;
+    overflow: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 8px;
+}
+
+.commit-detail-header {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding-bottom: 8px;
+    margin-bottom: 6px;
+    border-bottom: 1px solid var(--border-color);
+    flex-wrap: wrap;
+}
+
+.commit-detail-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.commit-detail-meta {
+    font-size: 10px;
+    color: var(--text-muted);
+}
+
+.commit-component-row {
+    display: grid;
+    grid-template-columns: minmax(90px, 160px) 1fr 64px 32px;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 4px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 11px;
+}
+
+.commit-component-row:hover {
+    background: var(--bg-hover);
+}
+
+.commit-component-name {
+    color: var(--component-color);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.commit-component-bar-container {
+    height: 8px;
+    background: var(--bg-secondary);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.commit-component-bar {
+    height: 100%;
+    background: var(--accent-color);
+    border-radius: 2px;
+}
+
+.commit-component-duration {
+    text-align: right;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.commit-component-count {
+    color: var(--text-muted);
+    font-size: 10px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
    RESPONSIVE ADJUSTMENTS
    ═══════════════════════════════════════════════════════════════════════════════ */
 
