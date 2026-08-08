@@ -141,6 +141,34 @@ body {
     color: white;
 }
 
+/* Component tree search box */
+.toolbar #tree-search {
+    flex: 1;
+    min-width: 60px;
+    max-width: 220px;
+    height: 24px;
+    padding: 0 8px;
+    margin-left: 4px;
+    font-size: 11px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+}
+
+.toolbar #tree-search:focus {
+    outline: none;
+    border-color: var(--accent-color);
+}
+
+/* Highlighted match inside a component name while searching */
+.component-name mark.search-match {
+    background: var(--accent-color);
+    color: #fff;
+    border-radius: 2px;
+    padding: 0 1px;
+}
+
 .toolbar .spacer {
     flex: 1;
 }
