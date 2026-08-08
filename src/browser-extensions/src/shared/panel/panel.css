@@ -141,6 +141,15 @@ body {
     color: white;
 }
 
+/* Extension/package version pair in the tab bar */
+.version-info {
+    font-size: 10px;
+    color: var(--text-muted);
+    padding: 0 10px 0 6px;
+    white-space: nowrap;
+    cursor: default;
+}
+
 /* Component tree search box */
 .toolbar #tree-search {
     flex: 1;

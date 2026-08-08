@@ -40,6 +40,7 @@ using Microsoft.AspNetCore.Components.RenderTree;
 using Microsoft.AspNetCore.Components.Server.Circuits;
 using Microsoft.JSInterop;
 using System.Collections.Concurrent;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 
 namespace BlazorDeveloperTools;
@@ -919,6 +920,35 @@ public class BlazorDevToolsRegistry : IDisposable
     }
 
     /// <summary>
+    /// Version/capability handshake for the browser extension. The extension
+    /// auto-updates while the NuGet package is pinned per-project, so the
+    /// extension feature-detects this method (older packages don't have it)
+    /// and uses the result to display the version pair and gate features that
+    /// need newer package behavior.
+    /// COMPATIBILITY: the [JSInvokable] API surface is additive-only within
+    /// the 1.x line — never remove or rename methods, never repurpose DTO
+    /// fields. Add capabilities here when new package-side behavior ships.
+    /// </summary>
+    [JSInvokable]
+    public PackageInfoDto GetPackageInfo()
+    {
+        var informational = typeof(BlazorDevToolsRegistry).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+        var version = informational ?? "unknown";
+        var plus = version.IndexOf('+');
+        if (plus >= 0) version = version[..plus];
+
+        return new PackageInfoDto
+        {
+            Version = version,
+            Capabilities = new List<string>
+            {
+                "render-batches", // renderer-true batch boundaries on timeline events
+            }
+        };
+    }
+
+    /// <summary>
     /// Gets all tracked components for internal .NET use.
     /// Not exposed to JS - use GetAllComponentsDto() for that.
     /// </summary>
@@ -1216,4 +1246,18 @@ public class JsComponentInfo
     /// May be null for some component types.
     /// </summary>
     public string? TypeName { get; set; }
+}
+/// <summary>
+/// Version/capability handshake DTO for the browser extension.
+/// See BlazorDevToolsRegistry.GetPackageInfo().
+/// </summary>
+public class PackageInfoDto
+{
+    /// <summary>Package semantic version, e.g. "1.0.0-beta.8".</summary>
+    public string Version { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Named behaviors the extension can rely on. Additive-only.
+    /// </summary>
+    public List<string> Capabilities { get; set; } = new();
 }
