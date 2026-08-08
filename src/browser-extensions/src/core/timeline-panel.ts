@@ -731,8 +731,8 @@ function renderCommitsView(): void {
         container.innerHTML = `
             <div class="timeline-empty">
                 <div class="empty-icon">📊</div>
-                <div class="empty-title">No commits recorded</div>
-                <div class="empty-hint">Record some interactions — each burst of rendering becomes a commit</div>
+                <div class="empty-title">No render batches recorded</div>
+                <div class="empty-hint">Record some interactions — each burst of rendering becomes a render batch</div>
             </div>
         `;
         return;
@@ -746,17 +746,17 @@ function renderCommitsView(): void {
 
     container.innerHTML = `
         <div class="commits-container">
-            <div class="commit-chart" title="One bar per commit — click to inspect, ←/→ to navigate">
+            <div class="commit-chart" title="One bar per render batch — click to inspect, ←/→ to navigate">
                 ${commits.map(c => {
                     const heightPct = Math.max(maxMs > 0 ? (c.totalRenderMs / maxMs) * 100 : 0, 6);
                     const isSelected = c.index === selectedCommitIndex;
                     return `<div class="commit-bar ${isSelected ? 'selected' : ''}"
                                  data-commit="${c.index}"
                                  style="height: ${heightPct}%; background: ${commitColor(c, maxMs)}"
-                                 title="Commit ${c.index + 1}: ${c.renderCount} render${c.renderCount === 1 ? '' : 's'}, ${formatDuration(c.totalRenderMs)} at ${formatTime(c.startMs)}"></div>`;
+                                 title="Batch ${c.index + 1}: ${c.renderCount} render${c.renderCount === 1 ? '' : 's'}, ${formatDuration(c.totalRenderMs)} at ${formatTime(c.startMs)}"></div>`;
                 }).join('')}
             </div>
-            <div class="commit-hint">${commits.length} commit${commits.length === 1 ? '' : 's'} • click a bar or use ← → to navigate</div>
+            <div class="commit-hint">${commits.length} render batch${commits.length === 1 ? '' : 'es'} • click a bar or use ← → to navigate</div>
             <div class="commit-detail" id="commit-detail">
                 ${renderCommitDetail(commits[selectedCommitIndex])}
             </div>
@@ -768,7 +768,7 @@ function renderCommitDetail(commit: Commit): string {
     const maxComponentMs = Math.max(...commit.components.map(c => c.durationMs), 0.001);
     return `
         <div class="commit-detail-header">
-            <span class="commit-detail-title">Commit ${commit.index + 1}</span>
+            <span class="commit-detail-title">Batch ${commit.index + 1}</span>
             <span class="commit-detail-meta">
                 started ${formatTime(commit.startMs)} into recording •
                 ${commit.renderCount} render${commit.renderCount === 1 ? '' : 's'} •

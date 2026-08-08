@@ -217,14 +217,14 @@ describe('timeline panel', () => {
             expect(bars[1].classList.contains('selected')).toBe(true);
             // Detail shows the second burst's components.
             const detail = document.getElementById('commit-detail')!;
-            expect(detail.textContent).toContain('Commit 2');
+            expect(detail.textContent).toContain('Batch 2');
             expect(detail.textContent).toContain('Counter');
         });
 
         it('clicking a bar shows that commit\'s component breakdown', () => {
             click(document.querySelector('.commit-bar[data-commit="0"]')!);
             const detail = document.getElementById('commit-detail')!;
-            expect(detail.textContent).toContain('Commit 1');
+            expect(detail.textContent).toContain('Batch 1');
             expect(detail.textContent).toContain('NavMenu');
         });
 
