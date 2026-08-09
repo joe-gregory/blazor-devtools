@@ -41,8 +41,10 @@ This release is a complete architectural rewrite with powerful new features:
 ### 1. Install the NuGet Package
 
 ```bash
-dotnet add package BlazorDeveloperTools
+dotnet add package BlazorDeveloperTools --prerelease
 ```
+
+> ⚠️ The `--prerelease` flag matters: without it, NuGet installs the legacy stable `0.9.x` line, which uses an abandoned build-time code-injection approach known to break builds. The `1.0.0-beta` line is a complete rewrite and is the supported version.
 
 ### 2. Register the Services
 
