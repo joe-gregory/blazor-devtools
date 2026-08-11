@@ -663,7 +663,7 @@ async function selectPickedComponent(componentId: number): Promise<void> {
     }
     if (component) {
         selectComponent(component);
-        componentTree.querySelector('.component-node.selected')?.scrollIntoView({ block: 'nearest' });
+        componentTree.querySelector<HTMLElement>('.component-node.selected')?.scrollIntoView?.({ block: 'nearest' }); // optional-call: jsdom lacks scrollIntoView
     }
 }
 
@@ -786,7 +786,7 @@ export function initializeComponentsPanel(panelHost: ComponentsPanelHost): void 
             const component = components.find(x => x.componentId === id);
             if (component) {
                 selectComponent(component);
-                componentTree.querySelector('.component-node.selected')?.scrollIntoView({ block: 'nearest' });
+                componentTree.querySelector<HTMLElement>('.component-node.selected')?.scrollIntoView?.({ block: 'nearest' }); // optional-call: jsdom lacks scrollIntoView
             }
             return;
         }
