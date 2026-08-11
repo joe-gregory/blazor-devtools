@@ -154,6 +154,10 @@ let dragStartPan = 0;
 let dragMoved = false;
 let pendingViewUpdate = false;
 
+// Per-component render history: set by clicking a Ranked row; shown in the
+// details pane while no single event is selected.
+let historyComponentId: number | null = null;
+
 // Imported-session marker: when set, the shown data came from a file rather
 // than the live page (stats bar says so; recording replaces it).
 let importedSessionDate: string | null = null;
@@ -176,6 +180,7 @@ async function startRecording(): Promise<void> {
     connectionError = null;
     consecutivePollFailures = 0;
     importedSessionDate = null;
+    historyComponentId = null;
     isRecording = true;
     lastEventId = -1;
     events = [];
@@ -203,6 +208,7 @@ async function clearRecording(): Promise<void> {
     events = [];
     rankedComponents = [];
     selectedEvent = null;
+    historyComponentId = null;
     lastEventId = -1;
     invalidateRenderCaches();
     updateUI();
@@ -500,7 +506,7 @@ function renderRankedView(): void {
                 <span class="ranked-col-avg">Avg</span>
             </div>
             ${rankedComponents.map((r, i) => `
-                <div class="ranked-row">
+                <div class="ranked-row" data-component-id="${r.componentId}" title="Click to see every render of this component">
                     <span class="ranked-position">${i + 1}</span>
                     <span class="ranked-component">${escapeHtml(r.componentName)}</span>
                     <div class="ranked-bar-container">
@@ -954,10 +960,42 @@ function selectEventById(eventId: number): void {
     updateUI();
 }
 
+/** Every render of one component across the session, newest last. */
+function renderComponentHistory(componentId: number): string {
+    const renders = events.filter(e =>
+        e.componentId === componentId &&
+        (e.eventType === 'BuildRenderTree' || e.eventType === 'ComponentRendered'));
+    const name = renders[0]?.componentName ?? `#${componentId}`;
+    if (renders.length === 0) {
+        return `<div class="details-empty">No renders recorded for this component</div>`;
+    }
+    return `
+        <div class="event-details">
+            <div class="event-details-header" style="border-left-color: #16a34a">
+                <span class="event-details-type">${escapeHtml(name)} — ${renders.length} render${renders.length === 1 ? '' : 's'}</span>
+            </div>
+            <div class="detail-section">
+                <div class="detail-section-title">Render history</div>
+                ${renders.map(r => `
+                    <div class="render-history-row" data-event-id="${r.eventId}" title="Click for full event details">
+                        <span class="render-history-time">${formatTime(r.relativeTimestampMs)}</span>
+                        <span class="render-history-duration">${formatDuration(r.durationMs)}</span>
+                        <span class="render-history-reason">${formatTriggerReason(r.triggerReason)}</span>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+}
+
 function renderEventDetails(): void {
     const container = document.getElementById('timeline-details')!;
 
     if (!selectedEvent) {
+        if (historyComponentId !== null) {
+            container.innerHTML = renderComponentHistory(historyComponentId);
+            return;
+        }
         container.innerHTML = `
             <div class="details-empty">Select an event to view details</div>
         `;
@@ -972,6 +1010,7 @@ function renderEventDetails(): void {
             <div class="event-details-header" style="border-left-color: ${color}">
                 <span class="event-details-icon" style="color: ${color}">${EVENT_ICONS[e.eventType] || '•'}</span>
                 <span class="event-details-type">${formatEventType(e.eventType)}</span>
+                ${historyComponentId !== null ? '<button class="detail-action" data-history-back title="Back to the render history of this component">← history</button>' : ''}
             </div>
 
             <div class="detail-section">
@@ -1167,6 +1206,15 @@ function initializeEventHandlers(): void {
             return;
         }
 
+        const rankedRow = target.closest<HTMLElement>('.ranked-row[data-component-id]');
+        if (rankedRow) {
+            e.stopPropagation();
+            historyComponentId = parseInt(rankedRow.getAttribute('data-component-id')!, 10);
+            selectedEvent = null;
+            renderEventDetails();
+            return;
+        }
+
         if (target.closest('#zoom-in-btn')) {
             zoomAt(0.5, BUTTON_ZOOM_FACTOR);
         } else if (target.closest('#zoom-out-btn')) {
@@ -1188,6 +1236,21 @@ function initializeEventHandlers(): void {
             batchMinMs = Number(target.value) || 0;
             try { localStorage.setItem(BATCH_MIN_STORAGE_KEY, String(batchMinMs)); } catch { /* no persistence */ }
             renderCommitsView();
+        }
+    });
+
+    // Details-pane navigation: back from an event to the component's history.
+    document.getElementById('timeline-details')!.addEventListener('click', (e) => {
+        const target = e.target as HTMLElement;
+        if (target.closest('[data-history-back]')) {
+            selectedEvent = null;
+            renderEventDetails();
+            return;
+        }
+        const historyRow = target.closest<HTMLElement>('.render-history-row[data-event-id]');
+        if (historyRow) {
+            selectedEvent = events.find(ev => ev.eventId === parseInt(historyRow.getAttribute('data-event-id')!, 10)) || null;
+            renderEventDetails();
         }
     });
 
@@ -1287,4 +1350,5 @@ export function __resetForTests(): void {
     connectionError = null;
     consecutivePollFailures = 0;
     importedSessionDate = null;
+    historyComponentId = null;
 }

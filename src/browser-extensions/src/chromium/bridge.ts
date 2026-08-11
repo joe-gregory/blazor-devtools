@@ -44,6 +44,22 @@ import { startHighlighter, stopHighlighter } from '../core/highlighter';
             return;
         }
 
+        // Log a component's data to the page console + expose as window.$bdt
+        // (React DevTools' $r, adapted).
+        if (event.data.type === 'CONSOLE_LOG') {
+            void (async () => {
+                try {
+                    const dotNetRef = (window as any).blazorDevTools?._dotNetRef;
+                    if (!dotNetRef) return;
+                    const info = await dotNetRef.invokeMethodAsync('GetComponentInfo', event.data.componentId);
+                    if (!info) return;
+                    (window as any).$bdt = info;
+                    console.log(`[BDT] <${info.typeName}> #${info.componentId} — also available as window.$bdt`, info);
+                } catch { /* page console stays quiet on failure */ }
+            })();
+            return;
+        }
+
         // Highlight-updates mode: flash components on the page as they re-render.
         if (event.data.type === 'HIGHLIGHT_CONTROL') {
             if (event.data.action === 'start') {

@@ -238,4 +238,47 @@ describe('components panel', () => {
             expect(visibleNames()).toEqual(['MainLayout']);
         });
     });
+
+    describe('details pane actions', () => {
+        it('shows the rendered-by chain and navigates on click', () => {
+            expandAll();
+            document.querySelector('.component-node[data-id="5"]')!
+                .dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+            const chain = document.querySelector('.owner-chain')!;
+            const links = [...chain.querySelectorAll('.owner-chain-link')].map(el => el.textContent);
+            expect(links).toEqual(['Router', 'CascadingValue`1', 'MainLayout', 'OrderBuilder']);
+            expect(chain.querySelector('.owner-chain-current')!.textContent).toBe('ProductCardBasic');
+
+            chain.querySelector('[data-goto-id="4"]')!
+                .dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            expect(document.querySelector('.component-node[data-id="4"]')!.classList.contains('selected')).toBe(true);
+            expect(document.getElementById('component-details')!.textContent).toContain('OrderBuilder');
+        });
+
+        it('console.log button sends CONSOLE_LOG for the selected component', async () => {
+            const sent: any[] = [];
+            __resetComponentsPanelForTests();
+            loadPanelDom();
+            initializeComponentsPanel({
+                inspectedTabId: 7,
+                extensionVersion: '1.0.0-beta.6',
+                callApi: async <T,>(method: string): Promise<T> => {
+                    if (method === 'GetAllComponentsDto') return TREE as unknown as T;
+                    throw new Error('not found');
+                },
+                sendMessage: async (m) => { sent.push(m); return undefined; },
+                onMessage: () => { },
+            });
+            await flushAsync();
+
+            document.querySelector('.component-node[data-id="0"]')!
+                .dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            document.querySelector('[data-log-id="0"]')!
+                .dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+            const logMsg = sent.find(m => m.type === 'CONSOLE_LOG');
+            expect(logMsg).toMatchObject({ type: 'CONSOLE_LOG', tabId: 7, componentId: 0 });
+        });
+    });
 });

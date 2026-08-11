@@ -87,12 +87,13 @@ window.addEventListener('message', (event) => {
 // ???????????????????????????????????????????????????????????????????????????????
 
 browser.runtime.onMessage.addListener((message) => {
-    if (message.type === 'PICKER_CONTROL' || message.type === 'HIGHLIGHT_CONTROL') {
-        // Forward mode start/stop into the page's MAIN world (bridge.js)
+    if (message.type === 'PICKER_CONTROL' || message.type === 'HIGHLIGHT_CONTROL' || message.type === 'CONSOLE_LOG') {
+        // Forward panel commands into the page's MAIN world (bridge.js)
         window.postMessage({
             source: 'blazor-devtools-content',
             type: message.type,
             action: message.action,
+            componentId: message.componentId,
         }, '*');
         return Promise.resolve({ ok: true });
     }

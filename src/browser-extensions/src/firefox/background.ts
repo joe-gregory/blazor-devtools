@@ -38,7 +38,7 @@ browser.runtime.onMessage.addListener((message, sender) => {
     }
     
     // Forward picker/highlighter start/stop from panel to the tab's content script
-    if ((message.type === 'PICKER_CONTROL' || message.type === 'HIGHLIGHT_CONTROL') && targetTabId) {
+    if ((message.type === 'PICKER_CONTROL' || message.type === 'HIGHLIGHT_CONTROL' || message.type === 'CONSOLE_LOG') && targetTabId) {
         return browser.tabs.sendMessage(targetTabId, message)
             .catch((error) => ({ error: error.message }));
     }

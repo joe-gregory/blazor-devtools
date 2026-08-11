@@ -39,7 +39,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
     
     // Forward picker/highlighter start/stop from panel to the tab's content script
-    if ((message.type === 'PICKER_CONTROL' || message.type === 'HIGHLIGHT_CONTROL') && targetTabId) {
+    if ((message.type === 'PICKER_CONTROL' || message.type === 'HIGHLIGHT_CONTROL' || message.type === 'CONSOLE_LOG') && targetTabId) {
         chrome.tabs.sendMessage(targetTabId, message, (response) => {
             if (chrome.runtime.lastError) {
                 sendResponse({ error: chrome.runtime.lastError.message });

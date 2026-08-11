@@ -170,6 +170,50 @@ body {
     border-color: var(--accent-color);
 }
 
+/* Owner chain ("Rendered by") breadcrumb in the details pane */
+.owner-chain {
+    font-size: 11px;
+    line-height: 1.8;
+    word-break: break-word;
+}
+
+.owner-chain-link {
+    color: var(--accent-color);
+    cursor: pointer;
+}
+
+.owner-chain-link:hover {
+    text-decoration: underline;
+}
+
+.owner-chain-sep {
+    color: var(--text-muted);
+}
+
+.owner-chain-current {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+/* Small action button inside a detail section title (e.g. console.log) */
+.detail-action {
+    float: right;
+    font-size: 9px;
+    font-family: Consolas, monospace;
+    padding: 1px 6px;
+    background: var(--bg-hover);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.detail-action:hover {
+    background: var(--accent-color);
+    border-color: var(--accent-color);
+    color: #fff;
+}
+
 /* Highlighted match inside a component name while searching */
 .component-name mark.search-match {
     background: var(--accent-color);

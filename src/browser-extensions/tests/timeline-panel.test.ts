@@ -243,6 +243,37 @@ describe('timeline panel', () => {
         });
     });
 
+    describe('per-component render history', () => {
+        beforeEach(async () => {
+            initializeTimelinePanel(makeFakeApi(BURSTY_EVENTS).api);
+            await recordAndStop();
+            switchToView('ranked');
+        });
+
+        it('clicking a ranked row lists every render of that component', () => {
+            click(document.querySelector('.ranked-row[data-component-id="1"]')!);
+
+            const details = document.getElementById('timeline-details')!;
+            expect(details.textContent).toContain('Counter');
+            expect(details.textContent).toContain('Render history');
+            // Counter has two BuildRenderTree renders in the fixture (ids 1, 3).
+            expect(details.querySelectorAll('.render-history-row')).toHaveLength(2);
+        });
+
+        it('history rows open event details with a back link that returns', () => {
+            click(document.querySelector('.ranked-row[data-component-id="1"]')!);
+            const details = document.getElementById('timeline-details')!;
+
+            click(details.querySelector('.render-history-row[data-event-id="3"]')!);
+            expect(details.textContent).toContain('Build Render Tree');
+            expect(details.textContent).toContain('count parameter changed');
+
+            click(details.querySelector('[data-history-back]')!);
+            expect(details.textContent).toContain('Render history');
+            expect(details.querySelectorAll('.render-history-row')).toHaveLength(2);
+        });
+    });
+
     describe('flamegraph axis modes', () => {
         function selectAxisMode(mode: string): void {
             const select = document.getElementById('axis-mode-select') as HTMLSelectElement;
