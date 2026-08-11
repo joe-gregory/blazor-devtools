@@ -24,7 +24,8 @@ import type {
     ComponentRanking,
 } from './types';
 import { buildTimeScale, buildSequenceScale, type TimeScale, type TimeInterval } from './time-scale';
-import { deriveCommits, type Commit } from './commits';
+import { deriveCommits, withTotals, type Commit } from './commits';
+import { serializeSession, parseSession } from './session-io';
 
 /** Extension-specific transport injected by the host panel (chrome.* or browser.*). */
 export type CallApi = <T>(method: string, ...args: unknown[]) => Promise<T>;
@@ -137,6 +138,9 @@ let timeScaleAxisMode: AxisMode | null = null;
 let commitsCache: Commit[] | null = null;
 let commitsCacheEventCount = -1;
 let selectedCommitIndex: number | null = null;
+// Hide batches whose total render time is below this (noise filter).
+let batchMinMs = 0;
+const BATCH_MIN_STORAGE_KEY = 'bdt-timeline-batch-min';
 
 // Skeleton tracking: rebuild swimlane rows only when the component set changes.
 let renderedSwimlaneKey = '';
@@ -149,6 +153,14 @@ let pointerDownX: number | null = null;
 let dragStartPan = 0;
 let dragMoved = false;
 let pendingViewUpdate = false;
+
+// Per-component render history: set by clicking a Ranked row; shown in the
+// details pane while no single event is selected.
+let historyComponentId: number | null = null;
+
+// Imported-session marker: when set, the shown data came from a file rather
+// than the live page (stats bar says so; recording replaces it).
+let importedSessionDate: string | null = null;
 
 // Connection health: the inspected page can stop answering at any moment
 // (reload, navigation, circuit dropped). We surface that instead of letting
@@ -167,6 +179,8 @@ async function startRecording(): Promise<void> {
     await callApi('StartTimelineRecording');
     connectionError = null;
     consecutivePollFailures = 0;
+    importedSessionDate = null;
+    historyComponentId = null;
     isRecording = true;
     lastEventId = -1;
     events = [];
@@ -194,6 +208,7 @@ async function clearRecording(): Promise<void> {
     events = [];
     rankedComponents = [];
     selectedEvent = null;
+    historyComponentId = null;
     lastEventId = -1;
     invalidateRenderCaches();
     updateUI();
@@ -212,10 +227,19 @@ function reportConnectionError(action: string, err: unknown): void {
     updateStats();
 }
 
+// componentId → parentComponentId, for self-vs-total attribution in batches.
+let componentParents = new Map<number, number | null>();
+
 async function fetchAllEvents(): Promise<void> {
     events = await callApi<TimelineEvent[]>('GetTimelineEvents');
     rankedComponents = await callApi<ComponentRanking[]>('GetRankedComponents');
     lastEventId = events.length > 0 ? events[events.length - 1].eventId : -1;
+    try {
+        const components = await callApi<Array<{ componentId: number; parentComponentId: number | null }>>('GetAllComponentsDto');
+        componentParents = new Map((components ?? []).map(c => [c.componentId, c.parentComponentId ?? null]));
+    } catch {
+        componentParents = new Map(); // totals degrade to self time
+    }
 }
 
 async function fetchNewEvents(): Promise<boolean> {
@@ -306,12 +330,51 @@ function updateControls(): void {
     const recordBtn = document.getElementById('timeline-record-btn') as HTMLButtonElement;
     const stopBtn = document.getElementById('timeline-stop-btn') as HTMLButtonElement;
     const clearBtn = document.getElementById('timeline-clear-btn') as HTMLButtonElement;
+    const exportBtn = document.getElementById('timeline-export-btn') as HTMLButtonElement | null;
+    const importBtn = document.getElementById('timeline-import-btn') as HTMLButtonElement | null;
 
     recordBtn.classList.toggle('active', isRecording);
     recordBtn.classList.toggle('recording', isRecording);
     recordBtn.disabled = isRecording;
     stopBtn.disabled = !isRecording;
     clearBtn.disabled = isRecording || events.length === 0;
+    if (exportBtn) exportBtn.disabled = isRecording || events.length === 0;
+    if (importBtn) importBtn.disabled = isRecording;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SESSION EXPORT / IMPORT
+// ─────────────────────────────────────────────────────────────────────────────
+
+function exportSession(): void {
+    if (events.length === 0) return;
+    const json = serializeSession(events, rankedComponents);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `bdt-session-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+/** Load a session file's text into the panel. Exported for testing. */
+export function loadSessionText(json: string): void {
+    if (isRecording) return;
+    try {
+        const session = parseSession(json);
+        events = session.events;
+        rankedComponents = session.rankedComponents;
+        selectedEvent = null;
+        lastEventId = -1;
+        connectionError = null;
+        importedSessionDate = session.exportedAt;
+        invalidateRenderCaches();
+        updateUI();
+    } catch (err) {
+        connectionError = err instanceof Error ? err.message : 'Could not read session file';
+        updateStats();
+    }
 }
 
 function updateStats(): void {
@@ -349,6 +412,7 @@ function updateStats(): void {
             <span class="stat-label">duration</span>
         </span>
         ${isRecording ? '<span class="recording-indicator">● Recording</span>' : ''}
+        ${importedSessionDate ? `<span class="imported-indicator" title="Loaded from a session file exported ${escapeHtml(importedSessionDate)}">📂 imported session</span>` : ''}
     `;
 }
 
@@ -442,7 +506,7 @@ function renderRankedView(): void {
                 <span class="ranked-col-avg">Avg</span>
             </div>
             ${rankedComponents.map((r, i) => `
-                <div class="ranked-row">
+                <div class="ranked-row" data-component-id="${r.componentId}" title="Click to see every render of this component">
                     <span class="ranked-position">${i + 1}</span>
                     <span class="ranked-component">${escapeHtml(r.componentName)}</span>
                     <div class="ranked-bar-container">
@@ -723,11 +787,17 @@ function commitColor(commit: Commit, maxMs: number): string {
     return '#22c55e';
 }
 
+/** Batches surviving the minimum-duration noise filter. */
+function getVisibleCommits(): Commit[] {
+    return getCommits().filter(c => c.totalRenderMs >= batchMinMs);
+}
+
 function renderCommitsView(): void {
     const container = document.getElementById('timeline-content')!;
-    const commits = getCommits();
+    const all = getCommits();
+    const commits = getVisibleCommits();
 
-    if (commits.length === 0) {
+    if (all.length === 0) {
         container.innerHTML = `
             <div class="timeline-empty">
                 <div class="empty-icon">📊</div>
@@ -738,14 +808,29 @@ function renderCommitsView(): void {
         return;
     }
 
-    if (selectedCommitIndex === null || selectedCommitIndex >= commits.length) {
-        selectedCommitIndex = commits.length - 1; // most recent by default
+    // Keep the selection on a visible batch.
+    if (selectedCommitIndex === null || !commits.some(c => c.index === selectedCommitIndex)) {
+        selectedCommitIndex = commits.length > 0 ? commits[commits.length - 1].index : null;
     }
+    const selected = all.find(c => c.index === selectedCommitIndex) ?? null;
 
-    const maxMs = Math.max(...commits.map(c => c.totalRenderMs));
+    const maxMs = Math.max(...commits.map(c => c.totalRenderMs), 0);
+    const hiddenCount = all.length - commits.length;
 
     container.innerHTML = `
         <div class="commits-container">
+            <div class="commit-toolbar">
+                <label class="commit-min-label" title="Hide render batches whose total render time is below this — trims noise so expensive batches stand out">
+                    Hide below
+                    <select id="batch-min-select">
+                        <option value="0" ${batchMinMs === 0 ? 'selected' : ''}>—</option>
+                        <option value="1" ${batchMinMs === 1 ? 'selected' : ''}>1 ms</option>
+                        <option value="5" ${batchMinMs === 5 ? 'selected' : ''}>5 ms</option>
+                        <option value="16" ${batchMinMs === 16 ? 'selected' : ''}>16 ms</option>
+                    </select>
+                </label>
+                <span class="commit-hint">${commits.length} of ${all.length} render batch${all.length === 1 ? '' : 'es'}${hiddenCount > 0 ? ` (${hiddenCount} hidden)` : ''} • click a bar or use ← → to navigate</span>
+            </div>
             <div class="commit-chart" title="One bar per render batch — click to inspect, ←/→ to navigate">
                 ${commits.map(c => {
                     const heightPct = Math.max(maxMs > 0 ? (c.totalRenderMs / maxMs) * 100 : 0, 6);
@@ -756,16 +841,16 @@ function renderCommitsView(): void {
                                  title="Batch ${c.index + 1}: ${c.renderCount} render${c.renderCount === 1 ? '' : 's'}, ${formatDuration(c.totalRenderMs)} at ${formatTime(c.startMs)}"></div>`;
                 }).join('')}
             </div>
-            <div class="commit-hint">${commits.length} render batch${commits.length === 1 ? '' : 'es'} • click a bar or use ← → to navigate</div>
             <div class="commit-detail" id="commit-detail">
-                ${renderCommitDetail(commits[selectedCommitIndex])}
+                ${selected ? renderCommitDetail(selected) : '<div class="details-empty">All batches are hidden by the filter</div>'}
             </div>
         </div>
     `;
 }
 
 function renderCommitDetail(commit: Commit): string {
-    const maxComponentMs = Math.max(...commit.components.map(c => c.durationMs), 0.001);
+    const components = withTotals(commit, componentParents);
+    const maxTotalMs = Math.max(...components.map(c => c.totalMs), 0.001);
     return `
         <div class="commit-detail-header">
             <span class="commit-detail-title">Batch ${commit.index + 1}</span>
@@ -775,14 +860,23 @@ function renderCommitDetail(commit: Commit): string {
                 ${formatDuration(commit.totalRenderMs)} total
             </span>
         </div>
-        ${commit.components.map(c => `
+        <div class="commit-component-row commit-component-header">
+            <span class="commit-component-name">Component</span>
+            <span></span>
+            <span class="commit-component-duration" title="The component's own BuildRenderTree time">self</span>
+            <span class="commit-component-duration" title="Self time plus render time of descendants that rendered in this batch">total</span>
+            <span class="commit-component-count"></span>
+        </div>
+        ${components.map(c => `
             <div class="commit-component-row" data-event-id="${c.firstEventId}"
                  title="Click to inspect this component's render event">
                 <span class="commit-component-name">${escapeHtml(c.componentName)}</span>
                 <div class="commit-component-bar-container">
-                    <div class="commit-component-bar" style="width: ${(c.durationMs / maxComponentMs) * 100}%"></div>
+                    <div class="commit-component-bar commit-component-bar-total" style="width: ${(c.totalMs / maxTotalMs) * 100}%"></div>
+                    <div class="commit-component-bar" style="width: ${(c.durationMs / maxTotalMs) * 100}%"></div>
                 </div>
                 <span class="commit-component-duration">${formatDuration(c.durationMs)}</span>
+                <span class="commit-component-duration commit-component-total">${formatDuration(c.totalMs)}</span>
                 ${c.renderCount > 1 ? `<span class="commit-component-count">×${c.renderCount}</span>` : '<span class="commit-component-count"></span>'}
             </div>
         `).join('')}
@@ -793,6 +887,18 @@ function selectCommit(index: number): void {
     const commits = getCommits();
     if (commits.length === 0) return;
     selectedCommitIndex = Math.min(Math.max(index, 0), commits.length - 1);
+    renderCommitsView();
+}
+
+/** Move the selection to the previous/next VISIBLE batch (arrow keys). */
+function stepCommitSelection(direction: 1 | -1): void {
+    const visible = getVisibleCommits();
+    if (visible.length === 0) return;
+    const pos = visible.findIndex(c => c.index === selectedCommitIndex);
+    const nextPos = pos < 0
+        ? visible.length - 1
+        : Math.min(Math.max(pos + direction, 0), visible.length - 1);
+    selectedCommitIndex = visible[nextPos].index;
     renderCommitsView();
 }
 
@@ -854,10 +960,42 @@ function selectEventById(eventId: number): void {
     updateUI();
 }
 
+/** Every render of one component across the session, newest last. */
+function renderComponentHistory(componentId: number): string {
+    const renders = events.filter(e =>
+        e.componentId === componentId &&
+        (e.eventType === 'BuildRenderTree' || e.eventType === 'ComponentRendered'));
+    const name = renders[0]?.componentName ?? `#${componentId}`;
+    if (renders.length === 0) {
+        return `<div class="details-empty">No renders recorded for this component</div>`;
+    }
+    return `
+        <div class="event-details">
+            <div class="event-details-header" style="border-left-color: #16a34a">
+                <span class="event-details-type">${escapeHtml(name)} — ${renders.length} render${renders.length === 1 ? '' : 's'}</span>
+            </div>
+            <div class="detail-section">
+                <div class="detail-section-title">Render history</div>
+                ${renders.map(r => `
+                    <div class="render-history-row" data-event-id="${r.eventId}" title="Click for full event details">
+                        <span class="render-history-time">${formatTime(r.relativeTimestampMs)}</span>
+                        <span class="render-history-duration">${formatDuration(r.durationMs)}</span>
+                        <span class="render-history-reason">${formatTriggerReason(r.triggerReason)}</span>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+}
+
 function renderEventDetails(): void {
     const container = document.getElementById('timeline-details')!;
 
     if (!selectedEvent) {
+        if (historyComponentId !== null) {
+            container.innerHTML = renderComponentHistory(historyComponentId);
+            return;
+        }
         container.innerHTML = `
             <div class="details-empty">Select an event to view details</div>
         `;
@@ -872,6 +1010,7 @@ function renderEventDetails(): void {
             <div class="event-details-header" style="border-left-color: ${color}">
                 <span class="event-details-icon" style="color: ${color}">${EVENT_ICONS[e.eventType] || '•'}</span>
                 <span class="event-details-type">${formatEventType(e.eventType)}</span>
+                ${historyComponentId !== null ? '<button class="detail-action" data-history-back title="Back to the render history of this component">← history</button>' : ''}
             </div>
 
             <div class="detail-section">
@@ -1027,6 +1166,17 @@ function initializeEventHandlers(): void {
         }
     });
 
+    // Session export/import
+    document.getElementById('timeline-export-btn')?.addEventListener('click', exportSession);
+    const importInput = document.getElementById('timeline-import-input') as HTMLInputElement | null;
+    document.getElementById('timeline-import-btn')?.addEventListener('click', () => importInput?.click());
+    importInput?.addEventListener('change', async () => {
+        const file = importInput.files?.[0];
+        importInput.value = ''; // allow re-importing the same file
+        if (!file) return;
+        loadSessionText(await file.text());
+    });
+
     document.querySelectorAll('.timeline-view-tab').forEach(tab => {
         tab.addEventListener('click', () => {
             currentView = tab.getAttribute('data-view') as typeof currentView;
@@ -1042,7 +1192,7 @@ function initializeEventHandlers(): void {
 
         if (dragMoved) return; // A pan gesture just ended — not a click.
 
-        const eventEl = target.closest<HTMLElement>('.event-row, .swimlane-event, .commit-component-row');
+        const eventEl = target.closest<HTMLElement>('.event-row[data-event-id], .swimlane-event[data-event-id], .commit-component-row[data-event-id]');
         if (eventEl) {
             e.stopPropagation();
             selectEventById(parseInt(eventEl.getAttribute('data-event-id')!, 10));
@@ -1053,6 +1203,15 @@ function initializeEventHandlers(): void {
         if (commitBar) {
             e.stopPropagation();
             selectCommit(parseInt(commitBar.getAttribute('data-commit')!, 10));
+            return;
+        }
+
+        const rankedRow = target.closest<HTMLElement>('.ranked-row[data-component-id]');
+        if (rankedRow) {
+            e.stopPropagation();
+            historyComponentId = parseInt(rankedRow.getAttribute('data-component-id')!, 10);
+            selectedEvent = null;
+            renderEventDetails();
             return;
         }
 
@@ -1072,6 +1231,26 @@ function initializeEventHandlers(): void {
             axisMode = target.value as AxisMode;
             saveAxisModePreference(axisMode);
             resetZoom(); // The virtual axis changed shape; a stale window would mislead.
+        }
+        if (target.id === 'batch-min-select') {
+            batchMinMs = Number(target.value) || 0;
+            try { localStorage.setItem(BATCH_MIN_STORAGE_KEY, String(batchMinMs)); } catch { /* no persistence */ }
+            renderCommitsView();
+        }
+    });
+
+    // Details-pane navigation: back from an event to the component's history.
+    document.getElementById('timeline-details')!.addEventListener('click', (e) => {
+        const target = e.target as HTMLElement;
+        if (target.closest('[data-history-back]')) {
+            selectedEvent = null;
+            renderEventDetails();
+            return;
+        }
+        const historyRow = target.closest<HTMLElement>('.render-history-row[data-event-id]');
+        if (historyRow) {
+            selectedEvent = events.find(ev => ev.eventId === parseInt(historyRow.getAttribute('data-event-id')!, 10)) || null;
+            renderEventDetails();
         }
     });
 
@@ -1123,8 +1302,7 @@ function initializeEventHandlers(): void {
         if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
         if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
         e.preventDefault();
-        const current = selectedCommitIndex ?? getCommits().length - 1;
-        selectCommit(current + (e.key === 'ArrowRight' ? 1 : -1));
+        stepCommitSelection(e.key === 'ArrowRight' ? 1 : -1);
     });
 }
 
@@ -1144,6 +1322,7 @@ export function initializeTimelinePanel(api: CallApi): void {
 
     callApi = api;
     axisMode = loadAxisModePreference();
+    try { batchMinMs = Number(localStorage.getItem(BATCH_MIN_STORAGE_KEY)) || 0; } catch { batchMinMs = 0; }
     initializeEventHandlers();
     updateUI();
     console.log('[BDT Timeline] Panel initialized');
@@ -1164,9 +1343,12 @@ export function __resetForTests(): void {
     axisMode = 'sequence';
     timeScale = null;
     selectedCommitIndex = null;
+    batchMinMs = 0;
     invalidateRenderCaches();
     pointerDownX = null;
     dragMoved = false;
     connectionError = null;
     consecutivePollFailures = 0;
+    importedSessionDate = null;
+    historyComponentId = null;
 }

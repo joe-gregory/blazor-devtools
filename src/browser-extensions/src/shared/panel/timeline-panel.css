@@ -855,11 +855,84 @@
     box-shadow: 0 0 0 2px var(--accent-color);
 }
 
+.commit-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-bottom: 6px;
+    flex-shrink: 0;
+}
+
+.commit-min-label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.commit-min-label select {
+    font-size: 11px;
+    padding: 1px 4px;
+    background: var(--bg-hover);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 3px;
+    cursor: pointer;
+}
+
 .commit-hint {
     font-size: 10px;
     color: var(--text-muted);
     padding: 6px 2px;
     flex-shrink: 0;
+}
+
+.imported-indicator {
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+/* Per-component render history (details pane, via Ranked view) */
+.render-history-row {
+    display: grid;
+    grid-template-columns: 64px 64px 1fr;
+    gap: 8px;
+    padding: 3px 6px;
+    font-size: 11px;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.render-history-row:hover {
+    background: var(--bg-hover);
+}
+
+.render-history-time {
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.render-history-duration {
+    color: var(--text-secondary);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.render-history-reason {
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ranked-row[data-component-id] {
+    cursor: pointer;
+}
+
+.detail-action[data-history-back] {
+    margin-left: auto;
 }
 
 .commit-detail {
@@ -893,13 +966,40 @@
 
 .commit-component-row {
     display: grid;
-    grid-template-columns: minmax(90px, 160px) 1fr 64px 32px;
+    grid-template-columns: minmax(90px, 160px) 1fr 58px 58px 32px;
     align-items: center;
     gap: 8px;
     padding: 3px 4px;
     border-radius: 3px;
     cursor: pointer;
     font-size: 11px;
+}
+
+.commit-component-header {
+    cursor: default;
+    font-size: 9px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.commit-component-header:hover {
+    background: transparent;
+}
+
+.commit-component-bar-container {
+    position: relative;
+}
+
+/* Lighter full-width bar = total; solid overlay = self */
+.commit-component-bar-total {
+    position: absolute;
+    top: 0;
+    left: 0;
+    opacity: 0.35;
+}
+
+.commit-component-total {
+    font-weight: 600;
 }
 
 .commit-component-row:hover {

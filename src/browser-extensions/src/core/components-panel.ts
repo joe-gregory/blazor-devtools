@@ -439,12 +439,43 @@ function selectComponent(component: ComponentInfo): void {
     renderDetails(component);
 }
 
+/** Ancestor chain (root first) for the "Rendered by" breadcrumb. */
+function ancestorChain(c: ComponentInfo): ComponentInfo[] {
+    const byId = new Map(components.map(x => [x.componentId, x]));
+    const chain: ComponentInfo[] = [];
+    const seen = new Set<number>([c.componentId]);
+    let parentId = c.parentComponentId;
+    while (parentId !== null && parentId !== undefined && byId.has(parentId) && !seen.has(parentId)) {
+        const parent = byId.get(parentId)!;
+        chain.unshift(parent);
+        seen.add(parent.componentId);
+        parentId = parent.parentComponentId;
+    }
+    return chain;
+}
+
 function renderDetails(c: ComponentInfo): void {
     let html = '';
 
+    // Owner chain: which components this one is rendered under, walkable.
+    const chain = ancestorChain(c);
+    if (chain.length > 0) {
+        html += `
+            <div class="detail-section">
+                <div class="detail-section-title">Rendered by</div>
+                <div class="owner-chain">
+                    ${chain.map(a => `<span class="owner-chain-link" data-goto-id="${a.componentId}" title="Select ${escapeHtml(a.typeName)}">${escapeHtml(a.typeName)}</span>`).join('<span class="owner-chain-sep"> › </span>')}
+                    <span class="owner-chain-sep"> › </span><span class="owner-chain-current">${escapeHtml(c.typeName)}</span>
+                </div>
+            </div>
+        `;
+    }
+
     html += `
         <div class="detail-section">
-            <div class="detail-section-title">Identity</div>
+            <div class="detail-section-title">Identity
+                <button class="detail-action" data-log-id="${c.componentId}" title="Log this component's data to the page console (also sets window.$bdt)">console.log</button>
+            </div>
             <div class="detail-row">
                 <span class="detail-label">Type</span>
                 <span class="detail-value">${escapeHtml(c.typeName)}</span>
@@ -632,7 +663,7 @@ async function selectPickedComponent(componentId: number): Promise<void> {
     }
     if (component) {
         selectComponent(component);
-        componentTree.querySelector('.component-node.selected')?.scrollIntoView({ block: 'nearest' });
+        componentTree.querySelector<HTMLElement>('.component-node.selected')?.scrollIntoView?.({ block: 'nearest' }); // optional-call: jsdom lacks scrollIntoView
     }
 }
 
@@ -742,6 +773,30 @@ export function initializeComponentsPanel(panelHost: ComponentsPanelHost): void 
             searchInput.value = '';
             searchQuery = '';
             renderTree();
+        }
+    });
+
+    // Details-pane actions survive re-renders via delegation: owner-chain
+    // navigation and console.log-to-page.
+    componentDetails.addEventListener('click', (e) => {
+        const target = e.target as HTMLElement;
+        const gotoEl = target.closest<HTMLElement>('[data-goto-id]');
+        if (gotoEl) {
+            const id = parseInt(gotoEl.getAttribute('data-goto-id')!, 10);
+            const component = components.find(x => x.componentId === id);
+            if (component) {
+                selectComponent(component);
+                componentTree.querySelector<HTMLElement>('.component-node.selected')?.scrollIntoView?.({ block: 'nearest' }); // optional-call: jsdom lacks scrollIntoView
+            }
+            return;
+        }
+        const logEl = target.closest<HTMLElement>('[data-log-id]');
+        if (logEl) {
+            void host.sendMessage({
+                type: 'CONSOLE_LOG',
+                tabId: host.inspectedTabId,
+                componentId: parseInt(logEl.getAttribute('data-log-id')!, 10),
+            });
         }
     });
 

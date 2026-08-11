@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { deriveCommits } from '../src/core/commits';
+import { deriveCommits, withTotals } from '../src/core/commits';
 import type { TimelineEvent } from '../src/core/types';
 
 function ev(overrides: Partial<TimelineEvent>): TimelineEvent {
@@ -113,6 +113,36 @@ describe('deriveCommits', () => {
             ev({ eventId: 2, relativeTimestampMs: 5000, durationMs: 4 }),
         ]);
         expect(commits).toHaveLength(2); // time-based: burst + burst
+    });
+
+    it('attributes self vs total time using parent relationships', () => {
+        // Parent (id 1) renders with children 2 and 3 in one batch.
+        const commits = deriveCommits([
+            ev({ eventId: 0, relativeTimestampMs: 0, componentId: 1, componentName: 'OrderBuilder', durationMs: 2 }),
+            ev({ eventId: 1, relativeTimestampMs: 3, componentId: 2, componentName: 'CardA', durationMs: 4 }),
+            ev({ eventId: 2, relativeTimestampMs: 8, componentId: 3, componentName: 'CardB', durationMs: 6 }),
+        ]);
+        const parentOf = new Map<number, number | null>([[1, null], [2, 1], [3, 1]]);
+        const totals = withTotals(commits[0], parentOf);
+
+        const parent = totals.find(c => c.componentId === 1)!;
+        expect(parent.durationMs).toBe(2);       // self
+        expect(parent.totalMs).toBe(12);         // self + both children
+        expect(totals[0]).toBe(parent);          // sorted by total, parent first
+        const cardA = totals.find(c => c.componentId === 2)!;
+        expect(cardA.totalMs).toBe(4);           // leaf: total == self
+    });
+
+    it('keeps total == self when ancestry is unknown and survives cycles', () => {
+        const commits = deriveCommits([
+            ev({ eventId: 0, relativeTimestampMs: 0, componentId: 1, durationMs: 2 }),
+            ev({ eventId: 1, relativeTimestampMs: 3, componentId: 2, durationMs: 4 }),
+        ]);
+        // Empty map: no ancestry.
+        expect(withTotals(commits[0], new Map()).every(c => c.totalMs === c.durationMs)).toBe(true);
+        // Cyclic map must not hang.
+        const cyclic = new Map<number, number | null>([[1, 2], [2, 1]]);
+        expect(() => withTotals(commits[0], cyclic)).not.toThrow();
     });
 
     it('handles unsorted input and empty input', () => {
