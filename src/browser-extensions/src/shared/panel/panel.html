@@ -92,6 +92,13 @@
                         <span class="icon">🗑</span>
                         Clear
                     </button>
+                    <button id="timeline-export-btn" title="Export this session as JSON (share it or attach to a bug report)" disabled>
+                        <span class="icon">⬇</span>
+                    </button>
+                    <button id="timeline-import-btn" title="Import a previously exported session">
+                        <span class="icon">⬆</span>
+                    </button>
+                    <input type="file" id="timeline-import-input" accept=".json,application/json" style="display:none" />
                 </div>
                 <div id="timeline-stats">
                     <span class="stats-empty">Click record to start profiling</span>

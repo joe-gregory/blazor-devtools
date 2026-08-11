@@ -236,7 +236,7 @@ describe('timeline panel', () => {
         });
 
         it('clicking a component row opens that render event\'s details', () => {
-            click(document.querySelector('.commit-component-row')!);
+            click(document.querySelector('.commit-component-row[data-event-id]')!);
             const details = document.getElementById('timeline-details')!;
             expect(details.textContent).not.toContain('Select an event to view details');
             expect(details.textContent).toContain('Build Render Tree');

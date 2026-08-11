@@ -128,6 +128,43 @@ function commitsFromClustering(events: TimelineEvent[], gapMs: number): Commit[]
     return commits;
 }
 
+export interface CommitComponentWithTotals extends CommitComponent {
+    /** Self time + render time of all descendants that rendered in this batch. */
+    totalMs: number;
+}
+
+/**
+ * Attribute self-vs-total time within a batch, React-profiler style. A
+ * component's BuildRenderTree duration is its SELF time (Blazor children
+ * render separately); TOTAL adds the self time of every descendant that also
+ * rendered in this batch, using the component tree's parent relationships.
+ * Components with unknown ancestry simply keep total == self.
+ */
+export function withTotals(
+    commit: Commit,
+    parentOf: Map<number, number | null | undefined>,
+): CommitComponentWithTotals[] {
+    const totals = new Map<number, number>(
+        commit.components.map(c => [c.componentId, c.durationMs]));
+
+    for (const c of commit.components) {
+        // Add this component's self time to every ancestor in the same batch.
+        const seen = new Set<number>([c.componentId]);
+        let parent = parentOf.get(c.componentId);
+        while (parent !== null && parent !== undefined && !seen.has(parent)) {
+            seen.add(parent);
+            if (totals.has(parent)) {
+                totals.set(parent, totals.get(parent)! + c.durationMs);
+            }
+            parent = parentOf.get(parent);
+        }
+    }
+
+    return commit.components
+        .map(c => ({ ...c, totalMs: totals.get(c.componentId)! }))
+        .sort((a, b) => b.totalMs - a.totalMs);
+}
+
 /** Assemble a Commit from a group of events; null when it has no render work. */
 function buildCommit(groupEvents: TimelineEvent[], index: number, endMs?: number): Commit | null {
     const renderEvents = groupEvents.filter(e => RENDER_EVENT_TYPES.has(e.eventType));
