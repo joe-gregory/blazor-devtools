@@ -34,7 +34,13 @@ This release is a complete architectural rewrite with powerful new features:
 
 ## Supported Render Modes
 
-> ⚠️ **Currently, Blazor Developer Tools supports InteractiveAuto (Server) render mode.** This is the default render mode in .NET 8+ Blazor Web Apps. Support for WebAssembly-only mode is planned for future releases.
+Blazor Developer Tools supports all interactive render modes:
+
+- **InteractiveServer** — bootstrapped via the circuit lifecycle; the session is identified by the circuit ID.
+- **InteractiveWebAssembly** (including standalone Blazor WebAssembly apps) — there are no circuits in the browser, so the JS bridge is initialized lazily on first component creation and the session is identified by a generated session ID.
+- **InteractiveAuto** — register `AddBlazorDevTools()` in **both** the server project and the client (WASM) project; the correct bootstrap path is picked at runtime.
+
+Static SSR / prerendering is not tracked (there is no interactivity to inspect); tracking starts as soon as an interactive runtime takes over.
 
 ## Installation
 
