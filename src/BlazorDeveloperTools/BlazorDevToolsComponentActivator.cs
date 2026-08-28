@@ -150,6 +150,10 @@ public class BlazorDevToolsComponentActivator : IComponentActivator
         // Because both activator and registry are scoped to the same circuit,
         // this component is guaranteed to be tracked in the correct registry.
         _registry.RegisterPendingComponent(component);
+        // On WebAssembly there is no circuit-opened event to bootstrap the JS
+        // bridge, so initialize it lazily on component creation (no-op elsewhere
+        // and once initialized).
+        _registry.EnsureJsInitializedInBackground();
         return component;
     }
 

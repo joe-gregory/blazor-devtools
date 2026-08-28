@@ -56,7 +56,6 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 using Microsoft.AspNetCore.Components;
-using Microsoft.AspNetCore.Components.Server.Circuits;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace BlazorDeveloperTools;
@@ -103,11 +102,22 @@ public static class ServiceCollectionExtensions
         services.AddScoped<BlazorDevToolsRegistry>();
 
         // ═══════════════════════════════════════════════════════════
-        // REGISTER CIRCUIT HANDLER
+        // REGISTER CIRCUIT HANDLER (Blazor Server only)
         // ═══════════════════════════════════════════════════════════
         // CircuitHandler is additive - all registered handlers receive events.
         // This initializes the JS bridge when circuit opens.
-        services.AddScoped<CircuitHandler, BlazorDevToolsCircuitHandler>();
+        //
+        // CircuitHandler lives in the ASP.NET Core shared framework, which does
+        // not exist on WebAssembly. The types are isolated in a separate class
+        // behind this runtime check so they are never loaded in the browser
+        // (the Blazor WASM linker even removes the branch entirely because
+        // OperatingSystem.IsBrowser() is substituted with a constant).
+        // On WebAssembly, the JS bridge is initialized lazily by the component
+        // activator instead - see BlazorDevToolsRegistry.EnsureJsInitializedInBackground().
+        if (!OperatingSystem.IsBrowser())
+        {
+            BlazorDevToolsServerCircuitSupport.Register(services);
+        }
 
         // ═══════════════════════════════════════════════════════════
         // REGISTER COMPONENT ACTIVATOR (with chaining support)

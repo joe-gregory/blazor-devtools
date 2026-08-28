@@ -539,6 +539,9 @@ public abstract class BlazorDevToolsComponentBase : IComponent, IHandleEvent, IH
         if (Registry == null) return;
         // Note: componentId CAN be 0 for the first component, so we don't check <= 0
         _registryResolved = true;
+        // Give the registry access to the Renderer (works on Server and WebAssembly);
+        // no-op if a Renderer was already captured.
+        Registry.SetRendererFromHandle(_renderHandle);
         Registry.ResolveComponentId(this, _componentId);
 #if DEBUG
         Console.WriteLine($"[BDT] Component resolved with registry: {GetType().Name} (ID: {_componentId})");

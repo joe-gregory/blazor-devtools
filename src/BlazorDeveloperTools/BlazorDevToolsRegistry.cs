@@ -37,7 +37,6 @@
 
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.RenderTree;
-using Microsoft.AspNetCore.Components.Server.Circuits;
 using Microsoft.JSInterop;
 using System.Collections.Concurrent;
 using System.Reflection;
@@ -57,6 +56,7 @@ public class BlazorDevToolsRegistry : IDisposable
     private readonly IJSRuntime _js;
     private DotNetObjectReference<BlazorDevToolsRegistry>? _dotNetRef;
     private bool _jsInitialized;
+    private bool _jsInitializing;
     private bool _disposed;
 
     // ═══════════════════════════════════════════════════════════════
@@ -69,19 +69,21 @@ public class BlazorDevToolsRegistry : IDisposable
     private static readonly TimeSpan RendererSyncInterval = TimeSpan.FromMilliseconds(100);
 
     // ═══════════════════════════════════════════════════════════════
-    // CIRCUIT REFERENCE
+    // SESSION IDENTITY
     // ═══════════════════════════════════════════════════════════════
     /// <summary>
-    /// The Blazor circuit this registry belongs to.
-    /// Set by BlazorDevToolsCircuitHandler.OnCircuitOpenedAsync().
-    /// Provides access to circuit metadata for debugging and logging.
+    /// Runtime-agnostic identifier for this registry instance. On Blazor Server
+    /// one registry exists per circuit, on WebAssembly one per app instance -
+    /// in both cases the SessionId uniquely identifies "this user's session".
     /// </summary>
-    public Circuit? Circuit { get; internal set; }
+    public string SessionId { get; } = Guid.NewGuid().ToString("N");
+
     /// <summary>
-    /// The unique identifier of the circuit. Null if circuit not yet assigned.
-    /// Useful for debugging multi-circuit scenarios.
+    /// The unique identifier of the Blazor Server circuit this registry belongs to.
+    /// Set by BlazorDevToolsCircuitHandler.OnCircuitOpenedAsync().
+    /// Null on WebAssembly (no circuits) or before the circuit is established.
     /// </summary>
-    public string? CircuitId => Circuit?.Id;
+    public string? CircuitId { get; internal set; }
 
     // ═══════════════════════════════════════════════════════════════
     // COMPONENT STORAGE
@@ -127,7 +129,8 @@ public class BlazorDevToolsRegistry : IDisposable
 
     /// <summary>
     /// Sets the Renderer from a RenderHandle (extracts via reflection).
-    /// Called by BlazorDevToolsComponentBase.Attach().
+    /// Called by BlazorDevToolsComponentBase.TryResolveWithRegistry().
+    /// Works with any Renderer implementation (RemoteRenderer, WebAssemblyRenderer, ...).
     /// </summary>
     /// <param name="renderHandle">The RenderHandle from IComponent.Attach().</param>
     internal void SetRendererFromHandle(RenderHandle renderHandle)
@@ -137,6 +140,61 @@ public class BlazorDevToolsRegistry : IDisposable
         if (renderer != null)
         {
             SetRenderer(renderer);
+        }
+    }
+
+    // ComponentBase stores its RenderHandle in a private field; used as a
+    // runtime-agnostic fallback to reach the Renderer when no circuit-based
+    // capture happened (WebAssembly) and no enhanced component provided one.
+    private static readonly FieldInfo? ComponentBaseRenderHandleField =
+        typeof(ComponentBase).GetField("_renderHandle", BindingFlags.NonPublic | BindingFlags.Instance);
+
+    /// <summary>
+    /// Attempts to capture the Renderer from any tracked ComponentBase instance by
+    /// reading its private RenderHandle via reflection. This works on every render
+    /// mode (Server, WebAssembly, Auto) because RenderHandle always points to the
+    /// active Renderer. Fallback for when neither the circuit reflection (Server)
+    /// nor an enhanced component (BlazorDevToolsComponentBase) supplied a Renderer.
+    /// </summary>
+    private void TryCaptureRendererFromTrackedComponents()
+    {
+        if (ComponentBaseRenderHandleField == null) return;
+
+        foreach (IComponent instance in EnumerateKnownComponentInstances())
+        {
+            // Enhanced components register their Renderer directly via SetRendererFromHandle;
+            // their RenderHandle lives in a different private field anyway.
+            if (instance is BlazorDevToolsComponentBase) continue;
+            if (instance is not ComponentBase) continue;
+
+            try
+            {
+                if (ComponentBaseRenderHandleField.GetValue(instance) is not RenderHandle handle) continue;
+                if (!handle.IsInitialized) continue;
+
+                Renderer? renderer = RendererInterop.GetRendererFromHandle(handle);
+                if (renderer != null)
+                {
+                    SetRenderer(renderer);
+                    return;
+                }
+            }
+            catch
+            {
+                // Ignore and try the next component
+            }
+        }
+    }
+
+    private IEnumerable<IComponent> EnumerateKnownComponentInstances()
+    {
+        foreach (KeyValuePair<int, TrackedComponent> kvp in _componentsById)
+        {
+            if (kvp.Value.Instance != null) yield return kvp.Value.Instance;
+        }
+        foreach (KeyValuePair<IComponent, PendingComponent> kvp in _pendingComponents)
+        {
+            yield return kvp.Key;
         }
     }
 
@@ -153,6 +211,11 @@ public class BlazorDevToolsRegistry : IDisposable
 #if DEBUG
         Console.WriteLine($"[BDT] SyncWithRenderer called - Renderer={_renderer != null}, IsSupported={RendererInterop.IsSupported}");
 #endif
+        if (_renderer == null)
+        {
+            TryCaptureRendererFromTrackedComponents();
+        }
+
         if (_renderer == null)
         {
 #if DEBUG
@@ -408,24 +471,26 @@ public class BlazorDevToolsRegistry : IDisposable
 
     /// <summary>
     /// Initializes the JavaScript bridge by injecting minimal bootstrap code and
-    /// passing a DotNetObjectReference to JS. Called by BlazorDevToolsCircuitHandler
-    /// when the circuit opens. No external JS files required - everything is injected.
-    /// After this call, JS can invoke [JSInvokable] methods on this specific instance,
-    /// ensuring all queries are scoped to the correct circuit.
+    /// passing a DotNetObjectReference to JS. On Blazor Server this is called by
+    /// BlazorDevToolsCircuitHandler when the circuit opens; on WebAssembly it is
+    /// triggered lazily via EnsureJsInitializedInBackground(). No external JS files
+    /// required - everything is injected. After this call, JS can invoke [JSInvokable]
+    /// methods on this specific instance, ensuring all queries are scoped to this session.
     /// </summary>
     public async Task InitializeJsAsync()
     {
-        if (_jsInitialized) return;
+        if (_jsInitialized || _jsInitializing || _disposed) return;
+        _jsInitializing = true;
         try
         {
             // Inject minimal JS bootstrap (idempotent - safe to call multiple times)
             await _js.InvokeVoidAsync("eval", JsBootstrap);
             // Create and pass DotNetObjectReference to JS
-            _dotNetRef = DotNetObjectReference.Create(this);
+            _dotNetRef ??= DotNetObjectReference.Create(this);
             await _js.InvokeVoidAsync("blazorDevTools.initialize", _dotNetRef);
             _jsInitialized = true;
 #if DEBUG
-            Console.WriteLine($"[BDT] JS initialized for circuit: {CircuitId}");
+            Console.WriteLine($"[BDT] JS initialized for session: {CircuitId ?? SessionId}");
 #endif
         }
         catch (JSDisconnectedException)
@@ -438,6 +503,23 @@ public class BlazorDevToolsRegistry : IDisposable
             Console.WriteLine($"[BDT] JS initialization failed: {ex.Message}");
 #endif
         }
+        finally
+        {
+            _jsInitializing = false;
+        }
+    }
+
+    /// <summary>
+    /// Fire-and-forget JS bridge initialization for Blazor WebAssembly, where there
+    /// is no circuit lifecycle event to bootstrap from. Called by the component
+    /// activator on component creation - by then the WASM runtime is up and JS
+    /// interop is available. No-op outside the browser and once initialized.
+    /// </summary>
+    internal void EnsureJsInitializedInBackground()
+    {
+        if (!OperatingSystem.IsBrowser()) return;
+        if (_jsInitialized || _jsInitializing || _disposed) return;
+        _ = InitializeJsAsync();
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -806,14 +888,16 @@ public class BlazorDevToolsRegistry : IDisposable
     }
 
     /// <summary>
-    /// Gets the circuit ID this registry belongs to.
-    /// Useful for debugging and verifying correct circuit routing in JS.
+    /// Gets the session identifier this registry belongs to. On Blazor Server this
+    /// is the circuit ID; on WebAssembly (no circuits) the generated SessionId.
+    /// Useful for debugging and verifying correct session routing in JS.
+    /// Name kept for [JSInvokable] API compatibility with the browser extension.
     /// </summary>
-    /// <returns>The circuit ID or null if not yet assigned.</returns>
+    /// <returns>The circuit ID, or the runtime-agnostic session ID as fallback.</returns>
     [JSInvokable]
     public string? GetCircuitId()
     {
-        return CircuitId;
+        return CircuitId ?? SessionId;
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -944,6 +1028,7 @@ public class BlazorDevToolsRegistry : IDisposable
             Capabilities = new List<string>
             {
                 "render-batches", // renderer-true batch boundaries on timeline events
+                "webassembly",    // package runs on Blazor WebAssembly (no circuit required)
             }
         };
     }

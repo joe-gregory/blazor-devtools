@@ -19,7 +19,7 @@
 //   │    └─► New DI scope created (circuit scope)                             │
 //   │                                                                         │
 //   │ 2. OnCircuitOpenedAsync(circuit)                                        │
-//   │    ├─► Registry.Circuit = circuit (store reference)                     │
+//   │    ├─► Registry.CircuitId = circuit.Id (store identity)                 │
 //   │    ├─► Try to capture Renderer via reflection                           │
 //   │    └─► Registry.InitializeJsAsync() (pass DotNetRef to JS)              │
 //   │                                                                         │
@@ -42,15 +42,40 @@
 //
 // NOTE:
 //   This is only used for Blazor Server/Auto Server modes.
-//   Blazor WebAssembly doesn't have circuits (single user, single scope).
+//   Blazor WebAssembly doesn't have circuits (single user, single scope);
+//   there the JS bridge is initialized lazily by the component activator.
+//
+//   IMPORTANT: This file is the ONLY place that may reference
+//   Microsoft.AspNetCore.Components.Server types. That assembly is part of the
+//   ASP.NET Core shared framework and does not exist on WebAssembly - keeping
+//   all usages isolated here (behind the OperatingSystem.IsBrowser() check in
+//   ServiceCollectionExtensions) guarantees these types are never loaded in
+//   the browser.
 //
 // ═══════════════════════════════════════════════════════════════════════════════
 
 using Microsoft.AspNetCore.Components.Server.Circuits;
 using Microsoft.AspNetCore.Components.RenderTree;
+using Microsoft.Extensions.DependencyInjection;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 
 namespace BlazorDeveloperTools;
+
+/// <summary>
+/// Registers the Blazor Server circuit integration. Kept in a separate class so
+/// that AddBlazorDevTools() never touches server-only types when running on
+/// WebAssembly (methods are compiled/interpreted lazily; this method is only
+/// reached when OperatingSystem.IsBrowser() is false).
+/// </summary>
+internal static class BlazorDevToolsServerCircuitSupport
+{
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static void Register(IServiceCollection services)
+    {
+        services.AddScoped<CircuitHandler, BlazorDevToolsCircuitHandler>();
+    }
+}
 
 /// <summary>
 /// Handles circuit lifecycle events to initialize the BlazorDevToolsRegistry.
@@ -202,7 +227,7 @@ public class BlazorDevToolsCircuitHandler : CircuitHandler
     /// <param name="cancellationToken">Cancellation token for the operation.</param>
     public override async Task OnCircuitOpenedAsync(Circuit circuit, CancellationToken cancellationToken)
     {
-        _registry.Circuit = circuit;
+        _registry.CircuitId = circuit.Id;
 
         // Try to capture Renderer via reflection
         Renderer? renderer = TryGetRendererFromCircuit(circuit);
