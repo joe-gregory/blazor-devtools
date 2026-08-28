@@ -5,6 +5,15 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 		<LangVersion>latest</LangVersion>
+		<!--
+		  Microsoft.AspNetCore.Components.Web is intentionally referenced even though
+		  the (private) framework reference also provides it - the package dependency
+		  is what gives Blazor WebAssembly consumers the component types. Package
+		  pruning (SDK 10+) would treat it as platform-provided and drop it from the
+		  nuspec dependencies, so it is disabled here (NU1510 is its advisory warning).
+		-->
+		<RestoreEnablePackagePruning>false</RestoreEnablePackagePruning>
+		<NoWarn>$(NoWarn);NU1510</NoWarn>
 
 		<!-- NuGet Package Configuration -->
 		<IsPackable>true</IsPackable>
@@ -23,9 +32,31 @@
 		<PackageTags>blazor;devtools;debugging;performance;components</PackageTags>
 	</PropertyGroup>
 
-	<!-- THIS IS A CRITICAL PART - provides all ASP.NET Core types -->
+	<!--
+	  Compile against the ASP.NET Core shared framework for the OPTIONAL Blazor Server
+	  circuit integration (CircuitHandler). PrivateAssets="all" keeps the framework
+	  reference out of the NuGet package so Blazor WebAssembly apps can install it
+	  without NETSDK1082 (there is no Microsoft.AspNetCore.App runtime pack for
+	  browser-wasm). Server-only types are never touched when running in the browser -
+	  see ServiceCollectionExtensions/BlazorDevToolsServerCircuitSupport.
+	-->
 	<ItemGroup>
-		<FrameworkReference Include="Microsoft.AspNetCore.App" />
+		<FrameworkReference Include="Microsoft.AspNetCore.App" PrivateAssets="all" />
+	</ItemGroup>
+
+	<!--
+	  Runtime-agnostic Blazor packages that DO flow to consumers. These provide the
+	  component/JS-interop types on WebAssembly, where the shared framework is absent.
+	  On Blazor Server the shared framework versions win during conflict resolution.
+	-->
+	<ItemGroup Condition="'$(TargetFramework)' == 'net8.0'">
+		<PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="8.0.0" />
+	</ItemGroup>
+	<ItemGroup Condition="'$(TargetFramework)' == 'net9.0'">
+		<PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="9.0.0" />
+	</ItemGroup>
+	<ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+		<PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="10.0.0" />
 	</ItemGroup>
 
 	<!-- Package content -->
