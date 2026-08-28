@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/demos/">
     <Project Path="demos/AutoServerGlobal/AutoServerGlobal.csproj" />
+    <Project Path="demos/WasmStandalone/WasmStandalone.csproj" />
   </Folder>
   <Folder Name="/docs/">
     <Project Path="BlazorDevTools.Docs.Site.Server/BlazorDevTools.Docs.Site.Server.csproj" />
